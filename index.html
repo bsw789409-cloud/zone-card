@@ -2984,6 +2984,10 @@ window.autoAssignCars = autoAssignCars = function() {
   }
 
   var activeCars = packUnits(makeUnits());
+  if(unassignedSisters.length) {
+    showToast('자매 ' + unassignedSisters.length + '명은 단독 배정 방지를 위해 대기 상태로 남겼습니다');
+  }
+
   activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
   autoAssignAreasToCars(activeCars);
   var baseGroups = carGroups.map(cloneCarGroup);
@@ -3024,21 +3028,43 @@ window.autoAssignCars = autoAssignCars = function() {
     return 'other';
   }
 
+  var unassignedSisters = [];
+
   function makeTeams(people, gender) {
     var drivers = people.filter(function(p){ return !!p.car; });
     var riders = people.filter(function(p){ return !p.car; });
     var teams = [];
+
+    function pushTeam(members) {
+      if(!members || !members.length) return;
+      if(gender === 'sister' && (members.length < 2 || members.length > 3)) {
+        members.forEach(function(p){ unassignedSisters.push(p); });
+        return;
+      }
+      teams.push({
+        gender: gender,
+        driver: members.some(function(p){ return !!p.car; }),
+        members: members.map(function(p){ return normalizePerson(p); })
+      });
+    }
+
+    if(gender === 'sister') {
+      var sisters = drivers.concat(riders);
+      while(sisters.length >= 2) {
+        var size = (sisters.length % 2 === 1) ? 3 : 2;
+        pushTeam(sisters.splice(0, size));
+      }
+      if(sisters.length) unassignedSisters = unassignedSisters.concat(sisters);
+      return teams;
+    }
+
     while(drivers.length || riders.length) {
       var members = [];
       if(drivers.length) members.push(drivers.shift());
       if(riders.length) members.push(riders.shift());
       else if(drivers.length) members.push(drivers.shift());
       if(members.length < 2 && riders.length) members.push(riders.shift());
-      teams.push({
-        gender: gender,
-        driver: members.some(function(p){ return !!p.car; }),
-        members: members.map(function(p){ return normalizePerson(p); })
-      });
+      pushTeam(members);
     }
     return teams;
   }
@@ -3096,6 +3122,10 @@ window.autoAssignCars = autoAssignCars = function() {
       activeCars.push(car);
     }
   });
+
+  if(unassignedSisters.length) {
+    showToast('자매 ' + unassignedSisters.length + '명은 단독 배정 방지를 위해 대기 상태로 남겼습니다');
+  }
 
   activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
   autoAssignAreasToCars(activeCars);
