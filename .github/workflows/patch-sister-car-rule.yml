@@ -1,0 +1,55 @@
+name: Patch sister car assignment rule
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'Enforce sister car team size') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Patch index.html
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8-sig')
+
+          old = """  function makeTeams(people, gender) {\n    var drivers = people.filter(function(p){ return !!p.car; });\n    var riders = people.filter(function(p){ return !p.car; });\n    var teams = [];\n    while(drivers.length || riders.length) {\n      var members = [];\n      if(drivers.length) members.push(drivers.shift());\n      if(riders.length) members.push(riders.shift());\n      else if(drivers.length) members.push(drivers.shift());\n      if(members.length < 2 && riders.length) members.push(riders.shift());\n      teams.push({\n        gender: gender,\n        driver: members.some(function(p){ return !!p.car; }),\n        members: members.map(function(p){ return normalizePerson(p); })\n      });\n    }\n    return teams;\n  }\n"""
+          new = """  var unassignedSisters = [];\n\n  function makeTeams(people, gender) {\n    var drivers = people.filter(function(p){ return !!p.car; });\n    var riders = people.filter(function(p){ return !p.car; });\n    var teams = [];\n\n    function pushTeam(members) {\n      if(!members || !members.length) return;\n      if(gender === 'sister' && (members.length < 2 || members.length > 3)) {\n        members.forEach(function(p){ unassignedSisters.push(p); });\n        return;\n      }\n      teams.push({\n        gender: gender,\n        driver: members.some(function(p){ return !!p.car; }),\n        members: members.map(function(p){ return normalizePerson(p); })\n      });\n    }\n\n    if(gender === 'sister') {\n      var sisters = drivers.concat(riders);\n      while(sisters.length >= 2) {\n        var size = (sisters.length % 2 === 1) ? 3 : 2;\n        pushTeam(sisters.splice(0, size));\n      }\n      if(sisters.length) unassignedSisters = unassignedSisters.concat(sisters);\n      return teams;\n    }\n\n    while(drivers.length || riders.length) {\n      var members = [];\n      if(drivers.length) members.push(drivers.shift());\n      if(riders.length) members.push(riders.shift());\n      else if(drivers.length) members.push(drivers.shift());\n      if(members.length < 2 && riders.length) members.push(riders.shift());\n      pushTeam(members);\n    }\n    return teams;\n  }\n"""
+          if old not in text:
+              raise SystemExit('target makeTeams block not found')
+          text = text.replace(old, new)
+
+          old2 = """  activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });\n  autoAssignAreasToCars(activeCars);\n"""
+          new2 = """  if(unassignedSisters.length) {\n    showToast('자매 ' + unassignedSisters.length + '명은 단독 배정 방지를 위해 대기 상태로 남겼습니다');\n  }\n\n  activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });\n  autoAssignAreasToCars(activeCars);\n"""
+          if old2 not in text:
+              raise SystemExit('target activeCars block not found')
+          text = text.replace(old2, new2)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Enforce sister car team size"
+          git push
