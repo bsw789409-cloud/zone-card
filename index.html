@@ -115,6 +115,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 .pair-chip::before{content:attr(data-pair-label);position:absolute;top:-9px;left:8px;background:white;color:#7c3aed;border:1px solid rgba(124,58,237,.22);border-radius:999px;padding:0 6px;font-size:10px;font-weight:800;line-height:16px}
 .pair-wrap{border:2px solid rgba(124,58,237,.28);background:rgba(124,58,237,.06);border-radius:18px;padding:10px;display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .pair-wrap.mine{border-color:#7c3aed;background:#ede9fe;box-shadow:0 4px 16px rgba(124,58,237,.18)}
+.car-drop-preview{height:42px;border:2px dashed #8b5cf6;border-radius:14px;background:rgba(139,92,246,.10);display:flex;align-items:center;justify-content:center;color:#7c3aed;font-size:12px;font-weight:900;margin:4px 0}
+.car-drop-preview::after{content:'여기에 놓기'}
 .mine-chip{background:#1a1040!important;color:white!important;box-shadow:0 0 0 3px rgba(124,58,237,.24)}
 
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:40}
@@ -381,7 +383,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <div class="tb-right">
       <span class="pill" id="fieldUserPill"></span>
       <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">🚗 차량</button>
-      <button id="fieldPauseBtn" onclick="toggleFieldServicePause()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">중단</button>
       <button class="sos-btn" onclick="openSOS()">🚨 SOS</button>
       <button class="exit-btn" onclick="smartExit()">나가기</button>
     </div>
@@ -945,7 +946,7 @@ function renderParkingRow(blk, bi, editable) {
 var selectedAssignBlocks = {};
 
 function isLeaderCardSheet(aId) {
-  return currentRole === 'leader' && String(openSheetAreaId || '') === String(aId);
+  return false;
 }
 
 function getSelectedAssignBlocks(aId) {
@@ -1169,22 +1170,38 @@ function renderAreaPickerList(gi) {
       var ap = a.servicePaused ? 0 : 1;
       var bp = b.servicePaused ? 0 : 1;
       if(ap !== bp) return ap - bp;
+      if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
       return Number(a.id) - Number(b.id);
     });
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
     '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '호차 구역 선택</div>' +
-    '<div style="font-size:12px;color:#888;margin-top:2px">카드 보기를 눌러 전체 주소를 보고 블럭을 선택하세요</div></div>' +
+    '<div style="font-size:12px;color:#888;margin-top:2px">남은 가구를 보고 여러 블럭을 선택할 수 있습니다</div></div>' +
     '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button></div>';
-  sorted.slice(0, 30).forEach(function(a) {
+  var count = 0;
+  sorted.slice(0, 40).forEach(function(a) {
     var blocks = a.blocks || [];
     var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(a, idx); }, 0);
     if(total <= 0) return;
-    html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-      '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
-      '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
-      '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">카드 보기</button></div>';
+    count++;
+    html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
+        '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
+        '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
+        '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">카드 보기</button>' +
+      '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">전체 · ' + total + '</button>';
+    blocks.forEach(function(b, idx) {
+      var remain = countBlockRemaining(a, idx);
+      if(remain <= 0) {
+        html += '<button onclick="showToast(&quot;이 블럭은 모두 방문하였습니다&quot;)" style="border:1px solid #e5e7eb;border-radius:999px;background:#f3f4f6;color:#aaa;padding:7px 10px;font-size:12px;font-weight:800;cursor:not-allowed">' + (idx + 1) + '블럭 · 0</button>';
+      } else {
+        html += '<button data-area-picker-block="' + gi + '-' + escAttr(a.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '블럭 · ' + remain + '</button>';
+      }
+    });
+    html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(a.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="width:100%;margin-top:8px;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button></div>';
   });
-  setPickerSheetContent(html || '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>');
+  if(!count) html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>';
+  setPickerSheetContent(html);
 }
 
 async function openAreaPickerForCar(gi) {
@@ -1325,13 +1342,6 @@ function updateFieldProgress() {
   document.getElementById('fProgPct').textContent = p.pct+'%';
   document.getElementById('fProgFill').style.width = p.pct+'%';
   document.getElementById('fProgRound').textContent = currentRound+'회차';
-  var pauseBtn = document.getElementById('fieldPauseBtn');
-  if(pauseBtn) {
-    var area = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
-    var paused = area && area.servicePaused && !area.endDate;
-    pauseBtn.textContent = paused ? '중단 취소' : '중단';
-    pauseBtn.style.background = paused ? '#dc2626' : 'rgba(255,255,255,0.1)';
-  }
   checkAssignedWorkCompletion(p);
 }
 
@@ -1340,25 +1350,56 @@ function todayStr() {
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-async function toggleFieldServicePause() {
-  if(!currentAreaId) return;
-  var area = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
-  if(!area) return;
-  var next = !(area.servicePaused && !area.endDate);
-  if(next && !confirm('이 구역을 봉사 중단으로 표시할까요?')) return;
-  if(!next && !confirm('봉사 중단을 취소할까요?')) return;
-  var update = {servicePaused: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
-  if(next) {
-    update.startDate = area.startDate || todayStr();
-    update.endDate = '';
-    update.leader = '';
-  }
+async function removeAreaHistoryRound(areaId, round) {
   try {
-    await db.collection('areas').doc(String(currentAreaId)).update(update);
+    var histRef = db.collection('areaHistory').doc(String(areaId));
+    var histSnap = await histRef.get();
+    if(!histSnap.exists) return;
+    var history = (histSnap.data().rounds || []).filter(function(h){ return Number(h.round) !== Number(round || currentRound || 1); });
+    await histRef.set({rounds: history}, {merge:true});
+  } catch(e) {}
+}
+
+async function getAssignedLeaderNameForArea(areaId) {
+  try {
+    var doc = await db.collection('carAssignments').doc(todayStr()).get();
+    if(!doc.exists) return '';
+    var data = doc.data() || {};
+    var found = (data.groups || []).some(function(g){ return String(g.areaNum || '') === String(areaId); });
+    return found ? (data.assignedLeaderName || '') : '';
+  } catch(e) { return ''; }
+}
+
+async function markAreaServicePaused(areaId) {
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(!area) return;
+  var update = {
+    startDate: area.startDate || todayStr(),
+    endDate: '',
+    leader: '',
+    servicePaused: true,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  await db.collection('areas').doc(String(areaId)).set(update, {merge:true});
+  Object.assign(area, update);
+  await removeAreaHistoryRound(areaId, area.round || currentRound || 1);
+}
+
+async function syncAreaCompletionState(areaId, assignedLeaderName) {
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(!area || !area.blocks) return;
+  await ensureAreaStatusLoaded(areaId);
+  var remaining = area.blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(area, idx); }, 0);
+  if(remaining <= 0) {
+    await updateAreaCompletionIfAllDone(areaId, assignedLeaderName || await getAssignedLeaderNameForArea(areaId));
+    return;
+  }
+  if(area.endDate) {
+    var update = {endDate:'', servicePaused:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+    await db.collection('areas').doc(String(areaId)).set(update, {merge:true});
     Object.assign(area, update);
-    showToast(next ? '봉사 중단으로 표시했습니다' : '봉사 중단을 취소했습니다');
-    updateFieldProgress();
-  } catch(e) { showToast('저장 실패'); }
+    await removeAreaHistoryRound(areaId, area.round || currentRound || 1);
+  }
 }
 
 async function checkAssignedWorkCompletion(progress) {
@@ -1502,6 +1543,7 @@ function saveDetail() {
   closeDetail();
   if(openSheetAreaId) renderCsGrid(openSheetAreaId);
   else renderFieldBlocks(dAreaId);
+  syncAreaCompletionState(dAreaId);
 }
 
 function triggerSmartSave() {
@@ -1523,15 +1565,25 @@ async function executeSave() {
   try { await batch.commit(); showToast('저장 완료 ✅'); } catch(e) { showToast('저장 실패 😢'); }
 }
 
-function smartExit() {
+async function smartExit() {
   if(smartSaveTimer) clearTimeout(smartSaveTimer);
-  // 위치 즉시 삭제
+  try { await executeSave(); } catch(e) {}
+  try {
+    var p = calcProgress();
+    if(currentAreaId && p.total > 0) {
+      if(p.pct >= 100) {
+        await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
+      } else if(confirm('봉사 중단을 하시겠습니까?')) {
+        await markAreaServicePaused(currentAreaId);
+        showToast('봉사 중단으로 표시했습니다');
+      }
+    }
+  } catch(e) {}
   if(currentUser) {
     rtdb.ref('locations/' + currentUser).remove().catch(function(){});
   }
   stopKakaoLocationTracking();
-  try { executeSave(); } catch(e) {}
-  setTimeout(function() { goLogin(); }, 500);
+  setTimeout(function() { goLogin(); }, 250);
 }
 
 var currentBlockIdx = 0;
@@ -2111,24 +2163,41 @@ function getCarAutoFillIndexes(count) {
   return odds.concat(evens);
 }
 
-function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi) {
+function makeManualPairId(gi) {
+  return 'manual-' + gi + '-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+}
+
+function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPairId) {
   if(!carGroups[toGi]) return;
   if(fromGi === toGi && fromGi !== -1) {
-    movePersonWithinCar(fromGi, fromPi, Number.isFinite(toPi) ? toPi : fromPi);
+    movePersonWithinCar(fromGi, fromPi, Number.isFinite(toPi) ? toPi : fromPi, targetPairId);
     return;
   }
   var person = fromGi === -1
-    ? todaySignups.find(function(p) { return p.name === personName; })
+    ? normalizePerson(todaySignups.find(function(p) { return p.name === personName; }) || {})
     : (carGroups[fromGi] ? carGroups[fromGi][fromPi] : null);
-  if(!person) return;
+  if(!person || !person.name) return;
   if(!canAddPersonToCar(carGroups[toGi], person)) {
-    showToast('형제와 자매는 같은 차량에 배정할 수 없습니다');
+    showToast('이 사람은 이 차량에 배정할 수 없습니다');
     renderCarAssignment();
     return;
   }
   if(fromGi !== -1) carGroups[fromGi].splice(fromPi, 1);
-  carGroups[toGi].push(person);
-  refreshAllCarPairs();
+  var target = carGroups[toGi];
+  if(targetPairId) {
+    person.pairId = targetPairId;
+    var insertAt = target.length;
+    for(var i = target.length - 1; i >= 0; i--) {
+      if(target[i] && target[i].pairId === targetPairId) { insertAt = i + 1; break; }
+    }
+    target.splice(insertAt, 0, person);
+  } else if(Number.isFinite(toPi)) {
+    person.pairId = person.pairId || makeManualPairId(toGi);
+    target.splice(Math.max(0, Math.min(toPi, target.length)), 0, person);
+  } else {
+    person.pairId = person.pairId || makeManualPairId(toGi);
+    target.push(person);
+  }
   renderCarAssignment();
 }
 
@@ -2170,14 +2239,23 @@ function normalizePerson(p) {
   };
 }
 
-function movePersonWithinCar(gi, fromPi, toPi) {
-  if(!carGroups[gi] || fromPi === toPi || fromPi < 0 || toPi < 0) return;
+function movePersonWithinCar(gi, fromPi, toPi, targetPairId) {
+  if(!carGroups[gi] || fromPi < 0 || toPi < 0) return;
+  if(fromPi === toPi && !targetPairId) return;
   var arr = carGroups[gi];
   var item = arr.splice(fromPi, 1)[0];
   if(!item) return;
-  if(toPi > arr.length) toPi = arr.length;
-  arr.splice(toPi, 0, item);
-  refreshAllCarPairs();
+  if(targetPairId) {
+    item.pairId = targetPairId;
+    var insertAt = arr.length;
+    for(var i = arr.length - 1; i >= 0; i--) {
+      if(arr[i] && arr[i].pairId === targetPairId) { insertAt = i + 1; break; }
+    }
+    arr.splice(insertAt, 0, item);
+  } else {
+    if(toPi > arr.length) toPi = arr.length;
+    arr.splice(toPi, 0, item);
+  }
   renderCarAssignment();
 }
 
@@ -2437,15 +2515,23 @@ function renderCarAssignment() {
     var card = document.createElement('div');
     card.style.cssText = 'border:2px solid '+color+';border-radius:14px;overflow:hidden;background:white;';
     card.dataset.carIdx = gi;
-    card.ondragover = function(e) { e.preventDefault(); this.style.outline = '3px solid ' + color; };
-    card.ondragleave = function() { this.style.outline = ''; };
+    card.ondragover = function(e) {
+      e.preventDefault();
+      var targetPair = e.target && e.target.closest ? e.target.closest('.pair-wrap') : null;
+      showCarDropPreview(this, targetPair);
+    };
+    card.ondragleave = function(e) {
+      if(!this.contains(e.relatedTarget)) clearCarDropPreview(this);
+    };
     card.ondrop = function(e) {
       e.preventDefault();
-      this.style.outline = '';
+      clearCarDropPreview(this);
       if(!draggingCarPerson) return;
       var targetChip = e.target && e.target.closest ? e.target.closest('.car-person-chip') : null;
+      var targetPair = e.target && e.target.closest ? e.target.closest('.pair-wrap') : null;
       var toPi = targetChip && targetChip.dataset.gi === this.dataset.carIdx ? Number(targetChip.dataset.pi) : undefined;
-      movePersonBetweenCars(draggingCarPerson.gi, draggingCarPerson.pi, Number(this.dataset.carIdx), draggingCarPerson.name, toPi);
+      var pairId = targetPair ? targetPair.dataset.pairId : '';
+      movePersonBetweenCars(draggingCarPerson.gi, draggingCarPerson.pi, Number(this.dataset.carIdx), draggingCarPerson.name, toPi, pairId);
       draggingCarPerson = null;
     };
     
@@ -2461,9 +2547,9 @@ function renderCarAssignment() {
         </div>
       </div>`;
       
-    var body = '<div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
+    var body = '<div data-car-body="1" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
     getPairGroups(group).forEach(function(pair) {
-      body += '<div class="pair-wrap" style="margin:0">';
+      body += '<div class="pair-wrap" data-gi="' + gi + '" data-pair-id="' + escAttr(pair.key) + '" style="margin:0">';
       pair.members.forEach(function(p) {
         var pi = group.indexOf(p);
         var gIcon = p.gender === '자매' ? '👧' : (p.gender === '형제' ? '👦' : '');
@@ -2490,6 +2576,30 @@ function renderCarAssignment() {
   initCarPersonDrag();
 }
 
+function clearCarDropPreview(card) {
+  if(!card) return;
+  card.style.outline = '';
+  card.querySelectorAll('.car-drop-preview').forEach(function(el){ el.remove(); });
+}
+
+function showCarDropPreview(card, targetPair) {
+  if(!card) return;
+  clearCarDropPreview(card);
+  card.style.outline = '3px solid #8b5cf6';
+  var marker = document.createElement('div');
+  marker.className = 'car-drop-preview';
+  if(targetPair && targetPair.parentNode) targetPair.insertAdjacentElement('afterend', marker);
+  else {
+    var body = card.querySelector('[data-car-body]') || card;
+    body.appendChild(marker);
+  }
+}
+
+function getDropPairIdFromTarget(target, card) {
+  var pair = target && target.closest ? target.closest('.pair-wrap') : null;
+  return pair && card && card.contains(pair) ? (pair.dataset.pairId || '') : '';
+}
+
 function initCarPersonDrag() {
   document.querySelectorAll('.waiting-person-chip').forEach(function(chip) {
     chip.addEventListener('dragstart', function(e) {
@@ -2500,7 +2610,7 @@ function initCarPersonDrag() {
     chip.addEventListener('dragend', function() {
       chip.style.opacity = '1';
       draggingCarPerson = null;
-      document.querySelectorAll('#carList [data-car-idx]').forEach(function(card){ card.style.outline = ''; });
+      document.querySelectorAll('#carList [data-car-idx]').forEach(function(card){ clearCarDropPreview(card); });
     });
     var waitTimer = null;
     chip.addEventListener('touchstart', function() {
@@ -2515,8 +2625,8 @@ function initCarPersonDrag() {
       var t = e.touches[0];
       var target = document.elementFromPoint(t.clientX, t.clientY);
       var card = target ? target.closest('[data-car-idx]') : null;
-      document.querySelectorAll('#carList [data-car-idx]').forEach(function(c){ c.style.outline = ''; });
-      if(card) card.style.outline = '3px solid #7c3aed';
+      document.querySelectorAll('#carList [data-car-idx]').forEach(function(c){ clearCarDropPreview(c); });
+      if(card) showCarDropPreview(card, target ? target.closest('.pair-wrap') : null);
     }, {passive:false});
     chip.addEventListener('touchend', function(e) {
       clearTimeout(waitTimer);
@@ -2527,7 +2637,7 @@ function initCarPersonDrag() {
       var toGi = card ? Number(card.dataset.carIdx) : -1;
       var from = draggingCarPerson;
       draggingCarPerson = null;
-      if(toGi >= 0) movePersonBetweenCars(-1, -1, toGi, from.name);
+      if(toGi >= 0) movePersonBetweenCars(-1, -1, toGi, from.name, undefined, getDropPairIdFromTarget(target, card));
       else renderCarAssignment();
     }, {passive:true});
     chip.addEventListener('touchcancel', function() {
@@ -2547,7 +2657,7 @@ function initCarPersonDrag() {
     chip.addEventListener('dragend', function() {
       chip.style.opacity = '1';
       draggingCarPerson = null;
-      document.querySelectorAll('#carList [data-car-idx]').forEach(function(card){ card.style.outline = ''; });
+      document.querySelectorAll('#carList [data-car-idx]').forEach(function(card){ clearCarDropPreview(card); });
     });
 
     var timer = null;
@@ -2563,8 +2673,8 @@ function initCarPersonDrag() {
       var t = e.touches[0];
       var target = document.elementFromPoint(t.clientX, t.clientY);
       var card = target ? target.closest('[data-car-idx]') : null;
-      document.querySelectorAll('#carList [data-car-idx]').forEach(function(c){ c.style.outline = ''; });
-      if(card) card.style.outline = '3px solid #7c3aed';
+      document.querySelectorAll('#carList [data-car-idx]').forEach(function(c){ clearCarDropPreview(c); });
+      if(card) showCarDropPreview(card, target ? target.closest('.pair-wrap') : null);
     }, {passive:false});
     chip.addEventListener('touchend', function(e) {
       clearTimeout(timer);
@@ -2575,9 +2685,10 @@ function initCarPersonDrag() {
       var targetChip = target ? target.closest('.car-person-chip') : null;
       var toGi = card ? Number(card.dataset.carIdx) : draggingCarPerson.gi;
       var toPi = targetChip && card && targetChip.dataset.gi === card.dataset.carIdx ? Number(targetChip.dataset.pi) : undefined;
+      var pairId = getDropPairIdFromTarget(target, card);
       var from = draggingCarPerson;
       draggingCarPerson = null;
-      movePersonBetweenCars(from.gi, from.pi, toGi, from.name, toPi);
+      movePersonBetweenCars(from.gi, from.pi, toGi, from.name, toPi, pairId);
     }, {passive:true});
     chip.addEventListener('touchcancel', function() {
       clearTimeout(timer);
@@ -3058,7 +3169,6 @@ function addToCar(gi, btn) {
     }
     carGroups[gi].push(normalizePerson(person));
   }
-  refreshAllCarPairs();
   closePickerSheet(); renderCarAssignment();
 }
 
@@ -3073,11 +3183,10 @@ function addToCarByName(gi, el) {
     }
     carGroups[gi].push(normalizePerson(person));
   }
-  refreshAllCarPairs();
   closePickerSheet(); renderCarAssignment();
 }
 
-function removeFromCar(gi, pi) { carGroups[gi].splice(pi, 1); refreshAllCarPairs(); renderCarAssignment(); }
+function removeFromCar(gi, pi) { carGroups[gi].splice(pi, 1); renderCarAssignment(); }
 function removeCarGroup(gi) { carGroups.splice(gi, 1); ensureCarSlots(1); renderCarAssignment(); }
 
 async function completeAssignment() {
@@ -3231,8 +3340,29 @@ async function openCarResult() {
     var colors = ['#7c3aed','#0F6E56','#993C1D','#185FA5','#854F0B','#1a1040'];
     var lightColors = ['#EEEDFE','#E1F5EE','#FAECE7','#E6F1FB','#FAEEDA','#f0f0f5'];
     list.innerHTML = '';
+    var groups = doc.data().groups || [];
+    var myAssignment = null;
+    groups.forEach(function(g, i) {
+      if(myAssignment) return;
+      getPairGroups(g.members || []).forEach(function(pair) {
+        if(myAssignment) return;
+        if(pair.members.some(function(m){ return m.name === currentUser; })) myAssignment = {group:g, index:i, pair:pair};
+      });
+    });
+    if(myAssignment) {
+      var g0 = myAssignment.group;
+      var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' · ');
+      var areaText = g0.areaNum ? ('구역 ' + g0.areaNum + (g0.blockNum ? ' (' + g0.blockNum + '블럭)' : '')) : '구역 미배정';
+      var areaArg = String(g0.areaNum || '').replace(/'/g, '\&#39;');
+      var blockArg = String(g0.blockNum || '').replace(/'/g, '\&#39;');
+      list.innerHTML += '<div style="border:2px solid #7c3aed;background:#f3f0ff;border-radius:16px;padding:12px;margin-bottom:12px">' +
+        '<div style="font-size:12px;color:#7c3aed;font-weight:900;margin-bottom:4px">내 배정</div>' +
+        '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '호차 · ' + escHtml(pairNames) + '</div>' +
+        '<button onclick="goToFieldFromCarResult(\'' + areaArg + '\',\'' + blockArg + '\')" style="margin-top:8px;width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer">' + escHtml(areaText) + ' 바로가기</button>' +
+      '</div>';
+    }
     
-    doc.data().groups.forEach(function(g, i) {
+    groups.forEach(function(g, i) {
       var color = colors[i % colors.length];
       var lightColor = lightColors[i % lightColors.length];
       var card = document.createElement('div');
