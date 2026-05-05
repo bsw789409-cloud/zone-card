@@ -922,6 +922,60 @@ function assignAreaBlockToCar(areaNum, blockSpec) {
   showToast('차량 배정이 완료되었습니다');
 }
 
+function getCarAreaLabel(group) {
+  if(!group || !group.areaNum) return '구역 없음';
+  return group.areaNum + '번' + (group.blockNum ? ' (' + group.blockNum + '블럭)' : ' 전체');
+}
+
+function assignAreaBlockToCarIndex(gi, areaNum, blockSpec) {
+  ensureCarSlots(gi + 1);
+  carGroups[gi].areaNum = String(areaNum || '');
+  carGroups[gi].blockNum = String(blockSpec || '');
+  closePickerSheet();
+  renderCarAssignment();
+  showToast('구역을 선택했습니다');
+}
+
+function openAreaPickerForCar(gi) {
+  ensureCarSlots(gi + 1);
+  var sorted = areas
+    .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
+    .sort(function(a,b){
+      var ap = a.servicePaused ? 0 : 1;
+      var bp = b.servicePaused ? 0 : 1;
+      if(ap !== bp) return ap - bp;
+      if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
+      return Number(a.id) - Number(b.id);
+    });
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
+    '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '호차 구역 선택</div>' +
+    '<div style="font-size:12px;color:#888;margin-top:2px">카드를 확인하고 전체 또는 블럭을 선택하세요</div></div>' +
+    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button>' +
+    '</div>';
+  if(!sorted.length) {
+    html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>';
+  } else {
+    sorted.slice(0, 30).forEach(function(a) {
+      var blocks = a.blocks || [];
+      var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockTargets(a, idx); }, 0);
+      html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
+        '<div onclick="openCardSheet(&quot;' + escAttr(a.id) + '&quot;)" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;cursor:pointer">' +
+          '<div><div style="font-size:15px;font-weight:900;color:#1a1040">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
+          '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
+          '<span style="font-size:12px;color:#aaa">카드 보기</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+          '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">전체</button>';
+      blocks.forEach(function(b, idx) {
+        var cnt = countBlockTargets(a, idx);
+        html += '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '블럭' + (cnt ? ' · ' + cnt : '') + '</button>';
+      });
+      html += '</div></div>';
+    });
+  }
+  showPickerSheet(html);
+}
+
 function toggleAssignBlock(aId, blockNum) {
   aId = String(aId);
   blockNum = Number(blockNum);
@@ -1926,6 +1980,36 @@ function countBlockTargets(area, blockIndex) {
 
 function autoAssignAreasToCars(cars) {
   var used = {};
+  function buildBlockPick(area, target) {
+    var blocks = area.blocks || [];
+    var available = [];
+    for(var i = 0; i < blocks.length; i++) {
+      var key = String(area.id) + ':' + (i + 1);
+      if(used[key]) continue;
+      var cnt = countBlockTargets(area, i);
+      if(cnt) available.push({num:i + 1, count:cnt});
+    }
+    if(!available.length) return null;
+    var picked = [], total = 0;
+    available.forEach(function(b) {
+      if(!picked.length || total < target - 3 || b.count <= 4) {
+        if(!picked.length || total + b.count <= target + 8 || b.count <= 4) {
+          picked.push(b);
+          total += b.count;
+        }
+      }
+    });
+    var pickedNums = picked.map(function(b){ return b.num; });
+    var leftover = available.filter(function(b){ return pickedNums.indexOf(b.num) < 0; });
+    var leftoverTotal = leftover.reduce(function(sum,b){ return sum + b.count; }, 0);
+    if(picked.length && leftoverTotal > 0 && leftoverTotal <= 6) {
+      leftover.forEach(function(b) {
+        picked.push(b);
+        total += b.count;
+      });
+    }
+    return {blocks:picked.map(function(b){ return b.num; }), total:total};
+  }
   var candidates = areas
     .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
     .sort(function(a,b){
@@ -1938,25 +2022,17 @@ function autoAssignAreasToCars(cars) {
   cars.forEach(function(car) {
     var teamCount = Math.max(1, getPairGroups(car).length);
     var target = teamCount * 12;
-    var best = null;
+    var best = null, fallback = null;
     candidates.forEach(function(area) {
       if(best) return;
-      var blocks = area.blocks || [];
-      if(!blocks.length || used[String(area.id)] === 'all') return;
-      var picked = [], total = 0;
-      for(var i = 0; i < blocks.length; i++) {
-        var key = String(area.id) + ':' + (i + 1);
-        if(used[key]) continue;
-        var cnt = countBlockTargets(area, i);
-        if(!cnt) continue;
-        if(!picked.length || total + cnt <= target + 4) {
-          picked.push(i + 1);
-          total += cnt;
-        }
-        if(total >= target - 3) break;
-      }
-      if(picked.length) best = {area: area, blocks: picked, total: total};
+      if(used[String(area.id)] === 'all') return;
+      var pick = buildBlockPick(area, target);
+      if(!pick || !pick.blocks.length) return;
+      var option = {area: area, blocks: pick.blocks, total: pick.total};
+      if(!fallback) fallback = option;
+      if(pick.total >= 8 || pick.blocks.length > 1) best = option;
     });
+    if(!best) best = fallback;
     if(best) {
       car.areaNum = String(best.area.id);
       car.blockNum = best.blocks.length === (best.area.blocks || []).length ? '' : best.blocks.join(',');
@@ -2128,12 +2204,14 @@ function renderCarAssignment() {
     
     var header = `
       <div style="background:${color};padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
           <span style="font-size:14px;font-weight:700;color:white">${gi+1}호차</span>
-          <input type="number" inputmode="numeric" placeholder="구역" value="${group.areaNum||''}" onchange="validateAndSetArea(this, ${gi}, 'areaNum')" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:4px 8px;font-size:12px;color:white;width:60px;outline:none" />
-          <input type="text" inputmode="numeric" placeholder="블럭" value="${group.blockNum||''}" onchange="validateAndSetArea(this, ${gi}, 'blockNum')" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:4px 8px;font-size:12px;color:white;width:64px;outline:none" />
+          <span style="font-size:12px;color:rgba(255,255,255,0.85);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px">${getCarAreaLabel(group)}</span>
         </div>
-        <button onclick="removeCarGroup(${gi})" style="background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:4px 8px;font-size:11px;color:white;cursor:pointer">삭제</button>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button onclick="openAreaPickerForCar(${gi})" style="background:rgba(255,255,255,0.22);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;font-weight:800;cursor:pointer">구역 선택</button>
+          <button onclick="removeCarGroup(${gi})" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;cursor:pointer">삭제</button>
+        </div>
       </div>`;
       
     var body = '<div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
