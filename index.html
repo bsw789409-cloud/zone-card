@@ -1124,41 +1124,44 @@ function commitAreaPickerBlocks(gi, areaId) {
   assignAreaBlockToCarIndex(gi, areaId, selected.join(','));
 }
 
-function renderAreaPickerDetail(gi, areaId) {
+async function renderAreaPickerDetail(gi, areaId) {
   var area = areas.find(function(a){ return String(a.id) === String(areaId); });
   if(!area) return;
+  await ensureAreaStatusLoaded(areaId);
   var blocks = area.blocks || [];
   var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(area, idx); }, 0);
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
-    '<button onclick="areaPickerBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer">&larr; 목록</button>' +
-    '<div style="flex:1;text-align:right"><div style="font-size:16px;font-weight:900;color:#1a1040">' + escHtml(area.id) + '번 ' + escHtml(area.name || '') + '</div>' +
-    '<div style="font-size:12px;color:#7c3aed;font-weight:800;margin-top:2px">진행률 ' + getAreaPct(area) + '% · 남은 ' + total + '가구</div></div></div>';
+    '<button onclick="areaPickerBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer">&larr; \uBAA9\uB85D</button>' +
+    '<div style="flex:1;text-align:right"><div style="font-size:16px;font-weight:900;color:#1a1040">' + escHtml(area.id) + '\uBC88 ' + escHtml(area.name || '') + '</div>' +
+    '<div style="font-size:12px;color:#7c3aed;font-weight:800;margin-top:2px">\uC9C4\uD589\uB960 ' + getAreaPct(area) + '% \u00B7 \uB0A8\uC740 ' + total + '\uAC00\uAD6C</div></div></div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(area.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer">\uC804\uCCB4 \uBC30\uC815</button>';
   blocks.forEach(function(block, idx) {
     var remain = countBlockRemaining(area, idx);
-    var disabled = remain <= 0;
-    var topics = block.subTopics || block.subs || [];
-    var houses = getBlockHouses(block);
-    html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:white">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
-      '<div><div style="font-size:15px;font-weight:900;color:#1a1040">' + (idx + 1) + '블럭' + (block.name ? ' · ' + escHtml(block.name) : '') + '</div>' +
-      (block.parking ? '<div style="font-size:12px;color:#777;margin-top:3px">주차: ' + escHtml(block.parking) + '</div>' : '') + '</div>' +
-      '<button ' + (disabled ? 'disabled ' : '') + 'data-area-picker-block="' + gi + '-' + escAttr(area.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(area.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid ' + (disabled ? '#ddd' : '#7c3aed') + ';border-radius:999px;background:' + (disabled ? '#f3f4f6' : 'white') + ';color:' + (disabled ? '#aaa' : '#7c3aed') + ';padding:7px 10px;font-size:12px;font-weight:900;cursor:' + (disabled ? 'not-allowed' : 'pointer') + '">' + (disabled ? '완료됨' : '선택') + '</button></div>' +
-      '<div style="font-size:12px;color:' + (disabled ? '#aaa' : '#7c3aed') + ';font-weight:800;margin-bottom:6px">남은 ' + remain + '가구</div>';
-    if(topics.length) {
-      html += '<div style="margin-bottom:6px">' + topics.map(function(t){ return '<span style="display:inline-flex;border:1px solid #ddd;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#fafafa;color:#555;font-size:11px;font-weight:800">' + escHtml(t.name || t.title || '도로명') + ' · ' + ((t.houses || []).length) + '</span>'; }).join('') + '</div>';
-    }
-    html += houses.slice(0, 14).map(function(h) {
-      var st = getStatusForArea(area.id, h);
-      var memo = getMemoForArea(area.id, h);
-      var done = DONE_STATUSES.includes(st) || EXCLUDED_FROM_TARGET.includes(st);
-      return '<div style="display:flex;gap:8px;align-items:flex-start;border-top:1px dashed #e5e7eb;padding:7px 0;opacity:' + (done ? '.55' : '1') + '">' +
-        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(h.addr || h.name || '') + '</div>' +
-        (memo ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(memo) + '</div>' : '') + '</div>' +
-        '<span style="font-size:10px;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:2px 6px;flex-shrink:0">' + escHtml(st) + '</span></div>';
-    }).join('') + (houses.length > 14 ? '<div style="font-size:11px;color:#aaa;text-align:center;padding-top:4px">외 ' + (houses.length - 14) + '개 더 있음</div>' : '') + '</div>';
+    if(remain <= 0) html += '<button onclick="showToast(&quot;\uC774 \uBE14\uB7ED\uC740 \uBAA8\uB450 \uBC29\uBB38\uD558\uC600\uC2B5\uB2C8\uB2E4&quot;)" style="border:1px solid #e5e7eb;border-radius:999px;background:#f3f4f6;color:#aaa;padding:8px 10px;font-size:12px;font-weight:800;cursor:not-allowed">' + (idx + 1) + '\uBE14\uB7ED \u00B7 0</button>';
+    else html += '<button data-area-picker-block="' + gi + '-' + escAttr(area.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(area.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:8px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '\uBE14\uB7ED \u00B7 ' + remain + '</button>';
   });
-  html += '<button id="areaPickerCommit-' + gi + '-' + escAttr(area.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(area.id) + '&quot;)" style="width:100%;border:none;border-radius:12px;background:#7c3aed;color:white;padding:12px;font-size:14px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button>';
+  html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(area.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(area.id) + '&quot;)" style="width:100%;margin-bottom:12px;border:none;border-radius:12px;background:#7c3aed;color:white;padding:12px;font-size:14px;font-weight:900;cursor:pointer;opacity:.45">\uC120\uD0DD \uBC30\uC815</button>' +
+    '<div id="areaPickerFullCard" style="border-top:1px solid #eee;padding-top:10px"></div>';
   setPickerSheetContent(html);
+  var host = document.getElementById('areaPickerFullCard');
+  if(!host) return;
+  var savedAreaId = currentAreaId;
+  var savedRound = currentRound;
+  var savedData = currentAreaData;
+  var savedSheetArea = openSheetAreaId;
+  currentAreaId = String(areaId);
+  currentRound = area.round || currentRound;
+  currentAreaData = blocks;
+  openSheetAreaId = '';
+  window._suppressBlockAnimation = true;
+  renderBlocksInto(host, areaId, -1, 'left');
+  host.querySelectorAll('.house-row').forEach(function(row){ row.onclick = null; row.style.cursor = 'default'; });
+  host.querySelectorAll('.h-more-btn,.park-actions button').forEach(function(btn){ btn.style.display = 'none'; btn.onclick = null; });
+  openSheetAreaId = savedSheetArea;
+  currentAreaId = savedAreaId;
+  currentRound = savedRound;
+  currentAreaData = savedData;
 }
 
 function renderAreaPickerList(gi) {
@@ -2185,6 +2188,13 @@ function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPai
   if(fromGi !== -1) carGroups[fromGi].splice(fromPi, 1);
   var target = carGroups[toGi];
   if(targetPairId) {
+    var pairGender = '';
+    target.some(function(m) { if(m && m.pairId === targetPairId) { pairGender = m.gender || ''; return true; } return false; });
+    if(pairGender && person.gender && pairGender !== person.gender) {
+      targetPairId = '';
+    }
+  }
+  if(targetPairId) {
     person.pairId = targetPairId;
     var insertAt = target.length;
     for(var i = target.length - 1; i >= 0; i--) {
@@ -2246,6 +2256,13 @@ function movePersonWithinCar(gi, fromPi, toPi, targetPairId) {
   var item = arr.splice(fromPi, 1)[0];
   if(!item) return;
   if(targetPairId) {
+    var pairGender = '';
+    arr.some(function(m) { if(m && m.pairId === targetPairId) { pairGender = m.gender || ''; return true; } return false; });
+    if(pairGender && item.gender && pairGender !== item.gender) {
+      targetPairId = '';
+    }
+  }
+  if(targetPairId) {
     item.pairId = targetPairId;
     var insertAt = arr.length;
     for(var i = arr.length - 1; i >= 0; i--) {
@@ -2273,24 +2290,25 @@ function getPairGroups(members) {
 function assignVisualPairs(car, carIndex) {
   (car || []).forEach(function(p) { if(p) p.pairId = ''; });
   var seq = 1;
+  function genderKey(p) {
+    var g = String((p && p.gender) || '');
+    if(g === '\uC790\uB9E4' || g.indexOf('\uC790') >= 0 || g.indexOf('\uB9E4') >= 0) return 'sister';
+    if(g === '\uD615\uC81C' || g.indexOf('\uD615') >= 0 || g.indexOf('\uC81C') >= 0) return 'brother';
+    return 'other';
+  }
   function mark(list) {
     if(!list.length) return;
     var id = 'car' + (carIndex + 1) + '-pair' + seq++;
     list.forEach(function(p) { p.pairId = id; });
   }
-  if(car.length >= 5) {
-    mark(car.slice(0, 3));
-    mark(car.slice(3, 5));
-  } else if(car.length === 4) {
-    mark(car.slice(0, 2));
-    mark(car.slice(2, 4));
-  } else if(car.length === 3) {
-    mark(car.slice(0, 3));
-  } else if(car.length === 2) {
-    mark(car.slice(0, 2));
-  } else {
-    mark(car.slice(0, 1));
-  }
+  var buckets = {brother: [], sister: [], other: []};
+  (car || []).forEach(function(p){ buckets[genderKey(p)].push(p); });
+  ['brother','sister','other'].forEach(function(key) {
+    var list = buckets[key];
+    for(var i = 0; i < list.length; i += 3) {
+      mark(list.slice(i, i + 3));
+    }
+  });
 }
 
 function refreshAllCarPairs() {
