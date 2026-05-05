@@ -381,6 +381,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <div class="tb-right">
       <span class="pill" id="fieldUserPill"></span>
       <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">🚗 차량</button>
+      <button id="fieldPauseBtn" onclick="toggleFieldServicePause()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">중단</button>
       <button class="sos-btn" onclick="openSOS()">🚨 SOS</button>
       <button class="exit-btn" onclick="smartExit()">나가기</button>
     </div>
@@ -648,6 +649,7 @@ const rtdb = firebase.database();
 var areas = [], currentUser = '', currentRole = 'user';
 var currentAreaId = null, currentAreaData = [], currentRound = 1;
 var statusData = {}, memoData = {};
+var areaStatusLoaded = {};
 var dSt = null, dHouseKey = null, dAreaId = null;
 var openSheetAreaId = null, leaderTab = 'all';
 var locationSharing = false, locationWatchId = null;
@@ -834,6 +836,54 @@ function setSt(h,st) { if(!statusData[currentAreaId]) statusData[currentAreaId]=
 function getMemo(h) { return (memoData[currentAreaId]||{})[h.addr] || ''; }
 function setMemo(h,m) { if(!memoData[currentAreaId]) memoData[currentAreaId]={}; memoData[currentAreaId][h.addr]=m; }
 
+function getStatusForArea(areaId, h) {
+  return ((statusData[String(areaId)] || {})[h.addr]) || h.status || h.st || 'none';
+}
+
+function getMemoForArea(areaId, h) {
+  return ((memoData[String(areaId)] || {})[h.addr]) || h.memo || '';
+}
+
+function isHouseRemainingForArea(areaId, h) {
+  var st = getStatusForArea(areaId, h);
+  return !EXCLUDED_FROM_TARGET.includes(st) && !DONE_STATUSES.includes(st);
+}
+
+function getBlockHouses(block) {
+  var topics = block && (block.subTopics || block.subs || []);
+  return topics && topics.length ? topics.flatMap(function(s){ return s.houses || []; }) : ((block && block.houses) || []);
+}
+
+function countBlockRemaining(area, blockIndex) {
+  var block = area && area.blocks ? area.blocks[blockIndex] : null;
+  if(!block) return 0;
+  return getBlockHouses(block).filter(function(h){ return isHouseRemainingForArea(area.id, h); }).length;
+}
+
+function isBlockCompleteForArea(area, blockIndex) {
+  return countBlockRemaining(area, blockIndex) === 0;
+}
+
+async function ensureAreaStatusLoaded(areaId) {
+  areaId = String(areaId || '');
+  if(!areaId || areaStatusLoaded[areaId]) return;
+  var area = areas.find(function(a){ return String(a.id) === areaId; });
+  var round = area ? (area.round || 1) : currentRound;
+  if(!statusData[areaId]) statusData[areaId] = {};
+  if(!memoData[areaId]) memoData[areaId] = {};
+  try {
+    var snap = await db.collection('visits').where('areaId','==',areaId).get();
+    snap.docs.forEach(function(d) {
+      var r = d.data() || {};
+      if(PERSISTENT.includes(r.status) || Number(r.round) === Number(round)) {
+        statusData[areaId][r.addr] = r.status;
+        memoData[areaId][r.addr] = r.memo || '';
+      }
+    });
+  } catch(e) {}
+  areaStatusLoaded[areaId] = true;
+}
+
 function getAllHouses() {
   var all = [];
   currentAreaData.forEach(b => {
@@ -1014,51 +1064,23 @@ function renderCsAssignTools(aId) {
 }
 
 var areaPickerSelections = {};
+var areaPickerContext = null;
 
-function toggleAreaPickerDetails(areaId, detailId) {
-  var box = document.getElementById(detailId);
-  if(!box) return;
-  if(box.style.display === 'block') {
-    box.style.display = 'none';
-    return;
-  }
-  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
-  if(!area) return;
-  var html = '';
-  (area.blocks || []).forEach(function(block, idx) {
-    var count = countBlockTargets(area, idx);
-    var topics = block.subTopics || block.subs || [];
-    var houses = topics.length ? topics.flatMap(function(s){ return s.houses || []; }) : (block.houses || []);
-    var topicHtml = '';
-    if(topics.length) {
-      topicHtml = topics.map(function(t) {
-        return '<span style="display:inline-flex;border:1px solid #ddd;border-radius:999px;padding:3px 8px;margin:4px 4px 0 0;background:white;color:#555;font-size:11px;font-weight:800">' + escHtml(t.name || t.title || '도로명') + ' · ' + ((t.houses || []).length) + '</span>';
-      }).join('');
-    }
-    var preview = houses.slice(0, 10).map(function(h) {
-      var st = ((statusData[String(area.id)] || {})[h.addr]) || h.status || h.st || 'none';
-      var memo = ((memoData[String(area.id)] || {})[h.addr]) || h.memo || '';
-      return '<div style="display:flex;gap:8px;align-items:flex-start;border-top:1px dashed #e5e7eb;padding:6px 0">' +
-        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(h.addr || h.name || '') + '</div>' +
-        (memo ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(memo) + '</div>' : '') + '</div>' +
-        '<span style="font-size:10px;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:2px 6px;flex-shrink:0">' + escHtml(st) + '</span>' +
-      '</div>';
-    }).join('');
-    html += '<div style="border-top:1px solid #eee;padding:10px 0">' +
-      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
-        '<div style="font-size:13px;font-weight:900;color:#1a1040">' + (idx + 1) + '블럭' + (block.name ? ' · ' + escHtml(block.name) : '') + '</div>' +
-        '<div style="font-size:12px;color:#7c3aed;font-weight:800">남은 ' + count + '가구</div>' +
-      '</div>' +
-      (block.parking ? '<div style="font-size:12px;color:#777;margin-top:4px">주차: ' + escHtml(block.parking) + '</div>' : '') +
-      (topicHtml ? '<div style="margin-top:4px">' + topicHtml + '</div>' : '') +
-      (preview ? '<div style="margin-top:6px">' + preview + (houses.length > 10 ? '<div style="font-size:11px;color:#aaa;text-align:center;padding-top:4px">외 ' + (houses.length - 10) + '개 더 있음</div>' : '') + '</div>' : '') +
-    '</div>';
-  });
-  box.innerHTML = html || '<div style="font-size:12px;color:#aaa;padding:10px 0">블럭 정보가 없습니다</div>';
-  box.style.display = 'block';
+function setPickerSheetContent(html) {
+  var sheet = document.getElementById('carPickerSheet');
+  if(sheet) sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>' + html;
+}
+
+function areaPickerBack() {
+  if(areaPickerContext) renderAreaPickerList(areaPickerContext.gi);
 }
 
 function toggleAreaPickerBlock(btn, gi, areaId, blockNum) {
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(area && isBlockCompleteForArea(area, Number(blockNum) - 1)) {
+    showToast('이 블럭은 모두 방문하였습니다');
+    return;
+  }
   var key = String(gi);
   areaPickerSelections[key] = areaPickerSelections[key] || {};
   var selected = areaPickerSelections[key][String(areaId)] || [];
@@ -1101,8 +1123,45 @@ function commitAreaPickerBlocks(gi, areaId) {
   assignAreaBlockToCarIndex(gi, areaId, selected.join(','));
 }
 
-function openAreaPickerForCar(gi) {
-  ensureCarSlots(gi + 1);
+function renderAreaPickerDetail(gi, areaId) {
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(!area) return;
+  var blocks = area.blocks || [];
+  var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(area, idx); }, 0);
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
+    '<button onclick="areaPickerBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer">&larr; 목록</button>' +
+    '<div style="flex:1;text-align:right"><div style="font-size:16px;font-weight:900;color:#1a1040">' + escHtml(area.id) + '번 ' + escHtml(area.name || '') + '</div>' +
+    '<div style="font-size:12px;color:#7c3aed;font-weight:800;margin-top:2px">진행률 ' + getAreaPct(area) + '% · 남은 ' + total + '가구</div></div></div>';
+  blocks.forEach(function(block, idx) {
+    var remain = countBlockRemaining(area, idx);
+    var disabled = remain <= 0;
+    var topics = block.subTopics || block.subs || [];
+    var houses = getBlockHouses(block);
+    html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:white">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+      '<div><div style="font-size:15px;font-weight:900;color:#1a1040">' + (idx + 1) + '블럭' + (block.name ? ' · ' + escHtml(block.name) : '') + '</div>' +
+      (block.parking ? '<div style="font-size:12px;color:#777;margin-top:3px">주차: ' + escHtml(block.parking) + '</div>' : '') + '</div>' +
+      '<button ' + (disabled ? 'disabled ' : '') + 'data-area-picker-block="' + gi + '-' + escAttr(area.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(area.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid ' + (disabled ? '#ddd' : '#7c3aed') + ';border-radius:999px;background:' + (disabled ? '#f3f4f6' : 'white') + ';color:' + (disabled ? '#aaa' : '#7c3aed') + ';padding:7px 10px;font-size:12px;font-weight:900;cursor:' + (disabled ? 'not-allowed' : 'pointer') + '">' + (disabled ? '완료됨' : '선택') + '</button></div>' +
+      '<div style="font-size:12px;color:' + (disabled ? '#aaa' : '#7c3aed') + ';font-weight:800;margin-bottom:6px">남은 ' + remain + '가구</div>';
+    if(topics.length) {
+      html += '<div style="margin-bottom:6px">' + topics.map(function(t){ return '<span style="display:inline-flex;border:1px solid #ddd;border-radius:999px;padding:3px 8px;margin:0 4px 4px 0;background:#fafafa;color:#555;font-size:11px;font-weight:800">' + escHtml(t.name || t.title || '도로명') + ' · ' + ((t.houses || []).length) + '</span>'; }).join('') + '</div>';
+    }
+    html += houses.slice(0, 14).map(function(h) {
+      var st = getStatusForArea(area.id, h);
+      var memo = getMemoForArea(area.id, h);
+      var done = DONE_STATUSES.includes(st) || EXCLUDED_FROM_TARGET.includes(st);
+      return '<div style="display:flex;gap:8px;align-items:flex-start;border-top:1px dashed #e5e7eb;padding:7px 0;opacity:' + (done ? '.55' : '1') + '">' +
+        '<div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:800;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(h.addr || h.name || '') + '</div>' +
+        (memo ? '<div style="font-size:11px;color:#888;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(memo) + '</div>' : '') + '</div>' +
+        '<span style="font-size:10px;color:#7c3aed;background:#ede9fe;border-radius:999px;padding:2px 6px;flex-shrink:0">' + escHtml(st) + '</span></div>';
+    }).join('') + (houses.length > 14 ? '<div style="font-size:11px;color:#aaa;text-align:center;padding-top:4px">외 ' + (houses.length - 14) + '개 더 있음</div>' : '') + '</div>';
+  });
+  html += '<button id="areaPickerCommit-' + gi + '-' + escAttr(area.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(area.id) + '&quot;)" style="width:100%;border:none;border-radius:12px;background:#7c3aed;color:white;padding:12px;font-size:14px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button>';
+  setPickerSheetContent(html);
+}
+
+function renderAreaPickerList(gi) {
+  areaPickerContext = {gi: gi};
   areaPickerSelections[String(gi)] = {};
   var sorted = areas
     .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
@@ -1110,41 +1169,31 @@ function openAreaPickerForCar(gi) {
       var ap = a.servicePaused ? 0 : 1;
       var bp = b.servicePaused ? 0 : 1;
       if(ap !== bp) return ap - bp;
-      if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
       return Number(a.id) - Number(b.id);
     });
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
     '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '호차 구역 선택</div>' +
-    '<div style="font-size:12px;color:#888;margin-top:2px">카드 보기로 확인하고 여러 블럭을 선택할 수 있습니다</div></div>' +
-    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button>' +
-    '</div>';
-  if(!sorted.length) {
-    html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>';
-  } else {
-    sorted.slice(0, 30).forEach(function(a, ai) {
-      var blocks = a.blocks || [];
-      var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockTargets(a, idx); }, 0);
-      var detailId = 'areaPickerDetail-' + gi + '-' + ai;
-      html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
-          '<div><div style="font-size:15px;font-weight:900;color:#1a1040">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
-          '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
-          '<button onclick="toggleAreaPickerDetails(&quot;' + escAttr(a.id) + '&quot;,&quot;' + detailId + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer">카드 보기</button>' +
-        '</div>' +
-        '<div id="' + detailId + '" style="display:none;background:#fafafa;border-radius:10px;padding:0 10px;margin-bottom:10px"></div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
-          '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">전체</button>';
-      blocks.forEach(function(b, idx) {
-        var cnt = countBlockTargets(a, idx);
-        var dataKey = gi + '-' + String(a.id) + '-' + (idx + 1);
-        html += '<button data-area-picker-block="' + escAttr(dataKey) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '블럭' + (cnt ? ' · ' + cnt : '') + '</button>';
-      });
-      html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(a.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:9px;font-size:13px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button></div>';
-    });
-  }
-  showPickerSheet(html);
+    '<div style="font-size:12px;color:#888;margin-top:2px">카드 보기를 눌러 전체 주소를 보고 블럭을 선택하세요</div></div>' +
+    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button></div>';
+  sorted.slice(0, 30).forEach(function(a) {
+    var blocks = a.blocks || [];
+    var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(a, idx); }, 0);
+    if(total <= 0) return;
+    html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+      '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
+      '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
+      '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">카드 보기</button></div>';
+  });
+  setPickerSheetContent(html || '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>');
 }
 
+async function openAreaPickerForCar(gi) {
+  ensureCarSlots(gi + 1);
+  var candidates = areas.filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); }).slice(0, 30);
+  await Promise.all(candidates.map(function(a){ return ensureAreaStatusLoaded(a.id); }));
+  showPickerSheet('');
+  renderAreaPickerList(gi);
+}
 async function editCardParking(bi) {
   if(!currentAreaData[bi]) return;
   var areaId = String(openSheetAreaId || currentAreaId || '');
@@ -1276,7 +1325,40 @@ function updateFieldProgress() {
   document.getElementById('fProgPct').textContent = p.pct+'%';
   document.getElementById('fProgFill').style.width = p.pct+'%';
   document.getElementById('fProgRound').textContent = currentRound+'회차';
+  var pauseBtn = document.getElementById('fieldPauseBtn');
+  if(pauseBtn) {
+    var area = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
+    var paused = area && area.servicePaused && !area.endDate;
+    pauseBtn.textContent = paused ? '중단 취소' : '중단';
+    pauseBtn.style.background = paused ? '#dc2626' : 'rgba(255,255,255,0.1)';
+  }
   checkAssignedWorkCompletion(p);
+}
+
+function todayStr() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+async function toggleFieldServicePause() {
+  if(!currentAreaId) return;
+  var area = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
+  if(!area) return;
+  var next = !(area.servicePaused && !area.endDate);
+  if(next && !confirm('이 구역을 봉사 중단으로 표시할까요?')) return;
+  if(!next && !confirm('봉사 중단을 취소할까요?')) return;
+  var update = {servicePaused: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+  if(next) {
+    update.startDate = area.startDate || todayStr();
+    update.endDate = '';
+    update.leader = '';
+  }
+  try {
+    await db.collection('areas').doc(String(currentAreaId)).update(update);
+    Object.assign(area, update);
+    showToast(next ? '봉사 중단으로 표시했습니다' : '봉사 중단을 취소했습니다');
+    updateFieldProgress();
+  } catch(e) { showToast('저장 실패'); }
 }
 
 async function checkAssignedWorkCompletion(progress) {
@@ -1307,7 +1389,38 @@ async function checkAssignedWorkCompletion(progress) {
       carNum: match.carNum || '',
       timestamp: Date.now()
     });
+    updateAreaCompletionIfAllDone(currentAreaId, doc.data().assignedLeaderName || '');
     showToast('인도자에게 완료 알림을 보냈습니다');
+  } catch(e) {}
+}
+
+async function updateAreaCompletionIfAllDone(areaId, assignedLeaderName) {
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(!area || !area.blocks) return;
+  await ensureAreaStatusLoaded(areaId);
+  var remaining = area.blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(area, idx); }, 0);
+  if(remaining > 0) return;
+  var today = todayStr();
+  var leaderName = assignedLeaderName || area.assignedLeaderName || currentUser || area.leader || '';
+  var update = {
+    leader: leaderName,
+    endDate: today,
+    startDate: area.startDate || today,
+    servicePaused: false,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  try {
+    await db.collection('areas').doc(String(areaId)).set(update, {merge:true});
+    Object.assign(area, update);
+    var histRef = db.collection('areaHistory').doc(String(areaId));
+    var histSnap = await histRef.get();
+    var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
+    var round = area.round || 1;
+    var idx = history.findIndex(function(h){ return Number(h.round) === Number(round); });
+    var record = {round: round, leader: leaderName, startDate: update.startDate, endDate: today};
+    if(idx >= 0) history[idx] = record;
+    else history.push(record);
+    await histRef.set({rounds: history}, {merge:true});
   } catch(e) {}
 }
 
@@ -2109,14 +2222,7 @@ function refreshAllCarPairs() {
 }
 
 function countBlockTargets(area, blockIndex) {
-  var block = area && area.blocks ? area.blocks[blockIndex] : null;
-  if(!block) return 0;
-  var topics = block.subTopics || block.subs || [];
-  var houses = topics.length ? topics.flatMap(function(s){ return s.houses || []; }) : (block.houses || []);
-  return houses.filter(function(h) {
-    var st = h.status || h.st || 'none';
-    return !EXCLUDED_FROM_TARGET.includes(st);
-  }).length;
+  return countBlockRemaining(area, blockIndex);
 }
 
 function autoAssignAreasToCars(cars) {
@@ -2975,8 +3081,7 @@ function removeFromCar(gi, pi) { carGroups[gi].splice(pi, 1); refreshAllCarPairs
 function removeCarGroup(gi) { carGroups.splice(gi, 1); ensureCarSlots(1); renderCarAssignment(); }
 
 async function completeAssignment() {
-  var d = new Date();
-  var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  var today = todayStr();
   try {
     var result = carGroups.map(function(g, i) {
       return {
@@ -2987,11 +3092,28 @@ async function completeAssignment() {
       };
     }).filter(function(g){ return g.members.length > 0; });
     
+    var leaderName = currentRole === 'leader' ? (currentUser || '') : '';
     await db.collection('carAssignments').doc(today).set({
       date: today,
+      assignedLeaderName: leaderName,
       groups: result,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    var assignedAreas = {};
+    result.forEach(function(g){ if(g.areaNum) assignedAreas[String(g.areaNum)] = true; });
+    await Promise.all(Object.keys(assignedAreas).map(function(aId) {
+      var area = areas.find(function(a){ return String(a.id) === String(aId); });
+      var update = {
+        startDate: area && area.startDate ? area.startDate : today,
+        assignedLeaderName: leaderName,
+        servicePaused: false,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      if(leaderName && !(area && area.leader)) update.leader = leaderName;
+      return db.collection('areas').doc(String(aId)).set(update, {merge:true}).then(function(){
+        if(area) Object.assign(area, update);
+      });
+    }));
     result.forEach(function(g) {
       rtdb.ref('assignmentEvents').push({
         type: 'assigned',
