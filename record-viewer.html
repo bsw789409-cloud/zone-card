@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>봉사 날짜 기록</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;background:#f0f4f0;color:#1a1a1a;min-height:100vh;overflow-x:hidden}
+header{background:#2c5f2e;color:white;padding:14px 18px;position:sticky;top:0;z-index:10;box-shadow:0 2px 14px rgba(0,0,0,.16)}
+.head-row{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-size:17px;font-weight:800}.sub{font-size:12px;opacity:.7;margin-top:2px}
+.container{max-width:960px;margin:0 auto;padding:14px}
+.toolbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.search{flex:1;min-width:190px;padding:11px 13px;border:1px solid #d8e5d8;border-radius:10px;font-size:15px;outline:none;background:white}
+button{border:none;border-radius:9px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.primary{background:#2c5f2e;color:white}.outline{background:white;color:#2c5f2e;border:1px solid #2c5f2e}.ghost{background:#eef7ee;color:#2c5f2e}
+.tabs{display:flex;background:white;border:1px solid #d8e5d8;border-radius:12px;padding:4px;margin-bottom:12px;box-shadow:0 1px 8px rgba(44,95,46,.05)}
+.tab{flex:1;background:transparent;color:#777}.tab.active{background:#2c5f2e;color:white}
+.panel{display:none}.panel.active{display:block}
+.record-card{background:white;border:1px solid #d8e5d8;border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 8px rgba(44,95,46,.06)}
+.record-head{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer}
+.num{background:#2c5f2e;color:white;border-radius:7px;padding:3px 8px;font-size:12px;font-weight:800;min-width:34px;text-align:center}
+.title{flex:1;min-width:0}.name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;color:#777;margin-top:2px}
+.arrow{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#eef7ee;color:#2c5f2e;font-size:14px;transition:.18s}
+.record-card.open .arrow{transform:rotate(180deg)}
+.preview{padding:0 14px 12px}
+.record-card.open .preview.detail-only{display:none}
+table{width:100%;border-collapse:collapse;font-size:13px;background:white}
+th,td{padding:9px 10px;border-bottom:1px solid #eef3ee;text-align:center;vertical-align:middle}
+th{background:#eef7ee;color:#2c5f2e;font-size:12px;font-weight:800}
+td:first-child,th:first-child{text-align:left}
+.muted{color:#aaa}.empty{text-align:center;color:#999;padding:44px 12px;background:white;border:1px solid #d8e5d8;border-radius:12px}
+.accordion-body{display:none;border-top:1px solid #eef3ee}.record-card.open .accordion-body{display:block}
+.pager{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 0}.page{font-size:13px;color:#2c5f2e;font-weight:800}
+.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50}
+.bottom-sheet{display:none;position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;z-index:51;max-height:82vh;overflow:hidden;box-shadow:0 -4px 28px rgba(0,0,0,.18)}
+.sheet-handle{width:42px;height:4px;background:#ddd;border-radius:999px;margin:12px auto}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:0 18px 12px;border-bottom:1px solid #eef3ee}
+.sheet-title{font-size:16px;font-weight:800;color:#2c5f2e}.sheet-sub{font-size:12px;color:#777;margin-top:2px}
+.sheet-body{overflow-y:auto;max-height:62vh}
+@media(max-width:640px){th,td{font-size:12px;padding:8px 6px}.toolbar button{flex:1}.name{white-space:normal}.record-head{align-items:flex-start}}
+</style>
+</head>
+<body>
+<header>
+  <div class="head-row">
+    <div><h1>봉사 날짜 기록</h1><div class="sub">총관리자 기록 탭과 연동</div></div>
+    <button class="outline" onclick="location.reload()">새로고침</button>
+  </div>
+</header>
+
+<main class="container">
+  <div class="toolbar">
+    <input class="search" id="searchInput" placeholder="구역번호, 구역명, 인도자, 날짜 검색">
+    <button class="primary" onclick="exportExcel()">엑셀 내보내기</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('summary',this)">요약 보기</button>
+    <button class="tab" onclick="setTab('detail',this)">상세 보기</button>
+  </div>
+  <section id="summary" class="panel active"></section>
+  <section id="detail" class="panel"></section>
+</main>
+
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="bottom-sheet" id="bottomSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <div>
+      <div class="sheet-title" id="sheetTitle"></div>
+      <div class="sheet-sub" id="sheetSub"></div>
+    </div>
+    <button class="ghost" onclick="closeSheet()">닫기</button>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<script>
+var firebaseConfig={apiKey:"AIzaSyBmhHpanj9lYGLo-f9V3YTmgn4Kwtdw0u8",authDomain:"field-map-f06a4.firebaseapp.com",databaseURL:"https://field-map-f06a4-default-rtdb.firebaseio.com",projectId:"field-map-f06a4",storageBucket:"field-map-f06a4.firebasestorage.app",messagingSenderId:"1080155946606",appId:"1:1080155946606:web:d5d15c62295251c2ce307f"};
+firebase.initializeApp(firebaseConfig);
+var db=firebase.firestore();
+var allData=[],currentTab='summary',page=0,PER_PAGE=10;
+
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function byNum(a,b){return Number(a.number)-Number(b.number)}
+function hasRecord(r){return !!(r && (String(r.leader||'').trim() || String(r.startDate||'').trim() || String(r.endDate||'').trim()))}
+function cleanRounds(rounds){return (rounds||[]).filter(hasRecord).map(function(r){return {round:Number(r.round||1),leader:r.leader||'',startDate:r.startDate||'',endDate:r.endDate||''}}).sort(function(a,b){return Number(a.round||0)-Number(b.round||0)})}
+function dateShort(v){if(!v)return '';var m=String(v).match(/^(\d{4})[-.](\d{1,2})[-.](\d{1,2})/);if(!m)return String(v);return m[1].slice(2)+'.'+m[2].padStart(2,'0')+'.'+m[3].padStart(2,'0')}
+function getRecentCompleted(a){return (a.rounds||[]).filter(function(r){return r.endDate}).slice(-2)}
+function getLastRecorded(a){var r=(a.rounds||[]).filter(hasRecord);return r.length?r[r.length-1]:null}
+function getFiltered(){
+  var q=document.getElementById('searchInput').value.trim().toLowerCase();
+  var data=allData.slice().sort(byNum);
+  if(!q)return data;
+  return data.filter(function(a){
+    var text=[a.number,a.name,a.type].concat((a.rounds||[]).flatMap(function(r){return [r.round,r.leader,r.startDate,r.endDate]})).join(' ').toLowerCase();
+    return text.indexOf(q)>=0;
+  });
+}
+async function loadData(){
+  document.getElementById('summary').innerHTML='<div class="empty">불러오는 중...</div>';
+  var areaSnap=await db.collection('areas').orderBy('id').get();
+  var histSnap=await db.collection('areaHistory').get();
+  var hist={};
+  histSnap.docs.forEach(function(d){hist[d.id]=d.data().rounds||[]});
+  allData=areaSnap.docs.map(function(d){
+    var a=d.data(), id=String(a.id||d.id), rounds=cleanRounds(hist[id]||[]);
+    if(hasRecord({leader:a.leader,startDate:a.startDate,endDate:a.endDate})) {
+      var cur={round:Number(a.round||1),leader:a.leader||'',startDate:a.startDate||'',endDate:a.endDate||''};
+      var idx=rounds.findIndex(function(r){return Number(r.round)===Number(cur.round)});
+      if(idx>=0) rounds[idx]=cur; else rounds.push(cur);
+      rounds=cleanRounds(rounds);
+    }
+    return {number:Number(id),name:a.name||'',type:a.type||'',round:Number(a.round||1),rounds:rounds};
+  });
+  render();
+}
+function setTab(tab,btn){currentTab=tab;document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active')});btn.classList.add('active');document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active')});document.getElementById(tab).classList.add('active');render()}
+function roundTable(rows){
+  if(!rows.length)return '<div class="empty" style="box-shadow:none">기록 없음</div>';
+  return '<table><thead><tr><th>회차</th><th>인도자</th><th>시작일</th><th>종료일</th></tr></thead><tbody>'+rows.map(function(r){
+    return '<tr><td>'+r.round+'회차</td><td>'+esc(r.leader||'-')+'</td><td>'+esc(r.startDate||'-')+'</td><td>'+esc(r.endDate||'-')+'</td></tr>';
+  }).join('')+'</tbody></table>';
+}
+function render(){currentTab==='summary'?renderSummary():renderDetail()}
+function renderSummary(){
+  var wrap=document.getElementById('summary'),data=getFiltered();
+  if(!data.length){wrap.innerHTML='<div class="empty">검색 결과가 없습니다</div>';return}
+  wrap.innerHTML=data.map(function(a){
+    var recent=getRecentCompleted(a);
+    return '<div class="record-card"><div class="record-head" onclick="openSheet('+a.number+')"><span class="num">'+a.number+'</span><div class="title"><div class="name">'+esc(a.name)+'</div><div class="meta">'+esc(a.type||'')+' · 기록 '+a.rounds.length+'회</div></div></div><div class="preview">'+roundTable(recent)+'</div></div>';
+  }).join('');
+}
+function renderDetail(){
+  var wrap=document.getElementById('detail'),data=getFiltered(),total=Math.max(1,Math.ceil(data.length/PER_PAGE));
+  if(page>=total)page=total-1;
+  var chunk=data.slice(page*PER_PAGE,page*PER_PAGE+PER_PAGE);
+  if(!chunk.length){wrap.innerHTML='<div class="empty">검색 결과가 없습니다</div>';return}
+  wrap.innerHTML='<div class="pager"><button class="outline" onclick="page=Math.max(0,page-1);renderDetail()">이전</button><span class="page">'+(page+1)+' / '+total+'</span><button class="outline" onclick="page=Math.min('+(total-1)+',page+1);renderDetail()">다음</button></div>'+chunk.map(function(a){
+    var last=getLastRecorded(a), preview=last?[last]:[];
+    return '<div class="record-card"><div class="record-head" onclick="toggleDetail(this)"><span class="num">'+a.number+'</span><div class="title"><div class="name">'+esc(a.name)+'</div><div class="meta">'+esc(a.type||'')+' · 현재 '+a.round+'회차</div></div><span class="arrow">⌄</span></div><div class="preview detail-only">'+roundTable(preview)+'</div><div class="accordion-body">'+roundTable(a.rounds)+'</div></div>';
+  }).join('');
+}
+function toggleDetail(head){head.closest('.record-card').classList.toggle('open')}
+function openSheet(num){
+  var a=allData.find(function(x){return Number(x.number)===Number(num)});
+  if(!a)return;
+  document.getElementById('sheetTitle').textContent=a.number+'번 · '+a.name;
+  document.getElementById('sheetSub').textContent='전체 '+a.rounds.length+'회차 기록';
+  document.getElementById('sheetBody').innerHTML=roundTable(a.rounds);
+  document.getElementById('sheetOverlay').style.display='block';
+  document.getElementById('bottomSheet').style.display='block';
+}
+function closeSheet(){
+  document.getElementById('sheetOverlay').style.display='none';
+  document.getElementById('bottomSheet').style.display='none';
+}
+function exportExcel(){
+  var data=getFiltered(),today=new Date().toISOString().slice(0,10);
+  data.forEach(function(a){a.rounds=cleanRounds(a.rounds)});
+  function xml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]})}
+  function cell(v, merge){return '<Cell ss:StyleID="center"'+(merge?' ss:MergeAcross="'+merge+'"':'')+'><Data ss:Type="String">'+xml(v||'')+'</Data></Cell>'}
+  var sheets='';
+  for(var start=0;start<data.length;start+=5){
+    var chunk=data.slice(start,start+5);
+    var max=Math.max.apply(null,chunk.map(function(a){return Math.max(1,a.rounds.length)}));
+    var rows='<Row>'+chunk.map(function(a){return cell(a.number+' '+a.name,1)}).join('')+'</Row>';
+    for(var r=0;r<max;r++){
+      rows += '<Row>'+chunk.map(function(a){var x=a.rounds[r]||{};return cell(x.leader||'',1)}).join('')+'</Row>';
+      rows += '<Row>'+chunk.map(function(a){var x=a.rounds[r]||{};return cell(dateShort(x.startDate),0)+cell(dateShort(x.endDate),0)}).join('')+'</Row>';
+    }
+    var name=chunk[0].number+'~'+chunk[chunk.length-1].number;
+    sheets += '<Worksheet ss:Name="'+xml(name)+'"><Table>'+rows+'</Table></Worksheet>';
+  }
+  var book='<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>'+
+    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
+    '<Styles><Style ss:ID="center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style></Styles>'+sheets+'</Workbook>';
+  var blob=new Blob([book],{type:'application/vnd.ms-excel;charset=utf-8'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='봉사날짜기록_'+today+'.xls';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},500);
+}
+document.getElementById('searchInput').addEventListener('input',function(){page=0;render()});
+loadData().catch(function(e){document.getElementById('summary').innerHTML='<div class="empty">불러오기 실패: '+esc(e.message)+'</div>'});
+</script>
+</body>
+</html>

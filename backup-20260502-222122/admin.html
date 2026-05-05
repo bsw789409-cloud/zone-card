@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>관리자 — 줄포 회중</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<!-- SheetJS for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:none}
+
+/* 탑바 */
+.admin-topbar{background:#1a1040;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.admin-topbar .title{font-size:16px;font-weight:700;color:white}
+.admin-topbar .back{font-size:13px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08);border:none;border-radius:8px;padding:6px 12px;cursor:pointer}
+
+/* 탭바 */
+.tab-bar{background:#1a1040;padding:0 16px;display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,0.06);overflow-x:auto;flex-shrink:0;position:sticky;top:48px;z-index:9}
+.tab-btn{padding:10px 14px;font-size:13px;color:rgba(255,255,255,0.4);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab-btn.active{color:white;border-bottom-color:#7c3aed}
+
+/* 콘텐츠 영역 */
+.tab-content{display:none;padding:12px 16px;padding-bottom:40px;overscroll-behavior:none}
+.tab-content.active{display:block}
+.slide-left{animation:slideLeftIn .22s ease both}
+.slide-right{animation:slideRightIn .22s ease both}
+@keyframes slideLeftIn{from{opacity:.25;transform:translateX(28px)}to{opacity:1;transform:translateX(0)}}
+@keyframes slideRightIn{from{opacity:.25;transform:translateX(-28px)}to{opacity:1;transform:translateX(0)}}
+
+/* 카드 */
+.card{background:white;border-radius:14px;border:0.5px solid #eee;padding:14px;margin-bottom:10px}
+.card-title{font-size:14px;font-weight:700;color:#1a1040;margin-bottom:10px}
+
+/* 통계 그리드 */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat-card{background:#f5f5f7;border-radius:12px;padding:12px;text-align:center}
+.stat-num{font-size:24px;font-weight:700;color:#1a1040}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px}
+.stat-card.purple .stat-num{color:#7c3aed}
+.stat-card.green .stat-num{color:#0F6E56}
+.stat-card.red .stat-num{color:#dc2626}
+.stat-card.yellow .stat-num{color:#d97706}
+.stat-card.gray .stat-num{color:#555}
+.stat-card.blue .stat-num{color:#185FA5}
+
+/* 필터 칩 */
+.filter-wrap{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
+.chip{padding:5px 14px;border-radius:999px;font-size:12px;border:0.5px solid #ddd;background:white;color:#888;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.chip.active{background:#1a1040;color:white;border-color:#1a1040}
+
+/* 구역 아이템 */
+.area-item{background:white;border-radius:12px;border:0.5px solid #eee;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.area-drag-handle{width:28px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;background:#f5f5f7;cursor:grab;touch-action:none;user-select:none;flex-shrink:0}
+.area-item.dragging{opacity:.55;background:#f0eeff}
+.area-item .info{flex:1}
+.area-item .name{font-size:14px;font-weight:600;color:#1a1040}
+.area-item .sub{font-size:12px;color:#888;margin-top:2px}
+.area-item .btns{display:flex;gap:6px;flex-shrink:0}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:8px;border:0.5px solid #ddd;background:white;color:#555;cursor:pointer;white-space:nowrap}
+.btn-danger{border-color:#fca5a5;background:#fff0f0;color:#dc2626}
+.btn-primary{border-color:#7c3aed;background:#EEEDFE;color:#7c3aed}
+.btn-success{border-color:#6ee7b7;background:#d1fae5;color:#065f46}
+
+/* 수정요청 아이템 */
+.fix-item{border-left:3px solid #e65100;border-radius:0 12px 12px 0;background:#FFF7ED;padding:12px;margin-bottom:8px}
+.fix-area{font-size:13px;font-weight:600;color:#633806;margin-bottom:2px}
+.fix-addr{font-size:12px;color:#854F0B;margin-bottom:2px}
+.fix-memo{font-size:12px;color:#854F0B;margin-bottom:8px}
+.fix-btns{display:flex;gap:6px}
+
+/* 통계 목록 */
+.stat-list-item{background:white;border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;border:0.5px solid #eee}
+
+/* 기록 */
+.record-card{background:white;border-radius:12px;border:0.5px solid #eee;margin-bottom:10px;overflow:hidden}
+.record-header{background:#1a1040;padding:10px 14px;display:flex;align-items:center;justify-content:space-between}
+.record-round-row{padding:10px 14px;border-bottom:0.5px solid #f0f0f0;display:flex;align-items:center;gap:10px}
+.record-round-badge{font-size:11px;font-weight:700;background:#EEEDFE;color:#7c3aed;padding:3px 8px;border-radius:999px;flex-shrink:0}
+
+/* 설정 아이템 */
+.setting-item{background:white;border-radius:12px;border:0.5px solid #eee;padding:14px;margin-bottom:8px}
+.setting-title{font-size:14px;font-weight:600;color:#1a1040;margin-bottom:4px}
+.setting-desc{font-size:12px;color:#888;margin-bottom:10px}
+
+/* 입력 */
+.inp{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #eee;font-size:14px;color:#333;outline:none;background:white}
+.inp:focus{border-color:#7c3aed}
+.lbl{font-size:12px;color:#888;margin-bottom:4px}
+
+/* 버튼 */
+.btn-full{width:100%;padding:12px;border-radius:12px;border:none;font-size:14px;font-weight:700;cursor:pointer}
+.btn-dark{background:#1a1040;color:white}
+.btn-purple{background:#7c3aed;color:white}
+.btn-green{background:#0F6E56;color:white}
+.btn-red{background:#dc2626;color:white}
+.btn-outline{background:white;color:#555;border:1px solid #ddd}
+
+/* 바텀시트 */
+.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:20}
+.sheet-overlay.open{display:block}
+.bottom-sheet{display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:21;max-height:90vh;overflow-y:auto}
+.bottom-sheet.open{display:block}
+.sheet-handle{width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px}
+.sheet-title{font-size:16px;font-weight:700;color:#1a1040;margin-bottom:16px}
+
+/* 로더 */
+#loader{display:none;position:fixed;inset:0;background:rgba(255,255,255,0.9);z-index:99;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#loader.show{display:flex}
+.spin{width:36px;height:36px;border:3px solid #eee;border-top-color:#7c3aed;border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* 토스트 */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1a1040;color:white;padding:10px 24px;border-radius:999px;font-size:14px;z-index:99;opacity:0;transition:opacity 0.2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+
+/* 회차 선택 그리드 */
+.round-type-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.round-type-btn{padding:10px;border-radius:10px;border:1.5px solid #eee;background:white;font-size:13px;color:#888;cursor:pointer;text-align:center}
+.round-type-btn.active{border-color:#7c3aed;background:#EEEDFE;color:#7c3aed;font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="spin"></div>
+  <p style="font-size:13px;color:#888">로딩 중...</p>
+</div>
+
+<!-- 탑바 -->
+<div class="admin-topbar">
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="width:28px;height:28px;border-radius:8px;background:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white">JW</div>
+    <span class="title">총관리자</span>
+  </div>
+  <button class="back" onclick="window.close()">닫기</button>
+</div>
+
+<!-- 탭바 -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('home',this)">🏠 홈</button>
+  <button class="tab-btn" onclick="switchTab('area',this)">🗺 구역관리</button>
+  <button class="tab-btn" onclick="switchTab('fix',this)">🔧 수정요청</button>
+  <button class="tab-btn" onclick="switchTab('stats',this)">📊 통계</button>
+  <button class="tab-btn" onclick="switchTab('record',this)">📋 기록</button>
+  <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ 설정</button>
+</div>
+
+<!-- ══════════ 홈 탭 ══════════ -->
+<div class="tab-content active" id="tab-home">
+  <div class="stat-grid">
+    <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 구역</div></div>
+    <div class="stat-card purple"><div class="stat-num" id="statAssigned">-</div><div class="stat-lbl">배정중</div></div>
+    <div class="stat-card green"><div class="stat-num" id="statDone">-</div><div class="stat-lbl">완료</div></div>
+    <div class="stat-card blue"><div class="stat-num" id="statUnassigned">-</div><div class="stat-lbl">미배정</div></div>
+    <div class="stat-card red"><div class="stat-num" id="statReject">-</div><div class="stat-lbl">거절</div></div>
+    <div class="stat-card yellow"><div class="stat-num" id="statInterest">-</div><div class="stat-lbl">관심자</div></div>
+    <div class="stat-card gray"><div class="stat-num" id="statVacant">-</div><div class="stat-lbl">공실</div></div>
+    <div class="stat-card"><div class="stat-num" id="statFix">-</div><div class="stat-lbl">수정요청</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">오늘 봉사 참여자</div>
+    <div id="todayList" style="display:flex;flex-wrap:wrap;gap:6px">
+      <div style="font-size:13px;color:#aaa">불러오는 중...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 구역관리 탭 ══════════ -->
+<div class="tab-content" id="tab-area">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:14px;font-weight:700;color:#1a1040">구역 목록</div>
+    <button onclick="openAddArea()" class="btn-sm btn-primary">+ 새 구역 추가</button>
+  </div>
+  <div class="filter-wrap" id="areaFaceFilter">
+    <div class="chip active" onclick="setAreaFaceFilter('전체',this)">전체</div>
+    <div class="chip" onclick="setAreaFaceFilter('흥덕면',this)">흥덕면</div>
+    <div class="chip" onclick="setAreaFaceFilter('줄포면',this)">줄포면</div>
+    <div class="chip" onclick="setAreaFaceFilter('보안면',this)">보안면</div>
+    <div class="chip" onclick="setAreaFaceFilter('진서면',this)">진서면</div>
+    <div class="chip" onclick="setAreaFaceFilter('주산면',this)">주산면</div>
+    <div class="chip" onclick="setAreaFaceFilter('상서면',this)">상서면</div>
+  </div>
+  <div id="areaList">
+    <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- ══════════ 수정요청 탭 ══════════ -->
+<div class="tab-content" id="tab-fix">
+
+  <div id="fixList">
+    <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- ══════════ 통계 탭 ══════════ -->
+<div class="tab-content" id="tab-stats">
+  <div class="filter-wrap">
+    <div class="chip active" onclick="setStatsFilter('reject',this)">거절</div>
+    <div class="chip" onclick="setStatsFilter('interest',this)">관심자</div>
+    <div class="chip" onclick="setStatsFilter('vacant',this)">공실</div>
+  </div>
+  <div class="filter-wrap" id="statsFaceFilter">
+    <div class="chip active" onclick="setStatsFaceFilter('전체',this)">전체</div>
+    <div class="chip" onclick="setStatsFaceFilter('흥덕면',this)">흥덕면</div>
+    <div class="chip" onclick="setStatsFaceFilter('줄포면',this)">줄포면</div>
+    <div class="chip" onclick="setStatsFaceFilter('보안면',this)">보안면</div>
+    <div class="chip" onclick="setStatsFaceFilter('진서면',this)">진서면</div>
+    <div class="chip" onclick="setStatsFaceFilter('주산면',this)">주산면</div>
+    <div class="chip" onclick="setStatsFaceFilter('상서면',this)">상서면</div>
+  </div>
+  <div id="statsList">
+    <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- ══════════ 기록 탭 ══════════ -->
+<div class="tab-content" id="tab-record">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <div style="font-size:14px;font-weight:700;color:#1a1040">구역별 기록</div>
+    <button onclick="exportExcel()" class="btn-sm btn-success">엑셀 내보내기</button>
+  </div>
+  <div class="filter-wrap">
+    <div class="chip active" onclick="setRecordFaceFilter('전체',this)">전체</div>
+    <div class="chip" onclick="setRecordFaceFilter('흥덕면',this)">흥덕면</div>
+    <div class="chip" onclick="setRecordFaceFilter('줄포면',this)">줄포면</div>
+    <div class="chip" onclick="setRecordFaceFilter('보안면',this)">보안면</div>
+    <div class="chip" onclick="setRecordFaceFilter('진서면',this)">진서면</div>
+    <div class="chip" onclick="setRecordFaceFilter('주산면',this)">주산면</div>
+    <div class="chip" onclick="setRecordFaceFilter('상서면',this)">상서면</div>
+  </div>
+  <div id="recordList">
+    <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- ══════════ 설정 탭 ══════════ -->
+<div class="tab-content" id="tab-settings">
+
+  <!-- 공지사항 -->
+  <div class="setting-item">
+    <div class="setting-title">📣 공지사항</div>
+    <div class="setting-desc">로그인 화면 상단에 표시됩니다</div>
+    <div class="lbl" style="margin-bottom:4px">공지 내용</div>
+    <textarea id="noticeInput" class="inp" rows="3" placeholder="공지사항을 입력해 주세요" style="resize:none;margin-bottom:8px"></textarea>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveNotice()" class="btn-full btn-purple" style="flex:2">저장</button>
+      <button onclick="deleteNotice()" class="btn-full btn-outline" style="flex:1">삭제</button>
+    </div>
+  </div>
+
+  <!-- 봉사 계획표 -->
+  <div class="setting-item">
+    <div class="setting-title">📅 봉사 계획표</div>
+    <div class="setting-desc">한 달 일정을 입력하면 오늘 날짜에 맞게 자동으로 표시됩니다</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+      <select id="scheduleMonth" onchange="renderScheduleTable()" style="flex:1;padding:8px;border-radius:8px;border:1px solid #eee;font-size:13px"></select>
+      <button onclick="saveSchedule()" class="btn-sm btn-purple">저장</button>
+    </div>
+    <div id="scheduleTable" style="overflow-x:auto;margin-bottom:8px"></div>
+    <div id="schedulePreview" style="font-size:13px;color:#888;margin-top:4px"></div>
+  </div>
+
+  <!-- 회중 게시판 -->
+  <div class="setting-item">
+    <div class="setting-title">📋 회중 게시판</div>
+    <div class="setting-desc">게시글을 작성하면 전도인 화면 게시판에 표시됩니다</div>
+    <button onclick="openBoardManager()" class="btn-full btn-dark">게시판 관리</button>
+  </div>
+
+  <!-- 회차 관리 -->
+  <div class="setting-item">
+    <div class="setting-title">🔄 회차 관리</div>
+    <div class="setting-desc">구역 회차를 변경하거나 초기화합니다</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="background:#f5f5f7;border-radius:10px;padding:12px">
+        <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:8px">완료 구역 다음 회차로</div>
+        <button onclick="bulkNextRound()" class="btn-full btn-green">완료 구역 일괄 넘기기</button>
+      </div>
+      <div style="background:#f5f5f7;border-radius:10px;padding:12px">
+        <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:4px">일괄 회차 변경</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px">구역을 선택해서 원하는 회차로 변경합니다</div>
+        <button onclick="openBulkRoundSheet()" class="btn-full btn-primary">일괄 회차 변경하기</button>
+      </div>
+      <div style="background:#f5f5f7;border-radius:10px;padding:12px">
+        <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:4px">기록 초기화</div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px">마지막 회차 기록을 1회차로 이식하고 새로 시작합니다</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button onclick="openResetSheet('all')" class="btn-full btn-red" style="flex:1">전체 초기화</button>
+          <button onclick="openResetSheet('select')" class="btn-full btn-outline" style="flex:1">선택 초기화</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ 바텀 시트들 ══════════ -->
+
+<!-- 구역 추가 시트 -->
+<div class="sheet-overlay" id="addAreaOverlay" onclick="closeAddArea()"></div>
+<div class="bottom-sheet" id="addAreaSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">새 구역 추가</div>
+  <div style="display:flex;flex-direction:column;gap:12px">
+    <div>
+      <div class="lbl">타입</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="round-type-btn active" onclick="selectType(this,'주택')">🏠 주택</button>
+        <button class="round-type-btn" onclick="selectType(this,'상가')">🏢 상가</button>
+        <button class="round-type-btn" onclick="selectType(this,'아파트')">🏗 아파트</button>
+        <button class="round-type-btn" onclick="selectType(this,'[전화]')">📞 전화</button>
+      </div>
+    </div>
+    <div>
+      <div class="lbl">면</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="round-type-btn" onclick="selectFace(this,'흥덕면')">흥덕면</button>
+        <button class="round-type-btn" onclick="selectFace(this,'줄포면')">줄포면</button>
+        <button class="round-type-btn" onclick="selectFace(this,'보안면')">보안면</button>
+        <button class="round-type-btn" onclick="selectFace(this,'진서면')">진서면</button>
+        <button class="round-type-btn" onclick="selectFace(this,'주산면')">주산면</button>
+        <button class="round-type-btn" onclick="selectFace(this,'상서면')">상서면</button>
+      </div>
+    </div>
+    <div>
+      <div class="lbl">구역 번호</div>
+      <input type="number" inputmode="numeric" id="newAreaId" class="inp" placeholder="예: 401"/>
+    </div>
+    <div>
+      <div class="lbl">구역명</div>
+      <input type="text" id="newAreaName" class="inp" placeholder="예: 줄포 중심가"/>
+    </div>
+    <div>
+      <div class="lbl">지도 URL (선택)</div>
+      <input type="text" id="newAreaMapUrl" class="inp" placeholder="구글 마이맵 링크"/>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="closeAddArea()" class="btn-full btn-outline" style="flex:1">취소</button>
+      <button onclick="submitAddArea()" class="btn-full btn-purple" style="flex:2">생성하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 구역 삭제 시트 -->
+<div class="sheet-overlay" id="deleteAreaOverlay" onclick="closeDeleteArea()"></div>
+<div class="bottom-sheet" id="deleteAreaSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="deleteAreaTitle">구역 삭제</div>
+  <div style="background:#fff0f0;border-radius:10px;padding:12px;margin-bottom:14px">
+    <div style="font-size:13px;color:#dc2626">어떻게 삭제하시겠습니까?</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <button onclick="doDeleteArea('infoOnly')" style="width:100%;padding:13px;border-radius:12px;border:0.5px solid #eee;background:white;font-size:13px;text-align:left;cursor:pointer">📋 구역 정보만 삭제 <span style="color:#888;font-size:12px">(방문 기록 유지)</span></button>
+    <button onclick="doDeleteArea('merge')" style="width:100%;padding:13px;border-radius:12px;border:0.5px solid #eee;background:white;font-size:13px;text-align:left;cursor:pointer">🔗 다른 구역에 병합 <span style="color:#888;font-size:12px">(주소 이동)</span></button>
+    <button onclick="doDeleteArea('all')" style="width:100%;padding:13px;border-radius:12px;border:0.5px solid #fca5a5;background:#fff0f0;font-size:13px;text-align:left;cursor:pointer;color:#dc2626">🗑 전체 삭제 <span style="font-size:12px">(방문 기록 포함)</span></button>
+    <button onclick="closeDeleteArea()" class="btn-full btn-outline">취소</button>
+  </div>
+</div>
+
+
+<!-- 일괄 회차 변경 시트 -->
+<div class="sheet-overlay" id="bulkRoundOverlay" onclick="closeBulkRoundSheet()"></div>
+<div class="bottom-sheet" id="bulkRoundSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">일괄 회차 변경</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button onclick="selectAllBulk(true)" class="btn-sm">전체 선택</button>
+    <button onclick="selectAllBulk(false)" class="btn-sm">전체 해제</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto" id="bulkFaceFilter">
+    <div class="chip active" onclick="setBulkFaceFilter('전체',this)">전체</div>
+    <div class="chip" onclick="setBulkFaceFilter('흥덕면',this)">흥덕면</div>
+    <div class="chip" onclick="setBulkFaceFilter('줄포면',this)">줄포면</div>
+    <div class="chip" onclick="setBulkFaceFilter('보안면',this)">보안면</div>
+    <div class="chip" onclick="setBulkFaceFilter('진서면',this)">진서면</div>
+    <div class="chip" onclick="setBulkFaceFilter('주산면',this)">주산면</div>
+    <div class="chip" onclick="setBulkFaceFilter('상서면',this)">상서면</div>
+  </div>
+  <div id="bulkRoundList" style="max-height:300px;overflow-y:auto;margin-bottom:12px"></div>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;background:#f5f5f7;border-radius:10px;padding:10px">
+    <span style="font-size:13px;color:#555">선택 구역을</span>
+    <input type="number" id="bulkRoundTarget" value="1" min="1" class="inp" style="width:70px;text-align:center"/>
+    <span style="font-size:13px;color:#555">회차로 변경</span>
+  </div>
+  <button onclick="applyBulkRound()" class="btn-full btn-purple" style="margin-bottom:8px">변경하기</button>
+  <button onclick="closeBulkRoundSheet()" class="btn-full btn-outline">취소</button>
+</div>
+
+
+<!-- 완료 구역 일괄 넘기기 시트 -->
+<div class="sheet-overlay" id="bulkNextOverlay" onclick="closeBulkNextSheet()"></div>
+<div class="bottom-sheet" id="bulkNextSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">완료 구역 다음 회차로</div>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button onclick="selectAllBulkNext(true)" class="btn-sm">전체 선택</button>
+    <button onclick="selectAllBulkNext(false)" class="btn-sm">전체 해제</button>
+  </div>
+  <div id="bulkNextList" style="max-height:350px;overflow-y:auto;margin-bottom:12px"></div>
+  <button onclick="applyBulkNext()" class="btn-full btn-green" style="margin-bottom:8px">선택 구역 다음 회차로</button>
+  <button onclick="closeBulkNextSheet()" class="btn-full btn-outline">취소</button>
+</div>
+
+<!-- 기록 초기화 시트 -->
+<div class="sheet-overlay" id="resetOverlay" onclick="closeResetSheet()"></div>
+<div class="bottom-sheet" id="resetSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="resetSheetTitle">기록 초기화</div>
+  <div id="resetSheetBody"></div>
+</div>
+
+<!-- 게시판 관리 시트 -->
+<div class="sheet-overlay" id="boardOverlay" onclick="closeBoardManager()"></div>
+<div class="bottom-sheet" id="boardSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">회중 게시판 관리</div>
+  <div style="background:#2d5016;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div style="font-size:12px;color:rgba(255,255,255,0.6);margin-bottom:10px">새 게시글 작성</div>
+    <div class="lbl" style="color:rgba(255,255,255,0.7)">제목</div>
+    <input type="text" id="boardTitle" class="inp" placeholder="게시글 제목" style="margin-bottom:8px;background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2)"/>
+    <div class="lbl" style="color:rgba(255,255,255,0.7)">내용</div>
+    <textarea id="boardContent" class="inp" rows="3" placeholder="내용을 입력해 주세요" style="resize:none;margin-bottom:8px;background:rgba(255,255,255,0.1);color:white;border-color:rgba(255,255,255,0.2)"></textarea>
+    <div class="lbl" style="color:rgba(255,255,255,0.7)">사진 첨부 (선택)</div>
+    <input type="file" id="boardImage" accept="image/*" style="display:none" onchange="previewBoardImage(event)"/>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button onclick="document.getElementById('boardImage').click()" style="flex:1;padding:8px;border-radius:8px;border:1px dashed rgba(255,255,255,0.3);background:transparent;color:rgba(255,255,255,0.7);font-size:12px;cursor:pointer">📷 사진 선택</button>
+      <button onclick="clearBoardImage()" style="padding:8px 12px;border-radius:8px;border:none;background:rgba(255,0,0,0.3);color:white;font-size:12px;cursor:pointer">취소</button>
+    </div>
+    <div id="boardImagePreview" style="margin-bottom:8px"></div>
+    <button onclick="saveBoard()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#4a7c2f;color:white;font-size:14px;font-weight:700;cursor:pointer">📌 게시하기</button>
+  </div>
+  <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:8px">게시글 목록</div>
+  <div id="boardList"></div>
+</div>
+
+<!-- 수정요청 카드 에디터 시트 -->
+<div class="sheet-overlay" id="editCardOverlay" onclick="closeEditCard()"></div>
+<div class="bottom-sheet" id="editCardSheet">
+  <div class="sheet-handle"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div class="sheet-title" id="editCardTitle" style="margin:0">카드 수정</div>
+    <button onclick="closeEditCard()" style="background:none;border:1px solid #eee;border-radius:8px;padding:5px 12px;font-size:13px;color:#888;cursor:pointer">닫기</button>
+  </div>
+  <div id="editCardBody"></div>
+  <div style="display:flex;gap:8px;margin-top:12px">
+    <button onclick="closeEditCard()" class="btn-full btn-outline" style="flex:1">취소</button>
+    <button onclick="saveCardEdit()" class="btn-full btn-purple" style="flex:2">저장하기</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBmhHpanj9lYGLo-f9V3YTmgn4Kwtdw0u8",
+  authDomain: "field-map-f06a4.firebaseapp.com",
+  databaseURL: "https://field-map-f06a4-default-rtdb.firebaseio.com",
+  projectId: "field-map-f06a4",
+  storageBucket: "field-map-f06a4.firebasestorage.app",
+  messagingSenderId: "1080155946606",
+  appId: "1:1080155946606:web:d5d15c62295251c2ce307f"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const rtdb = firebase.database();
+
+var areas = [];
+var selectedType = '주택';
+var selectedFace = '';
+var areaFaceFilter = '전체';
+var fixFilter = '미처리';
+var statsFilter = 'reject';
+var statsFaceFilter = '전체';
+var recordFaceFilter = '전체';
+var deleteTargetId = null;
+var editingAreaId = null;
+var editingBlocks = [];
+
+var AREA_RANGES = {
+  '흥덕면':[1,32],'줄포면':[33,77],'보안면':[78,128],
+  '진서면':[129,169],'주산면':[170,205],'상서면':[206,235]
+};
+
+function getAreaFace(id) {
+  var n = Number(id);
+  for(var k in AREA_RANGES) {
+    if(n >= AREA_RANGES[k][0] && n <= AREA_RANGES[k][1]) return k;
+  }
+  return '기타';
+}
+
+// ── 초기 로딩 ──
+window.onload = async function() {
+  showLoader();
+  try {
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+  } catch(e) {}
+  hideLoader();
+  loadHomeStats();
+  loadAreaList();
+  loadFixList();
+  loadStatsList();
+  loadRecordList();
+  loadSettings();
+};
+
+function showLoader() { document.getElementById('loader').classList.add('show'); }
+function hideLoader() { document.getElementById('loader').classList.remove('show'); }
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── 탭 전환 ──
+var adminTabOrder = ['home','area','fix','stats','record','settings'];
+var adminCurrentTab = 'home';
+var adminSwipeStartX = 0;
+var adminSwipeStartY = 0;
+
+function switchTab(tab, el) {
+  var prevIdx = adminTabOrder.indexOf(adminCurrentTab);
+  var nextIdx = adminTabOrder.indexOf(tab);
+  var dir = nextIdx >= prevIdx ? 'slide-left' : 'slide-right';
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  var next = document.getElementById('tab-' + tab);
+  next.classList.remove('slide-left','slide-right');
+  void next.offsetWidth;
+  next.classList.add('active', dir);
+  adminCurrentTab = tab;
+}
+
+function switchAdminTabByIndex(idx, dir) {
+  if(idx < 0 || idx >= adminTabOrder.length) return;
+  var tab = adminTabOrder[idx];
+  var btn = document.querySelectorAll('.tab-btn')[idx];
+  switchTab(tab, btn);
+}
+
+document.addEventListener('touchstart', function(e) {
+  if(!e.touches || !e.touches.length) return;
+  adminSwipeStartX = e.touches[0].clientX;
+  adminSwipeStartY = e.touches[0].clientY;
+}, {passive:true});
+
+document.addEventListener('touchend', function(e) {
+  if(!e.changedTouches || !e.changedTouches.length) return;
+  var dx = e.changedTouches[0].clientX - adminSwipeStartX;
+  var dy = e.changedTouches[0].clientY - adminSwipeStartY;
+  if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  var idx = adminTabOrder.indexOf(adminCurrentTab);
+  switchAdminTabByIndex(dx < 0 ? idx + 1 : idx - 1, dx < 0 ? 'left' : 'right');
+}, {passive:true});
+
+document.addEventListener('touchmove', function(e) {
+  var path = e.composedPath ? e.composedPath() : [];
+  var allowScroll = path.some(function(el) {
+    return el && el.scrollHeight && el.clientHeight && el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY !== 'visible';
+  });
+  if(!allowScroll && e.cancelable) e.preventDefault();
+}, {passive:false});
+
+// ══════════════════════════
+// 홈 탭
+// ══════════════════════════
+async function loadHomeStats() {
+  document.getElementById('statTotal').textContent = areas.length;
+  var assigned = areas.filter(a => a.leader).length;
+  document.getElementById('statAssigned').textContent = assigned;
+  document.getElementById('statUnassigned').textContent = areas.length - assigned;
+
+  // 거절/관심자/공실/수정요청 카운트
+  try {
+    var [rejSnap, intSnap, vacSnap, fixSnap] = await Promise.all([
+      db.collection('rejects').get(),
+      db.collection('interests').get(),
+      db.collection('vacants').get(),
+      db.collection('fixRequests').where('status','==','미처리').get()
+    ]);
+    document.getElementById('statReject').textContent = rejSnap.size;
+    document.getElementById('statInterest').textContent = intSnap.size;
+    document.getElementById('statVacant').textContent = vacSnap.size;
+    document.getElementById('statFix').textContent = fixSnap.size;
+  } catch(e) {}
+
+  // 오늘 참여자
+  var today = new Date().toISOString().slice(0,10);
+  try {
+    var snap = await db.collection('serviceSignups').where('date','==',today).get();
+    var list = document.getElementById('todayList');
+    if(!snap.size) {
+      list.innerHTML = '<div style="font-size:13px;color:#aaa">오늘 봉사 신청자가 없습니다</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.docs.forEach(d => {
+      var p = d.data();
+      var chip = document.createElement('div');
+      chip.style.cssText = 'background:#f0f0f5;border-radius:999px;padding:5px 12px;font-size:13px;color:#333';
+      chip.textContent = p.name + (p.car ? ' 🚗' : '');
+      list.appendChild(chip);
+    });
+    document.getElementById('statDone').textContent = snap.size;
+  } catch(e) {}
+}
+
+// ══════════════════════════
+// 구역 관리 탭
+// ══════════════════════════
+function setAreaFaceFilter(face, el) {
+  areaFaceFilter = face;
+  document.querySelectorAll('#areaFaceFilter .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderAreaList();
+}
+
+function loadAreaList() { renderAreaList(); }
+
+function renderAreaList() {
+  var filtered = areas.slice().sort((a,b) => Number(a.id) - Number(b.id));
+  if(areaFaceFilter !== '전체') filtered = filtered.filter(a => getAreaFace(a.id) === areaFaceFilter);
+
+  var list = document.getElementById('areaList');
+  if(!filtered.length) {
+    list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">구역이 없습니다</div>';
+    return;
+  }
+  list.innerHTML = '';
+  filtered.forEach(a => {
+    var div = document.createElement('div');
+    div.className = 'area-item';
+    div.style.cursor = 'pointer';
+    div.onclick = function() { openEditCard(String(a.id)); };
+    div.draggable = true;
+    div.innerHTML =
+      '<div class="area-drag-handle" onclick="event.stopPropagation()">☰</div>' +
+      '<div class="info">' +
+        '<div class="name">' + a.id + '번 · ' + (a.name||'') + '</div>' +
+        '<div class="sub">' + (a.type||'') + ' · ' + (a.leader||'미배정') + ' · ' + (a.round||1) + '회차 · ' + getAreaFace(a.id) + '</div>' +
+      '</div>' +
+      '<div class="btns">' +
+        '<button class="btn-sm btn-danger" onclick="event.stopPropagation();openDeleteArea(\'' + a.id + '\')">삭제</button>' +
+      '</div>';
+    list.appendChild(div);
+  });
+  initAreaDrag();
+}
+
+// 구역 추가
+function openAddArea()
+ {
+  lockScroll();
+  selectedType = '주택'; selectedFace = '';
+  document.getElementById('newAreaId').value = '';
+  document.getElementById('newAreaName').value = '';
+  document.getElementById('newAreaMapUrl').value = '';
+  document.querySelectorAll('#addAreaSheet .round-type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#addAreaSheet .round-type-btn').classList.add('active');
+  document.getElementById('addAreaOverlay').classList.add('open');
+  document.getElementById('addAreaSheet').classList.add('open');
+}
+function closeAddArea() {
+  unlockScroll();
+  document.getElementById('addAreaOverlay').classList.remove('open');
+  document.getElementById('addAreaSheet').classList.remove('open');
+}
+function selectType(el, type) {
+  selectedType = type;
+  el.parentElement.querySelectorAll('.round-type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectFace(el, face) {
+  selectedFace = face;
+  el.parentElement.querySelectorAll('.round-type-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+async function submitAddArea() {
+  var id = document.getElementById('newAreaId').value.trim();
+  var name = document.getElementById('newAreaName').value.trim();
+  var mapUrl = document.getElementById('newAreaMapUrl').value.trim();
+  if(!id) { showToast('구역 번호를 입력해 주세요'); return; }
+  if(!name) { showToast('구역명을 입력해 주세요'); return; }
+  if(!selectedFace) { showToast('면을 선택해 주세요'); return; }
+
+  var numId = Number(id);
+  var existing = areas.find(a => Number(a.id) === numId);
+
+  if(existing) {
+    if(!confirm(id + '번으로 생성하면 기존 ' + id + '번부터 뒤 구역들이 한 칸씩 밀립니다. 계속하시겠습니까?')) return;
+    showLoader();
+    // 번호 밀기
+    var toShift = areas.filter(a => Number(a.id) >= numId).sort((a,b) => Number(b.id) - Number(a.id));
+    var batch = db.batch();
+    for(var a of toShift) {
+      var newId = String(Number(a.id) + 1);
+      var newRef = db.collection('areas').doc(newId);
+      batch.set(newRef, {...a, id: newId});
+      batch.delete(db.collection('areas').doc(String(a.id)));
+    }
+    await batch.commit();
+  }
+
+  showLoader();
+  try {
+    await db.collection('areas').doc(String(numId)).set({
+      id: String(numId),
+      name: name,
+      type: selectedType,
+      mapUrl: mapUrl,
+      round: 1,
+      leader: '',
+      startDate: '',
+      endDate: '',
+      progress: 0,
+      blocks: []
+    });
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+    closeAddArea();
+    renderAreaList();
+    showToast('✅ 구역이 추가됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+// 구역 삭제
+function openDeleteArea(
+aId) {
+  lockScroll();
+  deleteTargetId = aId;
+  var a = areas.find(x => String(x.id) === String(aId));
+  document.getElementById('deleteAreaTitle').textContent = (a ? a.id + '번 · ' + a.name : aId) + ' 삭제';
+  document.getElementById('deleteAreaOverlay').classList.add('open');
+  document.getElementById('deleteAreaSheet').classList.add('open');
+}
+function closeDeleteArea() {
+  unlockScroll();
+  document.getElementById('deleteAreaOverlay').classList.remove('open');
+  document.getElementById('deleteAreaSheet').classList.remove('open');
+}
+
+async function doDeleteArea(type) {
+  if(!deleteTargetId) return;
+  if(!confirm('정말 삭제하시겠습니까?')) return;
+  showLoader();
+  try {
+    if(type === 'all') {
+      // 방문기록도 삭제
+      var visitSnap = await db.collection('visits').where('areaId','==',String(deleteTargetId)).get();
+      var batch = db.batch();
+      visitSnap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(db.collection('areas').doc(String(deleteTargetId)));
+      await batch.commit();
+    } else if(type === 'infoOnly') {
+      await db.collection('areas').doc(String(deleteTargetId)).delete();
+    } else if(type === 'merge') {
+      showToast('병합 기능은 준비 중입니다');
+      hideLoader();
+      closeDeleteArea();
+      return;
+    }
+    areas = areas.filter(a => String(a.id) !== String(deleteTargetId));
+    closeDeleteArea();
+    renderAreaList();
+    showToast('✅ 삭제됐습니다');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+// ══════════════════════════
+// 카드 수정 에디터
+// ══════════════════════════
+var editingFixMemos = {}; // addr → memo
+
+async function openEditCard(
+aId) {
+  lockScroll();
+  editingAreaId = aId;
+  editingFixMemos = {};
+  var a = areas.find(function(x) { return String(x.id) === String(aId); });
+  document.getElementById('editCardTitle').textContent = aId + '번 · ' + (a ? a.name : '') + ' 수정';
+  document.getElementById('editCardOverlay').classList.add('open');
+  document.getElementById('editCardSheet').classList.add('open');
+  document.getElementById('editCardBody').innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
+
+  try {
+    var doc = await db.collection('areas').doc(String(aId)).get();
+    editingBlocks = doc.exists ? (doc.data().blocks || []) : [];
+
+    // 수정요청 메모 불러오기
+    var fixSnap = await db.collection('fixRequests')
+      .where('areaId','==',String(aId))
+      .where('status','==','미처리').get();
+    fixSnap.docs.forEach(function(d) {
+      var r = d.data();
+      editingFixMemos[r.addr] = {memo: r.memo, docId: d.id};
+    });
+
+    renderCardEditor();
+  } catch(e) {}
+}
+
+function closeEditCard() {
+  unlockScroll();
+  document.getElementById('editCardOverlay').classList.remove('open');
+  document.getElementById('editCardSheet').classList.remove('open');
+}
+
+var dragSrcData = null;
+var cardTouchTimer = null;
+
+function moveHouseWithinSubtopic(src, tgt) {
+  if(!src || !tgt) return false;
+  if(src.bi !== tgt.bi || src.si !== tgt.si || src.hi === tgt.hi) return false;
+  var houses = editingBlocks[tgt.bi].subTopics[tgt.si].houses;
+  var item = houses[src.hi];
+  houses.splice(src.hi, 1);
+  var insertAt = tgt.hi;
+  if(src.hi < tgt.hi) insertAt--;
+  houses.splice(insertAt, 0, item);
+  return true;
+}
+
+function attachCardTouchDrag(row, handle) {
+  var startData = null;
+  handle.addEventListener('touchstart', function(e) {
+    startData = {
+      bi: parseInt(row.dataset.bi),
+      si: parseInt(row.dataset.si),
+      hi: parseInt(row.dataset.hi)
+    };
+    cardTouchTimer = setTimeout(function() {
+      dragSrcData = startData;
+      row.classList.add('dragging');
+      row.style.opacity = '0.45';
+    }, 280);
+  }, {passive:true});
+  handle.addEventListener('touchmove', function(e) {
+    if(!dragSrcData) return;
+    e.preventDefault();
+    var touch = e.touches[0];
+    var target = document.elementFromPoint(touch.clientX, touch.clientY);
+    var targetRow = target ? target.closest('[data-bi][data-si][data-hi]') : null;
+    document.querySelectorAll('#editCardBody [data-bi][data-si][data-hi]').forEach(function(r) { r.style.outline = ''; });
+    if(targetRow && targetRow !== row) targetRow.style.outline = '2px solid #7c3aed';
+  }, {passive:false});
+  handle.addEventListener('touchend', function(e) {
+    clearTimeout(cardTouchTimer);
+    if(!dragSrcData) return;
+    var touch = e.changedTouches[0];
+    var target = document.elementFromPoint(touch.clientX, touch.clientY);
+    var targetRow = target ? target.closest('[data-bi][data-si][data-hi]') : null;
+    if(targetRow && targetRow !== row) {
+      var tgt = {
+        bi: parseInt(targetRow.dataset.bi),
+        si: parseInt(targetRow.dataset.si),
+        hi: parseInt(targetRow.dataset.hi)
+      };
+      moveHouseWithinSubtopic(dragSrcData, tgt);
+    }
+    dragSrcData = null;
+    renderCardEditor();
+  }, {passive:true});
+  handle.addEventListener('touchcancel', function() {
+    clearTimeout(cardTouchTimer);
+    dragSrcData = null;
+    row.style.opacity = '1';
+    row.classList.remove('dragging');
+  }, {passive:true});
+}
+
+function renderCardEditor() {
+  var body = document.getElementById('editCardBody');
+  body.innerHTML = '';
+
+  editingBlocks.forEach(function(blk, bi) {
+    var blkDiv = document.createElement('div');
+    blkDiv.style.cssText = 'border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px';
+
+    // 블럭 헤더
+    var hdr = document.createElement('div');
+    hdr.style.cssText = 'background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between';
+    hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '블럭</span>';
+    var hdrBtns = document.createElement('div');
+    hdrBtns.style.cssText = 'display:flex;gap:6px';
+
+    var parkBtn = document.createElement('button');
+    parkBtn.textContent = '주차 수정';
+    parkBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
+    parkBtn.onclick = (function(b){ return function(){ editBlkParking(b); }; })(bi);
+
+    var delBlkBtn = document.createElement('button');
+    delBlkBtn.textContent = '삭제';
+    delBlkBtn.style.cssText = 'background:rgba(255,0,0,0.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
+    delBlkBtn.onclick = (function(b){ return function(){ removeBlk(b); }; })(bi);
+
+    hdrBtns.appendChild(parkBtn);
+    hdrBtns.appendChild(delBlkBtn);
+    hdr.appendChild(hdrBtns);
+    blkDiv.appendChild(hdr);
+
+    // 소주제
+    var topics = blk.subTopics || [];
+    topics.forEach(function(sub, si) {
+      var subDiv = document.createElement('div');
+      subDiv.style.cssText = 'padding:8px 12px;border-bottom:0.5px solid #f0f0f0';
+
+      var subTitle = document.createElement('div');
+      subTitle.style.cssText = 'font-size:12px;font-weight:600;color:#7c3aed;margin-bottom:6px';
+      subTitle.textContent = '└ ' + (sub.name||'소주제');
+      subDiv.appendChild(subTitle);
+
+      // 주소 목록
+      (sub.houses||[]).forEach(function(h, hi) {
+        var addr = h.addr||h.num||'';
+        var memo = h.note||h.memo||'';
+        var fixInfo = editingFixMemos[addr];
+
+        var row = document.createElement('div');
+        row.draggable = true;
+        row.dataset.bi = bi; row.dataset.si = si; row.dataset.hi = hi;
+        row.style.cssText = 'padding:8px;background:' + (fixInfo?'#FFF7ED':'#f5f5f7') + ';border-radius:8px;margin-bottom:4px;' + (fixInfo?'border:1px solid #e65100;':'');
+
+        // 일반 뷰 (잠긴 상태)
+        var viewMode = document.createElement('div');
+        viewMode.style.cssText = 'display:flex;align-items:center;gap:8px';
+
+        var handle = document.createElement('span');
+        handle.textContent = '☰';
+        handle.style.cssText = 'color:#999;font-size:16px;cursor:grab;flex-shrink:0;background:white;border-radius:6px;padding:3px 6px;touch-action:none;user-select:none';
+
+        var addrSpan = document.createElement('span');
+        addrSpan.textContent = addr;
+        addrSpan.style.cssText = 'font-size:13px;font-weight:600;color:#333;min-width:60px';
+
+        var memoSpan = document.createElement('span');
+        memoSpan.textContent = memo || '메모 없음';
+        memoSpan.style.cssText = 'font-size:12px;color:#aaa;flex:1';
+
+        if(fixInfo) {
+          var fixBadge = document.createElement('span');
+          fixBadge.textContent = '수정요청';
+          fixBadge.style.cssText = 'font-size:11px;background:#e65100;color:white;padding:2px 6px;border-radius:999px;flex-shrink:0';
+          viewMode.appendChild(handle);
+          viewMode.appendChild(addrSpan);
+          viewMode.appendChild(fixBadge);
+          viewMode.appendChild(memoSpan);
+        } else {
+          viewMode.appendChild(handle);
+          viewMode.appendChild(addrSpan);
+          viewMode.appendChild(memoSpan);
+        }
+
+        var editBtn = document.createElement('button');
+        editBtn.textContent = '수정';
+        editBtn.style.cssText = 'background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0';
+
+        var delBtn = document.createElement('button');
+        delBtn.textContent = '삭제';
+        delBtn.style.cssText = 'background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0';
+        delBtn.onclick = (function(b,s,i){ return function(){ removeHouse(b,s,i); }; })(bi,si,hi);
+
+        viewMode.appendChild(editBtn);
+        viewMode.appendChild(delBtn);
+        row.appendChild(viewMode);
+
+        // 수정요청 메모 표시
+        if(fixInfo) {
+          var fixMemoDiv = document.createElement('div');
+          fixMemoDiv.style.cssText = 'background:#FFF0E8;border-radius:6px;padding:5px 8px;font-size:12px;color:#854F0B;margin-top:4px;display:flex;align-items:center;gap:6px';
+          fixMemoDiv.innerHTML = '💬 수정요청 메모:';
+          var fixMemoInp = document.createElement('input');
+          fixMemoInp.type = 'text';
+          fixMemoInp.value = fixInfo.memo;
+          fixMemoInp.style.cssText = 'flex:1;border:none;background:transparent;font-size:12px;color:#854F0B;outline:none';
+          fixMemoInp.onchange = (function(a){ return function(e){ editingFixMemos[a].memo = e.target.value; }; })(addr);
+          fixMemoDiv.appendChild(fixMemoInp);
+          row.appendChild(fixMemoDiv);
+        }
+
+        // 인라인 편집 모드
+        var editMode = document.createElement('div');
+        editMode.style.cssText = 'display:none;flex-direction:column;gap:6px';
+
+        var addrInp = document.createElement('input');
+        addrInp.type = 'text';
+        addrInp.value = addr;
+        addrInp.placeholder = '주소';
+        addrInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #7c3aed;border-radius:8px;font-size:13px;font-weight:600;outline:none';
+
+        var memoInp = document.createElement('input');
+        memoInp.type = 'text';
+        memoInp.value = memo;
+        memoInp.placeholder = '메모 (선택)';
+        memoInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#555;outline:none';
+
+        var saveBtnRow = document.createElement('div');
+        saveBtnRow.style.cssText = 'display:flex;gap:6px';
+
+        var confirmBtn = document.createElement('button');
+        confirmBtn.textContent = '✓ 확인';
+        confirmBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:none;background:#7c3aed;color:white;font-size:13px;font-weight:600;cursor:pointer';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '취소';
+        cancelBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;background:white;color:#888;font-size:13px;cursor:pointer';
+
+        saveBtnRow.appendChild(confirmBtn);
+        saveBtnRow.appendChild(cancelBtn);
+        editMode.appendChild(addrInp);
+        editMode.appendChild(memoInp);
+        editMode.appendChild(saveBtnRow);
+        row.appendChild(editMode);
+
+        // 수정 버튼 클릭 → 인라인 편집 모드로
+        editBtn.onclick = function() {
+          viewMode.style.display = 'none';
+          editMode.style.display = 'flex';
+          addrInp.focus();
+        };
+
+        // 확인 버튼
+        confirmBtn.onclick = (function(b,s,i,aInp,mInp,vm,em,aSpan,mSpan){
+          return function() {
+            var newAddr = aInp.value.trim();
+            var newMemo = mInp.value.trim();
+            if(!newAddr) return;
+            editingBlocks[b].subTopics[s].houses[i].addr = newAddr;
+            editingBlocks[b].subTopics[s].houses[i].note = newMemo;
+            aSpan.textContent = newAddr;
+            mSpan.textContent = newMemo || '메모 없음';
+            vm.style.display = 'flex';
+            em.style.display = 'none';
+          };
+        })(bi,si,hi,addrInp,memoInp,viewMode,editMode,addrSpan,memoSpan);
+
+        // 취소 버튼
+        cancelBtn.onclick = function() {
+          viewMode.style.display = 'flex';
+          editMode.style.display = 'none';
+        };
+
+        // 드래그 이벤트
+        row.addEventListener('dragstart', function(e) {
+          dragSrcData = {bi: parseInt(this.dataset.bi), si: parseInt(this.dataset.si), hi: parseInt(this.dataset.hi)};
+          e.dataTransfer.effectAllowed = 'move';
+          var self = this;
+          setTimeout(function(){ self.style.opacity = '0.4'; }, 0);
+        });
+        row.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          this.style.outline = '2px solid #7c3aed';
+        });
+        row.addEventListener('dragleave', function() {
+          this.style.outline = '';
+        });
+        row.addEventListener('drop', function(e) {
+          e.preventDefault();
+          this.style.outline = '';
+          if(!dragSrcData) return;
+          var tgtBi = parseInt(this.dataset.bi), tgtSi = parseInt(this.dataset.si), tgtHi = parseInt(this.dataset.hi);
+          moveHouseWithinSubtopic(dragSrcData, {bi:tgtBi, si:tgtSi, hi:tgtHi});
+          dragSrcData = null;
+          renderCardEditor();
+        });
+        row.addEventListener('dragend', function() {
+          this.style.opacity = '1';
+          this.style.outline = '';
+          dragSrcData = null;
+        });
+        attachCardTouchDrag(row, handle);
+
+        subDiv.appendChild(row);
+      });
+
+      // 주소 추가 버튼
+      var addHouseBtn = document.createElement('button');
+      addHouseBtn.textContent = '+ 주소 추가';
+      addHouseBtn.style.cssText = 'width:100%;padding:6px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px';
+      addHouseBtn.onclick = (function(b,s){ return function(){ addHouse(b,s); }; })(bi,si);
+      subDiv.appendChild(addHouseBtn);
+      blkDiv.appendChild(subDiv);
+    });
+
+    // 소주제 추가 버튼
+    var addSubBtn = document.createElement('button');
+    addSubBtn.textContent = '+ 소주제 추가';
+    addSubBtn.style.cssText = 'width:calc(100% - 24px);margin:8px 12px;padding:6px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block';
+    addSubBtn.onclick = (function(b){ return function(){ addSubTopic(b); }; })(bi);
+    blkDiv.appendChild(addSubBtn);
+    body.appendChild(blkDiv);
+  });
+
+  // 블럭 추가 버튼
+  var addBlkBtn = document.createElement('button');
+  addBlkBtn.textContent = '+ 블럭 추가';
+  addBlkBtn.style.cssText = 'width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px';
+  addBlkBtn.onclick = addBlock;
+  body.appendChild(addBlkBtn);
+}
+
+function removeBlk(bi) {
+  editingBlocks.splice(bi, 1);
+  renderCardEditor();
+}
+function removeHouse(bi, si, hi) {
+  editingBlocks[bi].subTopics[si].houses.splice(hi, 1);
+  renderCardEditor();
+}
+function addBlock() {
+  editingBlocks.push({name: (editingBlocks.length+1) + '블럭', parking: '', subTopics: [{name: '', houses: []}]});
+  renderCardEditor();
+}
+function addSubTopic(bi) {
+  if(!editingBlocks[bi].subTopics) editingBlocks[bi].subTopics = [];
+  editingBlocks[bi].subTopics.push({name: '', houses: []});
+  renderCardEditor();
+}
+function addHouse(bi, si) {
+  var addr = prompt('주소를 입력해 주세요');
+  if(!addr) return;
+  editingBlocks[bi].subTopics[si].houses.push({addr: addr, note: ''});
+  renderCardEditor();
+}
+function editBlkParking(bi) {
+  var p = prompt('주차 위치', editingBlocks[bi].parking||'');
+  if(p === null) return;
+  editingBlocks[bi].parking = p;
+  renderCardEditor();
+}
+
+async function saveCardEdit() {
+  showLoader();
+  try {
+    await db.collection('areas').doc(String(editingAreaId)).update({blocks: editingBlocks});
+    var idx = areas.findIndex(function(a) { return String(a.id) === String(editingAreaId); });
+    if(idx >= 0) areas[idx].blocks = editingBlocks;
+
+    var fixEntries = Object.entries(editingFixMemos);
+    if(fixEntries.length > 0) {
+      var batch = db.batch();
+
+      // fixRequests 삭제
+      fixEntries.forEach(function(entry) {
+        batch.delete(db.collection('fixRequests').doc(entry[1].docId));
+      });
+
+      // 각 수정요청 주소에 대해 visits 직접 업데이트
+      var area = areas.find(function(a) { return String(a.id) === String(editingAreaId); });
+      var round = area ? (area.round || 1) : 1;
+
+      for(var i = 0; i < fixEntries.length; i++) {
+        var addr = fixEntries[i][0];
+        var fixInfo = fixEntries[i][1];
+        var docId = String(editingAreaId) + '_' + addr.replace(/\s/g,'_') + '_' + round;
+        var ref = db.collection('visits').doc(docId);
+        var snap = await ref.get();
+        if(snap.exists) {
+          batch.update(ref, {status: 'none', memo: fixInfo.memo});
+        } else {
+          // 문서가 없으면 새로 생성
+          batch.set(ref, {
+            areaId: String(editingAreaId), round: round,
+            addr: addr, status: 'none', memo: fixInfo.memo,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+
+      await batch.commit();
+    }
+
+    closeEditCard();
+    showToast('✅ 저장됐습니다! 수정요청 ' + fixEntries.length + '건 처리완료');
+  } catch(e) { showToast('저장 오류: ' + e.message); }
+  hideLoader();
+}
+
+// ══════════════════════════
+// 수정요청 탭
+// ══════════════════════════
+function setFixFilter(filter, el) {
+  fixFilter = filter;
+  document.querySelectorAll('#tab-fix .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadFixList();
+}
+
+async function loadFixList() {
+  var list = document.getElementById('fixList');
+  list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
+  try {
+    var snap = await db.collection('fixRequests').where('status','==','미처리').get();
+    if(!snap.size) {
+      list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">수정 요청이 없습니다</div>';
+      return;
+    }
+    list.innerHTML = '';
+    snap.docs.forEach(d => {
+      var r = d.data();
+      var div = document.createElement('div');
+      div.className = 'fix-item';
+      div.innerHTML =
+        '<div class="fix-area">' + (r.areaId||'') + '번 · ' + (r.areaName||'') + '</div>' +
+        '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
+          '<span class="fix-addr">' + (r.addr||'') + '</span>' +
+          '<span style="font-size:11px;background:#e65100;color:white;padding:2px 8px;border-radius:999px">수정요청</span>' +
+          '<span class="fix-memo">' + (r.memo||'') + '</span>' +
+        '</div>' +
+        '<div class="fix-btns">' +
+          '<button onclick="resolveFixRequest(\'' + d.id + '\')" class="btn-sm btn-success">처리완료</button>' +
+          '<button onclick="openEditCard(\'' + r.areaId + '\')" class="btn-sm btn-primary">카드 수정</button>' +
+        '</div>';
+      list.appendChild(div);
+    });
+  } catch(e) {}
+}
+
+async function resolveFixRequest(docId) {
+  try {
+    await db.collection('fixRequests').doc(docId).delete();
+    showToast('✅ 처리완료 후 삭제됐습니다');
+    loadFixList();
+  } catch(e) {}
+}
+
+// ══════════════════════════
+// 통계 탭
+// ══════════════════════════
+function setStatsFilter(filter, el) {
+  statsFilter = filter;
+  document.querySelectorAll('#tab-stats .filter-wrap:first-child .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadStatsList();
+}
+function setStatsFaceFilter(face, el) {
+  statsFaceFilter = face;
+  document.querySelectorAll('#statsFaceFilter .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadStatsList();
+}
+
+async function loadStatsList() {
+  var list = document.getElementById('statsList');
+  list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
+  var colMap = {reject:'rejects', interest:'interests', vacant:'vacants'};
+  var labelMap = {reject:'거절', interest:'관심자', vacant:'공실'};
+  var colorMap = {reject:'#dc2626', interest:'#d97706', vacant:'#555'};
+  var bgMap = {reject:'#fff0f0', interest:'#fffde7', vacant:'#f5f5f5'};
+  try {
+    var snap = await db.collection(colMap[statsFilter]).get();
+    var items = snap.docs.map(d => d.data());
+    if(statsFaceFilter !== '전체') items = items.filter(r => getAreaFace(r.areaId) === statsFaceFilter);
+    if(!items.length) {
+      list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">항목이 없습니다</div>';
+      return;
+    }
+    list.innerHTML = '';
+    items.forEach(r => {
+      var div = document.createElement('div');
+      div.className = 'stat-list-item';
+      div.innerHTML =
+        '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:600;color:#1a1040">' + (r.areaId||'') + '번 · ' + (r.areaName||'') + '</div>' +
+          '<div style="font-size:12px;color:#888;margin-top:2px">' + (r.addr||'') + ' · ' + (r.memo||'메모 없음') + '</div>' +
+        '</div>' +
+        '<span style="font-size:11px;background:' + bgMap[statsFilter] + ';color:' + colorMap[statsFilter] + ';padding:3px 10px;border-radius:999px;font-weight:600">' + labelMap[statsFilter] + '</span>';
+      list.appendChild(div);
+    });
+  } catch(e) {}
+}
+
+// ══════════════════════════
+// 기록 탭
+// ══════════════════════════
+function setRecordFaceFilter(face, el) {
+  recordFaceFilter = face;
+  document.querySelectorAll('#tab-record .filter-wrap .chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadRecordList();
+}
+
+async function loadRecordList() {
+  var list = document.getElementById('recordList');
+  list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
+  var filtered = areas.slice().sort((a,b) => Number(a.id) - Number(b.id));
+  if(recordFaceFilter !== '전체') filtered = filtered.filter(a => getAreaFace(a.id) === recordFaceFilter);
+
+  list.innerHTML = '';
+  for(var a of filtered) {
+    try {
+      var histSnap = await db.collection('areaHistory').doc(String(a.id)).get();
+      var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
+
+      // 현재 회차 정보도 추가
+      if(a.leader || a.startDate) {
+        var currentRound = {round: a.round||1, leader: a.leader||'', startDate: a.startDate||'', endDate: a.endDate||''};
+        var exists = history.find(h => h.round === currentRound.round);
+        if(!exists) history.push(currentRound);
+      }
+
+      if(!history.length) continue;
+
+      var card = document.createElement('div');
+      card.className = 'record-card';
+      card.innerHTML = '<div class="record-header">' +
+        '<span style="font-size:13px;font-weight:700;color:white">' + a.id + '번 · ' + (a.name||'') + '</span>' +
+        '<button onclick="editRecord(\'' + a.id + '\')" style="background:rgba(255,255,255,0.15);border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:white;cursor:pointer">수정</button>' +
+        '</div>';
+
+      history.sort((x,y) => x.round - y.round).forEach(h => {
+        card.innerHTML += '<div class="record-round-row">' +
+          '<span class="record-round-badge">' + h.round + '회차</span>' +
+          '<div style="flex:1">' +
+            '<div style="font-size:13px;font-weight:600;color:#333">' + (h.leader||'미배정') + '</div>' +
+            '<div style="font-size:11px;color:#888">' + (h.startDate||'') + (h.endDate ? ' ~ ' + h.endDate : '') + '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      list.appendChild(card);
+    } catch(e) {}
+  }
+  if(!list.children.length) {
+    list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">기록이 없습니다</div>';
+  }
+}
+
+async function editRecord(aId) {
+  var a = areas.find(x => String(x.id) === String(aId));
+  var leader = prompt('인도자 이름', a ? (a.leader||'') : '');
+  if(leader === null) return;
+  var startDate = prompt('시작일 (예: 2026-05-01)', a ? (a.startDate||'') : '');
+  if(startDate === null) return;
+  var endDate = prompt('종료일 (예: 2026-05-31)', a ? (a.endDate||'') : '');
+  if(endDate === null) return;
+  showLoader();
+  try {
+    await db.collection('areas').doc(String(aId)).update({leader, startDate, endDate});
+    // 기록에도 저장
+    var histRef = db.collection('areaHistory').doc(String(aId));
+    var histSnap = await histRef.get();
+    var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
+    var round = a ? (a.round||1) : 1;
+    var idx = history.findIndex(h => h.round === round);
+    var newRecord = {round, leader, startDate, endDate};
+    if(idx >= 0) history[idx] = newRecord;
+    else history.push(newRecord);
+    await histRef.set({rounds: history});
+    if(a) { a.leader = leader; a.startDate = startDate; a.endDate = endDate; }
+    loadRecordList();
+    showToast('✅ 기록이 저장됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+// 엑셀 내보내기
+async function exportExcel() {
+  showLoader();
+  try {
+    var wb = XLSX.utils.book_new();
+    var wsData = [['구역번호','구역명','타입','면','회차','인도자','시작일','종료일']];
+    for(var a of areas) {
+      wsData.push([
+        a.id, a.name||'', a.type||'', getAreaFace(a.id),
+        a.round||1, a.leader||'', a.startDate||'', a.endDate||''
+      ]);
+    }
+    var ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:8},{wch:16},{wch:8},{wch:8},{wch:6},{wch:12},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws, '구역기록');
+    XLSX.writeFile(wb, '줄포회중_구역기록_' + new Date().toISOString().slice(0,10) + '.xlsx');
+    showToast('✅ 엑셀 파일이 저장됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+// ══════════════════════════
+// 설정 탭
+// ══════════════════════════
+async function loadSettings() {
+  try {
+    var noticeDoc = await db.collection('settings').doc('notice').get();
+    if(noticeDoc.exists && noticeDoc.data().text) {
+      document.getElementById('noticeInput').value = noticeDoc.data().text;
+    }
+  } catch(e) {}
+  loadBoardList();
+  loadScheduleRows();
+}
+
+async function saveNotice() {
+  var text = document.getElementById('noticeInput').value.trim();
+  try {
+    await db.collection('settings').doc('notice').set({text});
+    showToast('✅ 공지사항이 저장됐습니다!');
+  } catch(e) { showToast('오류'); }
+}
+
+async function deleteNotice() {
+  if(!confirm('공지사항을 삭제하시겠습니까?')) return;
+  try {
+    await db.collection('settings').doc('notice').set({text: ''});
+    document.getElementById('noticeInput').value = '';
+    showToast('✅ 공지사항이 삭제됐습니다');
+  } catch(e) {}
+}
+
+
+// ═══════════════════════════════════
+// 봉사 계획표 한 달 표 형식
+// ═══════════════════════════════════
+var scheduleData = {}; // {date: [{time, place, leader}]}
+var currentScheduleYear = new Date().getFullYear();
+var currentScheduleMonth = new Date().getMonth() + 1;
+
+async function loadScheduleRows() {
+  // 월 선택 드롭다운 초기화
+  var sel = document.getElementById('scheduleMonth');
+  if(sel && !sel.options.length) {
+    var now = new Date();
+    for(var i = -1; i <= 6; i++) {
+      var d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      var val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      var opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = d.getFullYear() + '년 ' + (d.getMonth()+1) + '월';
+      if(i === 0) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+  try {
+    var doc = await db.collection('settings').doc('scheduleData').get();
+    if(doc.exists && doc.data().scheduleData) {
+      scheduleData = doc.data().scheduleData;
+    } else if(doc.exists && doc.data().schedules) {
+      // 구 형식 변환
+      doc.data().schedules.forEach(function(s) {
+        if(!scheduleData[s.date]) scheduleData[s.date] = [];
+        scheduleData[s.date].push({time: s.time, place: s.place, leader: s.leader});
+      });
+    }
+  } catch(e) {}
+  renderScheduleTable();
+}
+
+function renderScheduleTable() {
+  var sel = document.getElementById('scheduleMonth');
+  if(!sel) return;
+  var parts = sel.value.split('-');
+  var year = parseInt(parts[0]);
+  var month = parseInt(parts[1]);
+  var daysInMonth = new Date(year, month, 0).getDate();
+  var days = ['일','월','화','수','목','금','토'];
+
+  var tableEl = document.getElementById('scheduleTable');
+  tableEl.innerHTML = '';
+
+  var table = document.createElement('table');
+  table.style.cssText = 'width:100%;border-collapse:collapse;font-size:12px';
+
+  for(var day = 1; day <= daysInMonth; day++) {
+    var date = new Date(year, month-1, day);
+    var dateStr = year + '-' + String(month).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+    var dayName = days[date.getDay()];
+    var isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    var isToday = dateStr === new Date().toISOString().slice(0,10);
+    var entries = scheduleData[dateStr] || [{}];
+
+    var tr = document.createElement('tr');
+    tr.style.cssText = 'border-bottom:1px solid #eee;' + (isToday ? 'background:#f0edff;' : '');
+
+    // 날짜 칸
+    var tdDate = document.createElement('td');
+    tdDate.style.cssText = 'padding:8px 6px;white-space:nowrap;font-weight:600;color:' + (isWeekend ? (date.getDay()===0?'#dc2626':'#185FA5') : '#333') + ';width:50px;vertical-align:top';
+    tdDate.textContent = day + '(' + dayName + ')';
+    tr.appendChild(tdDate);
+
+    // 일정 입력 칸
+    var tdContent = document.createElement('td');
+    tdContent.style.cssText = 'padding:4px;';
+
+    entries.forEach(function(entry, ei) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:4px;margin-bottom:4px;align-items:center';
+      row.innerHTML =
+        '<input type="time" value="' + (entry.time||'') + '" style="width:85px;padding:4px;border:1px solid #eee;border-radius:6px;font-size:11px" oninput="updateSchedule(\'' + dateStr + '\',' + ei + ',\'time\',this.value)"/>' +
+        '<input type="text" value="' + (entry.place||'') + '" placeholder="장소" style="flex:1;padding:4px;border:1px solid #eee;border-radius:6px;font-size:11px" oninput="updateSchedule(\'' + dateStr + '\',' + ei + ',\'place\',this.value)"/>' +
+        '<input type="text" value="' + (entry.leader||'') + '" placeholder="인도자" style="flex:1;padding:4px;border:1px solid #eee;border-radius:6px;font-size:11px" oninput="updateSchedule(\'' + dateStr + '\',' + ei + ',\'leader\',this.value)"/>' +
+        '<button onclick="addScheduleEntry(\'' + dateStr + '\')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 6px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">+</button>' +
+        (ei > 0 ? '<button onclick="removeScheduleEntry(\'' + dateStr + '\',' + ei + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 6px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">-</button>' : '');
+      tdContent.appendChild(row);
+    });
+    tr.appendChild(tdContent);
+    table.appendChild(tr);
+  }
+  tableEl.appendChild(table);
+}
+
+function updateSchedule(date, idx, field, val) {
+  if(!scheduleData[date]) scheduleData[date] = [{}];
+  if(!scheduleData[date][idx]) scheduleData[date][idx] = {};
+  scheduleData[date][idx][field] = val;
+}
+
+function addScheduleEntry(date) {
+  if(!scheduleData[date]) scheduleData[date] = [];
+  scheduleData[date].push({time:'', place:'', leader:''});
+  renderScheduleTable();
+}
+
+function removeScheduleEntry(date, idx) {
+  if(scheduleData[date]) scheduleData[date].splice(idx, 1);
+  renderScheduleTable();
+}
+
+async function saveSchedule() {
+  var today = new Date().toISOString().slice(0,10);
+  var todayItems = (scheduleData[today] || []).filter(function(s) { return s.time || s.place; });
+  var todayText = todayItems.length
+    ? todayItems.map(function(s) { return (s.time||'') + (s.place ? ' · ' + s.place : '') + (s.leader ? ' · ' + s.leader : ''); }).join(' / ')
+    : '오늘 일정 없음';
+  try {
+    await db.collection('settings').doc('scheduleData').set({scheduleData: scheduleData, updatedAt: new Date().toISOString()});
+    await db.collection('settings').doc('schedule').set({today: todayText, updatedAt: new Date().toISOString()});
+    document.getElementById('schedulePreview').textContent = '✅ 저장! 오늘: ' + todayText;
+    showToast('✅ 봉사 계획표가 저장됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+}
+
+// (구 엑셀 업로드 - 미사용)
+async function uploadScheduleExcelOld(event) {
+  var file = event.target.files[0];
+  if(!file) return;
+  showLoader();
+  document.getElementById('schedulePreview').textContent = '파일 읽는 중...';
+  try {
+    var data = await new Promise(function(res, rej) {
+      var reader = new FileReader();
+      reader.onload = function(e) { res(e.target.result); };
+      reader.onerror = rej;
+      reader.readAsArrayBuffer(file);
+    });
+    var workbook = XLSX.read(data, {type: 'arraybuffer'});
+    var sheet = workbook.Sheets[workbook.SheetNames[0]];
+    var rows = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: false});
+
+    // 파싱: A=날짜, B=시간, C=장소, D=인도자
+    var schedules = [];
+    rows.forEach(function(row, i) {
+      if(i === 0) return; // 헤더 스킵
+      if(!row[0]) return;
+      var dateVal = String(row[0]).trim();
+      var time = String(row[1]||'').trim();
+      var place = String(row[2]||'').trim();
+      var leader = String(row[3]||'').trim();
+      if(dateVal && time) {
+        schedules.push({date: dateVal, time: time, place: place, leader: leader});
+      }
+    });
+
+    if(!schedules.length) {
+      showToast('일정 데이터가 없습니다');
+      hideLoader();
+      return;
+    }
+
+    // Firestore에 저장
+    await db.collection('settings').doc('scheduleData').set({
+      schedules: schedules,
+      updatedAt: new Date().toISOString()
+    });
+
+    // 오늘 일정 찾아서 미리보기
+    var todayStr = new Date().toISOString().slice(0,10);
+    var todayItems = schedules.filter(function(s) { return s.date === todayStr; });
+    var todayText = todayItems.length
+      ? todayItems.map(function(s) { return s.time + ' · ' + s.place + (s.leader ? ' · ' + s.leader : ''); }).join(' / ')
+      : '오늘 일정 없음';
+
+    await db.collection('settings').doc('schedule').set({today: todayText, updatedAt: new Date().toISOString()});
+
+    document.getElementById('schedulePreview').textContent = '✅ ' + schedules.length + '개 일정 저장됨';
+
+    // 목록 표시
+    var listEl = document.getElementById('scheduleList');
+    listEl.innerHTML = '<div style="font-size:12px;font-weight:600;color:#333;margin-bottom:6px">저장된 일정 (' + schedules.length + '개)</div>';
+    schedules.slice(0,10).forEach(function(s) {
+      var div = document.createElement('div');
+      div.style.cssText = 'background:#f5f5f7;border-radius:8px;padding:8px 10px;margin-bottom:4px;font-size:12px;color:#555';
+      div.textContent = s.date + ' ' + s.time + ' · ' + s.place + (s.leader ? ' · ' + s.leader : '');
+      listEl.appendChild(div);
+    });
+    if(schedules.length > 10) {
+      var more = document.createElement('div');
+      more.style.cssText = 'font-size:12px;color:#aaa;text-align:center;padding:4px';
+      more.textContent = '+ ' + (schedules.length - 10) + '개 더';
+      listEl.appendChild(more);
+    }
+
+    showToast('✅ 봉사 계획표가 저장됐습니다!');
+  } catch(e) {
+    document.getElementById('schedulePreview').textContent = '오류: ' + e.message;
+  }
+  hideLoader();
+}
+
+// 게시판
+function openBoardManager()
+ {
+  lockScroll();
+  document.getElementById('boardOverlay').classList.add('open');
+  document.getElementById('boardSheet').classList.add('open');
+}
+function closeBoardManager() {
+  unlockScroll();
+  document.getElementById('boardOverlay').classList.remove('open');
+  document.getElementById('boardSheet').classList.remove('open');
+}
+
+var boardImageBase64 = null;
+
+function previewBoardImage(event) {
+  var file = event.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    boardImageBase64 = e.target.result;
+    document.getElementById('boardImagePreview').innerHTML =
+      '<img src="' + boardImageBase64 + '" style="width:100%;border-radius:8px;max-height:150px;object-fit:cover"/>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearBoardImage() {
+  boardImageBase64 = null;
+  document.getElementById('boardImagePreview').innerHTML = '';
+  document.getElementById('boardImage').value = '';
+}
+
+async function saveBoard() {
+  var title = document.getElementById('boardTitle').value.trim();
+  var boardContent = document.getElementById('boardContent').value.trim();
+  if(!title || !boardContent) { showToast('제목과 내용을 입력해 주세요'); return; }
+  try {
+    await db.collection('board').add({
+      title, content: boardContent,
+      image: boardImageBase64 || null,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('boardTitle').value = '';
+    document.getElementById('boardContent').value = '';
+    clearBoardImage();
+    showToast('✅ 게시글이 등록됐습니다!');
+    loadBoardList();
+  } catch(e) { showToast('오류: ' + e.message); }
+}
+
+async function loadBoardList() {
+  var list = document.getElementById('boardList');
+  if(!list) return;
+  try {
+    var snap = await db.collection('board').orderBy('createdAt','desc').limit(20).get();
+    if(!snap.size) { list.innerHTML = '<div style="font-size:13px;color:#aaa;text-align:center;padding:12px">게시글이 없습니다</div>'; return; }
+    list.innerHTML = '';
+    snap.docs.forEach(d => {
+      var r = d.data();
+      var div = document.createElement('div');
+      div.style.cssText = 'background:#f5f5f7;border-radius:10px;padding:10px 12px;margin-bottom:8px';
+      div.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<span style="font-size:13px;font-weight:600;color:#1a1040">' + r.title + '</span>' +
+        '<button onclick="deleteBoard(\'' + d.id + '\')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer">삭제</button>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#888">' + r.content + '</div>';
+      list.appendChild(div);
+    });
+  } catch(e) {}
+}
+
+async function deleteBoard(docId) {
+  if(!confirm('삭제하시겠습니까?')) return;
+  try {
+    await db.collection('board').doc(docId).delete();
+    showToast('✅ 삭제됐습니다');
+    loadBoardList();
+  } catch(e) {}
+}
+
+// 회차 관리
+
+// ═══════════════════════════════════
+// 완료 구역 일괄 넘기기
+// ═══════════════════════════════════
+function openBulkNextSheet() {
+  var list = document.getElementById('bulkNextList');
+  list.innerHTML = '';
+  var doneAreas = areas.filter(function(a) { return (a.progress||0) >= 100; });
+  if(!doneAreas.length) {
+    list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">완료된 구역이 없습니다</div>';
+  } else {
+    doneAreas.forEach(function(a) {
+      var label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:#f5f5f7;border-radius:10px;margin-bottom:6px;cursor:pointer';
+      label.innerHTML =
+        '<input type="checkbox" class="bulk-next-chk" value="' + a.id + '" checked style="width:16px;height:16px"/>' +
+        '<div style="flex:1">' +
+          '<div style="font-size:13px;font-weight:600;color:#1a1040">' + a.id + '번 · ' + (a.name||'') + '</div>' +
+          '<div style="font-size:11px;color:#888">현재 ' + (a.round||1) + '회차 → ' + ((a.round||1)+1) + '회차</div>' +
+        '</div>';
+      list.appendChild(label);
+    });
+  }
+  document.getElementById('bulkNextOverlay').classList.add('open');
+  document.getElementById('bulkNextSheet').classList.add('open');
+}
+
+function closeBulkNextSheet() {
+  document.getElementById('bulkNextOverlay').classList.remove('open');
+  document.getElementById('bulkNextSheet').classList.remove('open');
+}
+
+function selectAllBulkNext(val) {
+  document.querySelectorAll('.bulk-next-chk').forEach(function(c) { c.checked = val; });
+}
+
+async function applyBulkNext() {
+  var checked = Array.from(document.querySelectorAll('.bulk-next-chk:checked')).map(function(c) { return c.value; });
+  if(!checked.length) { showToast('구역을 선택해 주세요'); return; }
+  if(!confirm(checked.length + '개 구역을 다음 회차로 넘기시겠습니까?')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    checked.forEach(function(aId) {
+      var a = areas.find(function(x) { return String(x.id) === String(aId); });
+      if(a) {
+        var newRound = (a.round||1) + 1;
+        batch.update(db.collection('areas').doc(String(aId)), {round: newRound});
+        a.round = newRound;
+      }
+    });
+    await batch.commit();
+    closeBulkNextSheet();
+    showToast('✅ ' + checked.length + '개 구역이 다음 회차로 넘어갔습니다!');
+    renderAreaList();
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+async function bulkNextRound() {
+  if(!confirm('방문 완료된 구역을 다음 회차로 넘기시겠습니까?')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    var count = 0;
+    for(var a of areas) {
+      if((a.progress||0) >= 100) {
+        var newRound = (a.round||1) + 1;
+        batch.update(db.collection('areas').doc(String(a.id)), {round: newRound});
+        // 기록 저장
+        var histRef = db.collection('areaHistory').doc(String(a.id));
+        count++;
+      }
+    }
+    await batch.commit();
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+    showToast('✅ ' + count + '개 구역이 다음 회차로 넘어갔습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+
+
+// ═══════════════════════════════════
+// 바텀시트 스크롤 잠금
+// ═══════════════════════════════════
+function lockScroll() {
+  document.body.style.overflow = 'hidden';
+  document.body.style.position = 'fixed';
+  document.body.style.width = '100%';
+}
+function unlockScroll() {
+  document.body.style.overflow = '';
+  document.body.style.position = '';
+  document.body.style.width = '';
+}
+
+
+// ═══════════════════════════════════
+// 구역 목록 드래그 순서 변경
+// ═══════════════════════════════════
+var areaDragSrc = null;
+var areaDragSrcIdx = -1;
+
+function initAreaDrag() {
+  var list = document.getElementById('areaList');
+  if(!list) return;
+  var items = list.querySelectorAll('.area-item');
+  items.forEach(function(item, idx) {
+    var handle = item.querySelector('.area-drag-handle');
+    if(!handle) return;
+
+    // 마우스
+    item.addEventListener('dragstart', function(e) {
+      areaDragSrc = item;
+      areaDragSrcIdx = idx;
+      item.classList.add('dragging');
+      if(e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', function() {
+      item.classList.remove('dragging');
+      item.style.opacity = '1';
+      item.style.outline = '';
+      areaDragSrc = null;
+      areaDragSrcIdx = -1;
+    });
+    handle.addEventListener('mousedown', function(e) {
+      areaDragSrc = item;
+      areaDragSrcIdx = idx;
+      item.classList.add('dragging');
+      document.addEventListener('mousemove', onAreaMouseMove);
+      document.addEventListener('mouseup', onAreaMouseUp);
+      e.preventDefault();
+    });
+
+    // 터치 (꾹 누르기)
+    var touchTimer;
+    handle.addEventListener('touchstart', function(e) {
+      touchTimer = setTimeout(function() {
+        areaDragSrc = item;
+        areaDragSrcIdx = idx;
+        item.classList.add('dragging');
+        document.addEventListener('touchmove', onAreaTouchMove, {passive: false});
+        document.addEventListener('touchend', onAreaTouchEnd);
+      }, 300);
+    });
+    handle.addEventListener('touchend', function() {
+      clearTimeout(touchTimer);
+    });
+
+    item.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if(areaDragSrc && areaDragSrc !== item) {
+        item.style.borderTop = '2px solid #7c3aed';
+      }
+    });
+    item.addEventListener('dragleave', function() {
+      item.style.borderTop = '';
+    });
+    item.addEventListener('drop', function(e) {
+      e.preventDefault();
+      item.style.borderTop = '';
+      if(!areaDragSrc || areaDragSrc === item) return;
+      swapAreaOrder(areaDragSrcIdx, idx);
+    });
+  });
+}
+
+function onAreaMouseMove(e) {
+  if(!areaDragSrc) return;
+  var list = document.getElementById('areaList');
+  var items = Array.from(list.querySelectorAll('.area-item'));
+  items.forEach(function(item, idx) {
+    var rect = item.getBoundingClientRect();
+    if(e.clientY > rect.top && e.clientY < rect.bottom && item !== areaDragSrc) {
+      item.style.outline = '2px solid #7c3aed';
+    } else {
+      item.style.outline = '';
+    }
+  });
+}
+
+function onAreaMouseUp(e) {
+  if(!areaDragSrc) return;
+  var list = document.getElementById('areaList');
+  var items = Array.from(list.querySelectorAll('.area-item'));
+  items.forEach(function(item, idx) {
+    if(item.style.outline && item !== areaDragSrc) {
+      swapAreaOrder(areaDragSrcIdx, idx);
+    }
+    item.style.outline = '';
+    item.style.opacity = '1';
+    item.classList.remove('dragging');
+  });
+  areaDragSrc = null;
+  areaDragSrcIdx = -1;
+  document.removeEventListener('mousemove', onAreaMouseMove);
+  document.removeEventListener('mouseup', onAreaMouseUp);
+}
+
+function onAreaTouchMove(e) {
+  e.preventDefault();
+  var touch = e.touches[0];
+  var list = document.getElementById('areaList');
+  var items = Array.from(list.querySelectorAll('.area-item'));
+  items.forEach(function(item) {
+    var rect = item.getBoundingClientRect();
+    if(touch.clientY > rect.top && touch.clientY < rect.bottom && item !== areaDragSrc) {
+      item.style.background = '#f0eeff';
+    } else if(item !== areaDragSrc) {
+      item.style.background = '';
+    }
+  });
+}
+
+function onAreaTouchEnd(e) {
+  var list = document.getElementById('areaList');
+  var items = Array.from(list.querySelectorAll('.area-item'));
+  var touch = e.changedTouches[0];
+  items.forEach(function(item, idx) {
+    var rect = item.getBoundingClientRect();
+    if(touch.clientY > rect.top && touch.clientY < rect.bottom && item !== areaDragSrc) {
+      swapAreaOrder(areaDragSrcIdx, idx);
+    }
+    item.style.background = '';
+    item.style.opacity = '1';
+    item.classList.remove('dragging');
+  });
+  areaDragSrc = null;
+  areaDragSrcIdx = -1;
+  document.removeEventListener('touchmove', onAreaTouchMove);
+  document.removeEventListener('touchend', onAreaTouchEnd);
+}
+
+async function swapAreaOrder(fromIdx, toIdx) {
+  if(fromIdx === toIdx) return;
+  var filtered = areas.slice().sort(function(a,b){ return Number(a.id)-Number(b.id); });
+  if(areaFaceFilter !== '전체') filtered = filtered.filter(function(a){ return getAreaFace(a.id) === areaFaceFilter; });
+  if(!filtered[fromIdx] || !filtered[toIdx]) return;
+  var slots = filtered.map(function(a) { return String(a.id); });
+  var moved = filtered.slice();
+  var picked = moved.splice(fromIdx, 1)[0];
+  moved.splice(toIdx, 0, picked);
+  var areaIdMap = {};
+  try {
+    showLoader();
+    var batch = db.batch();
+    moved.forEach(function(area, i) {
+      var slotId = slots[i];
+      var oldId = String(area.id);
+      if(oldId === slotId) return;
+      var data = Object.assign({}, area, {id: slotId});
+      delete data.docId;
+      batch.set(db.collection('areas').doc(slotId), data);
+      areaIdMap[oldId] = slotId;
+    });
+    await batch.commit();
+    await remapAreaLinkedCollections(areaIdMap);
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(function(d) { return Object.assign({docId: d.id}, d.data()); });
+    renderAreaList();
+    showToast('순서와 구역 데이터가 함께 이동됐습니다');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+async function remapAreaLinkedCollections(areaIdMap) {
+  var oldIds = Object.keys(areaIdMap || {});
+  if(!oldIds.length) return;
+  var cols = ['visits','fixRequests','rejects','interests','vacants'];
+  for(var c = 0; c < cols.length; c++) {
+    await remapAreaIdInCollection(cols[c], areaIdMap);
+  }
+  var snaps = {};
+  for(var i = 0; i < oldIds.length; i++) {
+    snaps[oldIds[i]] = await db.collection('areaHistory').doc(oldIds[i]).get();
+  }
+  var batch = db.batch();
+  oldIds.forEach(function(oldId) {
+    var newId = areaIdMap[oldId];
+    var snap = snaps[oldId];
+    if(snap && snap.exists) batch.set(db.collection('areaHistory').doc(newId), snap.data());
+    else batch.delete(db.collection('areaHistory').doc(newId));
+  });
+  await batch.commit();
+}
+
+async function remapAreaIdInCollection(colName, areaIdMap) {
+  var oldIds = Object.keys(areaIdMap || {});
+  var tempPrefix = '__moving__' + Date.now() + '_' + Math.random().toString(36).slice(2) + '_';
+  for(var i = 0; i < oldIds.length; i++) {
+    await updateAreaIdInCollection(colName, oldIds[i], tempPrefix + oldIds[i]);
+  }
+  for(var j = 0; j < oldIds.length; j++) {
+    await updateAreaIdInCollection(colName, tempPrefix + oldIds[j], areaIdMap[oldIds[j]]);
+  }
+}
+
+async function updateAreaIdInCollection(colName, oldId, newId) {
+  var snap = await db.collection(colName).where('areaId','==',String(oldId)).get();
+  if(!snap.size) return;
+  var batch = db.batch();
+  var count = 0;
+  for(var i = 0; i < snap.docs.length; i++) {
+    batch.update(snap.docs[i].ref, {areaId: String(newId)});
+    count++;
+    if(count >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      count = 0;
+    }
+  }
+  if(count) await batch.commit();
+}
+
+// ═══════════════════════════════════
+// 일괄 회차 변경
+// ═══════════════════════════════════
+var bulkFaceFilterVal = '전체';
+
+function openBulkRoundSheet()
+ {
+  lockScroll();
+  bulkFaceFilterVal = '전체';
+  document.querySelectorAll('#bulkFaceFilter .chip').forEach(function(c) {
+    c.classList.toggle('active', c.textContent === '전체');
+  });
+  renderBulkRoundList();
+  document.getElementById('bulkRoundOverlay').classList.add('open');
+  document.getElementById('bulkRoundSheet').classList.add('open');
+}
+
+function closeBulkRoundSheet() {
+  unlockScroll();
+  document.getElementById('bulkRoundOverlay').classList.remove('open');
+  document.getElementById('bulkRoundSheet').classList.remove('open');
+}
+
+function setBulkFaceFilter(face, el) {
+  bulkFaceFilterVal = face;
+  document.querySelectorAll('#bulkFaceFilter .chip').forEach(function(c) { c.classList.remove('active'); });
+  el.classList.add('active');
+  renderBulkRoundList();
+}
+
+function renderBulkRoundList() {
+  var filtered = areas.slice().sort(function(a,b) { return Number(a.id)-Number(b.id); });
+  if(bulkFaceFilterVal !== '전체') filtered = filtered.filter(function(a) { return getAreaFace(a.id) === bulkFaceFilterVal; });
+  var list = document.getElementById('bulkRoundList');
+  list.innerHTML = '';
+  filtered.forEach(function(a) {
+    var label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px;background:#f5f5f7;border-radius:10px;margin-bottom:6px;cursor:pointer';
+    label.innerHTML =
+      '<input type="checkbox" class="bulk-round-chk" value="' + a.id + '" style="width:16px;height:16px"/>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:13px;font-weight:600;color:#1a1040">' + a.id + '번 · ' + (a.name||'') + '</div>' +
+        '<div style="font-size:11px;color:#888">현재 ' + (a.round||1) + '회차 · ' + getAreaFace(a.id) + '</div>' +
+      '</div>';
+    list.appendChild(label);
+  });
+}
+
+function selectAllBulk(val) {
+  document.querySelectorAll('.bulk-round-chk').forEach(function(c) { c.checked = val; });
+}
+
+async function applyBulkRound() {
+  var checked = Array.from(document.querySelectorAll('.bulk-round-chk:checked')).map(function(c) { return c.value; });
+  var target = parseInt(document.getElementById('bulkRoundTarget').value);
+  if(!checked.length) { showToast('구역을 선택해 주세요'); return; }
+  if(!target || target < 1) { showToast('올바른 회차를 입력해 주세요'); return; }
+  if(!confirm(checked.length + '개 구역을 ' + target + '회차로 변경하시겠습니까?')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    checked.forEach(function(aId) {
+      batch.update(db.collection('areas').doc(String(aId)), {round: target});
+    });
+    await batch.commit();
+    checked.forEach(function(aId) {
+      var a = areas.find(function(x) { return String(x.id) === String(aId); });
+      if(a) a.round = target;
+    });
+    closeBulkRoundSheet();
+    renderAreaList();
+    showToast('✅ ' + checked.length + '개 구역이 ' + target + '회차로 변경됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+async function bulkChangeRound() {
+  var n = parseInt(document.getElementById('bulkRoundNum').value);
+  if(!n || n < 1) { showToast('올바른 회차를 입력해 주세요'); return; }
+  if(!confirm('모든 구역을 ' + n + '회차로 변경하시겠습니까?')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    areas.forEach(a => batch.update(db.collection('areas').doc(String(a.id)), {round: n}));
+    await batch.commit();
+    areas.forEach(a => a.round = n);
+    showToast('✅ 전체 ' + n + '회차로 변경됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+// 기록 초기화
+function openResetSheet(
+type) {
+  lockScroll();
+  var title = type === 'all' ? '전체 초기화' : '선택 초기화';
+  document.getElementById('resetSheetTitle').textContent = '기록 초기화 · ' + title;
+  var body = document.getElementById('resetSheetBody');
+
+  if(type === 'all') {
+    body.innerHTML =
+      '<div style="background:#fff0f0;border-radius:10px;padding:12px;margin-bottom:12px">' +
+        '<div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:4px">전체 초기화</div>' +
+        '<div style="font-size:12px;color:#dc2626">모든 구역의 마지막 회차 기록을 1회차로 이식하고 새로 시작합니다</div>' +
+      '</div>' +
+      '<div style="background:#f5f5f7;border-radius:10px;padding:12px;margin-bottom:12px">' +
+        '<div style="font-size:12px;color:#555;line-height:1.7">• 마지막 회차 → 새 1회차로 이식<br>• 다음 배정부터 2회차로 시작<br>• 이전 기록은 보관됩니다</div>' +
+      '</div>' +
+      '<button onclick="doResetAll()" class="btn-full btn-red" style="margin-bottom:8px">전체 초기화 실행</button>' +
+      '<button onclick="closeResetSheet()" class="btn-full btn-outline">취소</button>';
+  } else {
+    var checkboxes = areas.map(a =>
+      '<label style="display:flex;align-items:center;gap:10px;padding:10px;background:#f5f5f7;border-radius:10px;margin-bottom:6px;cursor:pointer">' +
+        '<input type="checkbox" class="reset-chk" value="' + a.id + '" style="width:16px;height:16px"/>' +
+        '<div><div style="font-size:13px;font-weight:600;color:#1a1040">' + a.id + '번 · ' + (a.name||'') + '</div>' +
+        '<div style="font-size:11px;color:#888">현재 ' + (a.round||1) + '회차</div></div>' +
+      '</label>'
+    ).join('');
+    body.innerHTML =
+      '<div style="display:flex;gap:8px;margin-bottom:10px">' +
+        '<button onclick="selectAllReset(true)" class="btn-sm">전체 선택</button>' +
+        '<button onclick="selectAllReset(false)" class="btn-sm">전체 해제</button>' +
+      '</div>' +
+      '<div style="max-height:300px;overflow-y:auto;margin-bottom:12px">' + checkboxes + '</div>' +
+      '<button onclick="doResetSelected()" class="btn-full btn-red" style="margin-bottom:8px">선택 구역 초기화</button>' +
+      '<button onclick="closeResetSheet()" class="btn-full btn-outline">취소</button>';
+  }
+
+  document.getElementById('resetOverlay').classList.add('open');
+  document.getElementById('resetSheet').classList.add('open');
+}
+
+function closeResetSheet() {
+  unlockScroll();
+  document.getElementById('resetOverlay').classList.remove('open');
+  document.getElementById('resetSheet').classList.remove('open');
+}
+
+function selectAllReset(val) {
+  document.querySelectorAll('.reset-chk').forEach(c => c.checked = val);
+}
+
+async function doResetAll() {
+  if(!confirm('전체 초기화를 실행하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    for(var a of areas) {
+      var lastRound = a.round || 1;
+      var lastRecord = {round: lastRound, leader: a.leader||'', startDate: a.startDate||'', endDate: a.endDate||''};
+      // 기존 기록 가져와서 저장
+      var histRef = db.collection('areaHistory').doc(String(a.id));
+      var histSnap = await histRef.get();
+      var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
+      // 마지막 회차 기록을 1회차로
+      history.push({...lastRecord, archived: true}); // 보관
+      var newHistory = [{...lastRecord, round: 1}]; // 새 1회차
+      batch.set(histRef, {rounds: history, current: newHistory});
+      batch.update(db.collection('areas').doc(String(a.id)), {round: 1, leader: a.leader, startDate: a.startDate, endDate: a.endDate});
+    }
+    await batch.commit();
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+    closeResetSheet();
+    showToast('✅ 전체 초기화가 완료됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+
+async function doResetSelected() {
+  var checked = Array.from(document.querySelectorAll('.reset-chk:checked')).map(c => c.value);
+  if(!checked.length) { showToast('구역을 선택해 주세요'); return; }
+  if(!confirm(checked.length + '개 구역을 초기화하시겠습니까?')) return;
+  showLoader();
+  try {
+    var batch = db.batch();
+    for(var aId of checked) {
+      var a = areas.find(x => String(x.id) === String(aId));
+      if(!a) continue;
+      var lastRecord = {round: a.round||1, leader: a.leader||'', startDate: a.startDate||'', endDate: a.endDate||''};
+      var histRef = db.collection('areaHistory').doc(String(aId));
+      var histSnap = await histRef.get();
+      var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
+      history.push({...lastRecord, archived: true});
+      var newHistory = [{...lastRecord, round: 1}];
+      batch.set(histRef, {rounds: history, current: newHistory});
+      batch.update(db.collection('areas').doc(String(aId)), {round: 1});
+    }
+    await batch.commit();
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+    closeResetSheet();
+    showToast('✅ ' + checked.length + '개 구역이 초기화됐습니다!');
+  } catch(e) { showToast('오류: ' + e.message); }
+  hideLoader();
+}
+</script>
+</body>
+</html>
