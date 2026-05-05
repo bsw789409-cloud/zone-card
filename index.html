@@ -2531,6 +2531,7 @@ window.autoAssignCars = autoAssignCars = function() {
 
   var activeCars = packUnits(makeUnits());
   activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
+  autoAssignAreasToCars(activeCars);
   var baseGroups = carGroups.map(cloneCarGroup);
   while(baseGroups.length < Math.max(1, activeCars.length)) baseGroups.push(makeEmptyCarGroup());
   activeCars.forEach(function(autoCar) {
@@ -2547,6 +2548,8 @@ window.autoAssignCars = autoAssignCars = function() {
       target = makeEmptyCarGroup();
       baseGroups.push(target);
     }
+    target.areaNum = autoCar.areaNum || target.areaNum || '';
+    target.blockNum = autoCar.blockNum || target.blockNum || '';
     autoCar.forEach(function(p) { target.push(p); });
   });
   carGroups = baseGroups;

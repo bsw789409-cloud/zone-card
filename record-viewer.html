@@ -162,31 +162,41 @@ function closeSheet(){
 function exportExcel(){
   var data=getFiltered(),today=new Date().toISOString().slice(0,10);
   data.forEach(function(a){a.rounds=cleanRounds(a.rounds)});
-  function xml(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]})}
-  function cell(v, merge){return '<Cell ss:StyleID="center"'+(merge?' ss:MergeAcross="'+merge+'"':'')+'><Data ss:Type="String">'+xml(v||'')+'</Data></Cell>'}
-  var sheets='';
+  var wb=XLSX.utils.book_new();
   for(var start=0;start<data.length;start+=5){
     var chunk=data.slice(start,start+5);
     var max=Math.max.apply(null,chunk.map(function(a){return Math.max(1,a.rounds.length)}));
-    var rows='<Row>'+chunk.map(function(a){return cell(a.number+' '+a.name,1)}).join('')+'</Row>';
+    var rows=[[]];
+    chunk.forEach(function(a,idx){
+      var base=idx*2;
+      rows[0][base]=(a.number||'')+' '+(a.name||'');
+      rows[0][base+1]='';
+    });
     for(var r=0;r<max;r++){
-      rows += '<Row>'+chunk.map(function(a){var x=a.rounds[r]||{};return cell(x.leader||'',1)}).join('')+'</Row>';
-      rows += '<Row>'+chunk.map(function(a){var x=a.rounds[r]||{};return cell(dateShort(x.startDate),0)+cell(dateShort(x.endDate),0)}).join('')+'</Row>';
+      var leaderRow=[];
+      var dateRow=[];
+      chunk.forEach(function(a,idx){
+        var x=a.rounds[r]||{};
+        var base=idx*2;
+        leaderRow[base]=x.leader||'';
+        leaderRow[base+1]='';
+        dateRow[base]=dateShort(x.startDate);
+        dateRow[base+1]=dateShort(x.endDate);
+      });
+      rows.push(leaderRow);
+      rows.push(dateRow);
     }
-    var name=chunk[0].number+'~'+chunk[chunk.length-1].number;
-    sheets += '<Worksheet ss:Name="'+xml(name)+'"><Table>'+rows+'</Table></Worksheet>';
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=chunk.flatMap(function(){return [{wch:14},{wch:14}]});
+    ws['!merges']=chunk.map(function(a,idx){var c=idx*2;return {s:{r:0,c:c},e:{r:0,c:c+1}}});
+    Object.keys(ws).forEach(function(addr){
+      if(addr[0]==='!') return;
+      ws[addr].s={alignment:{horizontal:'center',vertical:'center'}};
+    });
+    var name=String(chunk[0].number||'')+'~'+String(chunk[chunk.length-1].number||'');
+    XLSX.utils.book_append_sheet(wb,ws,name.substring(0,31)||'records');
   }
-  var book='<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>'+
-    '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'+
-    '<Styles><Style ss:ID="center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style></Styles>'+sheets+'</Workbook>';
-  var blob=new Blob([book],{type:'application/vnd.ms-excel;charset=utf-8'});
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='봉사날짜기록_'+today+'.xls';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(function(){URL.revokeObjectURL(a.href)},500);
+  XLSX.writeFile(wb,'territory_records_'+today+'.xlsx');
 }
 document.getElementById('searchInput').addEventListener('input',function(){page=0;render()});
 loadData().catch(function(e){document.getElementById('summary').innerHTML='<div class="empty">불러오기 실패: '+esc(e.message)+'</div>'});
