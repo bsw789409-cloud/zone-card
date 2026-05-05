@@ -1013,6 +1013,119 @@ function renderCsAssignTools(aId) {
     '<button onclick="assignSelectedBlocks(\'' + aId + '\')" style="flex:1;padding:10px;border:none;border-radius:10px;background:#7c3aed;color:white;font-size:13px;font-weight:800;cursor:pointer">선택 배정' + (count ? ' (' + count + ')' : '') + '</button>';
 }
 
+var areaPickerSelections = {};
+
+function toggleAreaPickerDetails(areaId, detailId) {
+  var box = document.getElementById(detailId);
+  if(!box) return;
+  if(box.style.display === 'block') {
+    box.style.display = 'none';
+    return;
+  }
+  var area = areas.find(function(a){ return String(a.id) === String(areaId); });
+  if(!area) return;
+  var html = '';
+  (area.blocks || []).forEach(function(block, idx) {
+    var count = countBlockTargets(area, idx);
+    html += '<div style="border-top:1px solid #eee;padding:10px 0">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
+        '<div style="font-size:13px;font-weight:900;color:#1a1040">' + (idx + 1) + '블럭</div>' +
+        '<div style="font-size:12px;color:#7c3aed;font-weight:800">남은 ' + count + '가구</div>' +
+      '</div>' +
+      (block.parking ? '<div style="font-size:12px;color:#777;margin-top:4px">주차: ' + escHtml(block.parking) + '</div>' : '') +
+    '</div>';
+  });
+  box.innerHTML = html || '<div style="font-size:12px;color:#aaa;padding:10px 0">블럭 정보가 없습니다</div>';
+  box.style.display = 'block';
+}
+
+function toggleAreaPickerBlock(btn, gi, areaId, blockNum) {
+  var key = String(gi);
+  areaPickerSelections[key] = areaPickerSelections[key] || {};
+  var selected = areaPickerSelections[key][String(areaId)] || [];
+  var n = Number(blockNum);
+  var idx = selected.indexOf(n);
+  if(idx >= 0) selected.splice(idx, 1);
+  else selected.push(n);
+  selected.sort(function(a,b){ return a - b; });
+  areaPickerSelections[key] = {};
+  areaPickerSelections[key][String(areaId)] = selected;
+  var sheet = document.getElementById('carPickerSheet');
+  if(sheet) {
+    sheet.querySelectorAll('[data-area-picker-block]').forEach(function(el) {
+      el.style.background = 'white';
+      el.style.color = '#555';
+      el.style.borderColor = '#ddd';
+    });
+  }
+  selected.forEach(function(num) {
+    var el = document.querySelector('[data-area-picker-block="' + gi + '-' + String(areaId) + '-' + num + '"]');
+    if(el) {
+      el.style.background = '#7c3aed';
+      el.style.color = 'white';
+      el.style.borderColor = '#7c3aed';
+    }
+  });
+  var commit = document.getElementById('areaPickerCommit-' + gi + '-' + String(areaId));
+  if(commit) {
+    commit.textContent = selected.length ? '선택 배정 (' + selected.join(',') + '블럭)' : '선택 배정';
+    commit.style.opacity = selected.length ? '1' : '.45';
+  }
+}
+
+function commitAreaPickerBlocks(gi, areaId) {
+  var selected = ((areaPickerSelections[String(gi)] || {})[String(areaId)] || []).slice();
+  if(!selected.length) {
+    showToast('배정할 블럭을 선택해주세요');
+    return;
+  }
+  assignAreaBlockToCarIndex(gi, areaId, selected.join(','));
+}
+
+function openAreaPickerForCar(gi) {
+  ensureCarSlots(gi + 1);
+  areaPickerSelections[String(gi)] = {};
+  var sorted = areas
+    .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
+    .sort(function(a,b){
+      var ap = a.servicePaused ? 0 : 1;
+      var bp = b.servicePaused ? 0 : 1;
+      if(ap !== bp) return ap - bp;
+      if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
+      return Number(a.id) - Number(b.id);
+    });
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
+    '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '호차 구역 선택</div>' +
+    '<div style="font-size:12px;color:#888;margin-top:2px">카드 보기로 확인하고 여러 블럭을 선택할 수 있습니다</div></div>' +
+    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button>' +
+    '</div>';
+  if(!sorted.length) {
+    html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>';
+  } else {
+    sorted.slice(0, 30).forEach(function(a, ai) {
+      var blocks = a.blocks || [];
+      var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockTargets(a, idx); }, 0);
+      var detailId = 'areaPickerDetail-' + gi + '-' + ai;
+      html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
+          '<div><div style="font-size:15px;font-weight:900;color:#1a1040">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
+          '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
+          '<button onclick="toggleAreaPickerDetails(&quot;' + escAttr(a.id) + '&quot;,&quot;' + detailId + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:7px 10px;font-size:12px;font-weight:900;cursor:pointer">카드 보기</button>' +
+        '</div>' +
+        '<div id="' + detailId + '" style="display:none;background:#fafafa;border-radius:10px;padding:0 10px;margin-bottom:10px"></div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+          '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">전체</button>';
+      blocks.forEach(function(b, idx) {
+        var cnt = countBlockTargets(a, idx);
+        var dataKey = gi + '-' + String(a.id) + '-' + (idx + 1);
+        html += '<button data-area-picker-block="' + escAttr(dataKey) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '블럭' + (cnt ? ' · ' + cnt : '') + '</button>';
+      });
+      html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(a.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:9px;font-size:13px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button></div>';
+    });
+  }
+  showPickerSheet(html);
+}
+
 async function editCardParking(bi) {
   if(!currentAreaData[bi]) return;
   var areaId = String(openSheetAreaId || currentAreaId || '');
@@ -2621,6 +2734,83 @@ window.autoAssignCars = autoAssignCars = function() {
         target = candidate;
         break;
       }
+    }
+    if(!target) {
+      target = makeEmptyCarGroup();
+      baseGroups.push(target);
+    }
+    target.areaNum = autoCar.areaNum || target.areaNum || '';
+    target.blockNum = autoCar.blockNum || target.blockNum || '';
+    autoCar.forEach(function(p) { target.push(p); });
+  });
+  carGroups = baseGroups;
+  renderCarAssignment();
+  showToast('자동 배정했습니다');
+};
+
+window.autoAssignCars = autoAssignCars = function() {
+  var assigned = carGroups.flat().map(function(p){ return p.name; });
+  var waiting = sortPeopleForAssignment(todaySignups.filter(function(p){ return !assigned.includes(p.name); }));
+  if(waiting.length === 0) { showToast('자동 배정할 인원이 없습니다'); return; }
+  if(!confirm('대기 인원을 자동 배정할까요?\n운전자가 한쪽에 몰리지 않도록 같은 성별 안에서 차 있음/없음을 섞어 배정합니다.')) return;
+
+  function makeMixedUnits(people) {
+    var drivers = people.filter(function(p){ return !!p.car; });
+    var riders = people.filter(function(p){ return !p.car; });
+    var units = [];
+    while(drivers.length || riders.length) {
+      var unit = [];
+      if(drivers.length) unit.push(drivers.shift());
+      if(riders.length) unit.push(riders.shift());
+      else if(drivers.length) unit.push(drivers.shift());
+      if(unit.length < 2 && riders.length) unit.push(riders.shift());
+      units.push(unit.map(function(p){ return normalizePerson(p); }));
+    }
+    return units;
+  }
+
+  function makeUnits() {
+    var genders = [];
+    waiting.forEach(function(p) {
+      var g = p.gender || '기타';
+      if(genders.indexOf(g) < 0) genders.push(g);
+    });
+    return genders.flatMap(function(g) {
+      return makeMixedUnits(waiting.filter(function(p){ return (p.gender || '기타') === g; }));
+    });
+  }
+
+  function packUnits(units) {
+    var pairs = units.filter(function(u) { return u.length === 2; });
+    var singles = units.filter(function(u) { return u.length === 1; });
+    var cars = [];
+    while(pairs.length) {
+      var car = makeEmptyCarGroup();
+      pairs.shift().forEach(function(p) { car.push(p); });
+      if(singles.length && pairs.length && car.length + 1 + pairs[0].length <= 5) car.push(singles.shift()[0]);
+      if(pairs.length && car.length + pairs[0].length <= 5) pairs.shift().forEach(function(p) { car.push(p); });
+      while(singles.length && car.length < 5) car.push(singles.shift()[0]);
+      cars.push(car);
+    }
+    while(singles.length) {
+      var soloCar = makeEmptyCarGroup();
+      while(singles.length && soloCar.length < 5) soloCar.push(singles.shift()[0]);
+      cars.push(soloCar);
+    }
+    return cars;
+  }
+
+  var activeCars = packUnits(makeUnits());
+  activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
+  autoAssignAreasToCars(activeCars);
+  var baseGroups = carGroups.map(cloneCarGroup);
+  while(baseGroups.length < Math.max(1, activeCars.length)) baseGroups.push(makeEmptyCarGroup());
+  activeCars.forEach(function(autoCar) {
+    var fillIndexes = getCarAutoFillIndexes(baseGroups.length);
+    var target = null;
+    for(var ai = 0; ai < fillIndexes.length; ai++) {
+      var candidate = baseGroups[fillIndexes[ai]];
+      if(candidate && candidate.length === 0) { target = candidate; break; }
     }
     if(!target) {
       target = makeEmptyCarGroup();
