@@ -2752,55 +2752,88 @@ window.autoAssignCars = autoAssignCars = function() {
   var assigned = carGroups.flat().map(function(p){ return p.name; });
   var waiting = sortPeopleForAssignment(todaySignups.filter(function(p){ return !assigned.includes(p.name); }));
   if(waiting.length === 0) { showToast('자동 배정할 인원이 없습니다'); return; }
-  if(!confirm('대기 인원을 자동 배정할까요?\n운전자가 한쪽에 몰리지 않도록 같은 성별 안에서 차 있음/없음을 섞어 배정합니다.')) return;
+  if(!confirm('대기 인원을 자동 배정할까요?\n각 호차에 운전자를 먼저 두고, 가능하면 형제팀과 자매팀을 함께 배정합니다.')) return;
 
-  function makeMixedUnits(people) {
+  function genderBucket(p) {
+    var g = String((p && p.gender) || '');
+    if(g === '형제' || g.indexOf('형') >= 0 || g.indexOf('뺤젣') >= 0) return 'brother';
+    if(g === '자매' || g.indexOf('자') >= 0 || g.indexOf('먮') >= 0) return 'sister';
+    return 'other';
+  }
+
+  function makeTeams(people, gender) {
     var drivers = people.filter(function(p){ return !!p.car; });
     var riders = people.filter(function(p){ return !p.car; });
-    var units = [];
+    var teams = [];
     while(drivers.length || riders.length) {
-      var unit = [];
-      if(drivers.length) unit.push(drivers.shift());
-      if(riders.length) unit.push(riders.shift());
-      else if(drivers.length) unit.push(drivers.shift());
-      if(unit.length < 2 && riders.length) unit.push(riders.shift());
-      units.push(unit.map(function(p){ return normalizePerson(p); }));
+      var members = [];
+      if(drivers.length) members.push(drivers.shift());
+      if(riders.length) members.push(riders.shift());
+      else if(drivers.length) members.push(drivers.shift());
+      if(members.length < 2 && riders.length) members.push(riders.shift());
+      teams.push({
+        gender: gender,
+        driver: members.some(function(p){ return !!p.car; }),
+        members: members.map(function(p){ return normalizePerson(p); })
+      });
     }
-    return units;
+    return teams;
   }
 
-  function makeUnits() {
-    var genders = [];
-    waiting.forEach(function(p) {
-      var g = p.gender || '기타';
-      if(genders.indexOf(g) < 0) genders.push(g);
-    });
-    return genders.flatMap(function(g) {
-      return makeMixedUnits(waiting.filter(function(p){ return (p.gender || '기타') === g; }));
-    });
+  function takeBestTeam(teams, car) {
+    if(!teams.length || car.length >= 5) return null;
+    var hasBrother = car._genders && car._genders.indexOf('brother') >= 0;
+    var hasSister = car._genders && car._genders.indexOf('sister') >= 0;
+    var preferred = hasBrother ? 'sister' : (hasSister ? 'brother' : '');
+    var idx = -1;
+    if(preferred) {
+      idx = teams.findIndex(function(t){ return t.gender === preferred && car.length + t.members.length <= 5; });
+    }
+    if(idx < 0) idx = teams.findIndex(function(t){ return car.length + t.members.length <= 5; });
+    if(idx < 0) return null;
+    return teams.splice(idx, 1)[0];
   }
 
-  function packUnits(units) {
-    var pairs = units.filter(function(u) { return u.length === 2; });
-    var singles = units.filter(function(u) { return u.length === 1; });
-    var cars = [];
-    while(pairs.length) {
+  function addTeam(car, team) {
+    if(!team) return;
+    car._genders = car._genders || [];
+    if(car._genders.indexOf(team.gender) < 0) car._genders.push(team.gender);
+    team.members.forEach(function(p){ car.push(p); });
+  }
+
+  var brotherTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'brother'; }), 'brother');
+  var sisterTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'sister'; }), 'sister');
+  var otherTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'other'; }), 'other');
+  var allTeams = brotherTeams.concat(sisterTeams).concat(otherTeams);
+  var driverTeams = allTeams.filter(function(t){ return t.driver; });
+  var riderTeams = allTeams.filter(function(t){ return !t.driver; });
+  var activeCars = [];
+
+  driverTeams.forEach(function(driverTeam) {
+    var car = makeEmptyCarGroup();
+    addTeam(car, driverTeam);
+    addTeam(car, takeBestTeam(riderTeams, car));
+    activeCars.push(car);
+  });
+
+  riderTeams.slice().forEach(function(team) {
+    var placed = false;
+    for(var i = 0; i < activeCars.length; i++) {
+      if(activeCars[i].length + team.members.length <= 5) {
+        addTeam(activeCars[i], team);
+        placed = true;
+        break;
+      }
+    }
+    var idx = riderTeams.indexOf(team);
+    if(idx >= 0) riderTeams.splice(idx, 1);
+    if(!placed) {
       var car = makeEmptyCarGroup();
-      pairs.shift().forEach(function(p) { car.push(p); });
-      if(singles.length && pairs.length && car.length + 1 + pairs[0].length <= 5) car.push(singles.shift()[0]);
-      if(pairs.length && car.length + pairs[0].length <= 5) pairs.shift().forEach(function(p) { car.push(p); });
-      while(singles.length && car.length < 5) car.push(singles.shift()[0]);
-      cars.push(car);
+      addTeam(car, team);
+      activeCars.push(car);
     }
-    while(singles.length) {
-      var soloCar = makeEmptyCarGroup();
-      while(singles.length && soloCar.length < 5) soloCar.push(singles.shift()[0]);
-      cars.push(soloCar);
-    }
-    return cars;
-  }
+  });
 
-  var activeCars = packUnits(makeUnits());
   activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
   autoAssignAreasToCars(activeCars);
   var baseGroups = carGroups.map(cloneCarGroup);
