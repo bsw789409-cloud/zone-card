@@ -1043,9 +1043,26 @@ function assignAreaBlockToCar(areaNum, blockSpec) {
   showToast('차량 배정이 완료되었습니다');
 }
 
+function getCarAreaRemaining(group) {
+  if(!group || !group.areaNum) return null;
+  var area = areas.find(function(a){ return String(a.id) === String(group.areaNum); });
+  if(!area || !area.blocks) return null;
+  var spec = String(group.blockNum || '').trim();
+  if(!spec) {
+    return area.blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(area, idx); }, 0);
+  }
+  var indexes = spec.split(',').map(function(v){ return Number(String(v).trim()) - 1; }).filter(function(n){ return Number.isFinite(n) && n >= 0; });
+  if(!indexes.length) return null;
+  return indexes.reduce(function(sum, idx){ return sum + countBlockRemaining(area, idx); }, 0);
+}
+
 function getCarAreaLabel(group) {
-  if(!group || !group.areaNum) return '구역 없음';
-  return group.areaNum + '번' + (group.blockNum ? ' (' + group.blockNum + '블럭)' : ' 전체');
+  if(!group || !group.areaNum) return '\uAD6C\uC5ED \uC5C6\uC74C';
+  var blockSpec = String(group.blockNum || '').trim();
+  var label = group.areaNum + '\uBC88' + (blockSpec ? ' (' + blockSpec + '\uBE14\uB7ED)' : ' \uC804\uCCB4');
+  var remaining = getCarAreaRemaining(group);
+  if(remaining != null) label += ' \u00B7 \uB0A8\uC740 ' + remaining + '\uAC00\uAD6C';
+  return label;
 }
 
 function assignAreaBlockToCarIndex(gi, areaNum, blockSpec) {
