@@ -1355,6 +1355,7 @@ function makeRow(h) {
     if(st === 'none') {
       lastLocalUpdateTime = Date.now();
       setSt(h,'visited');
+      dirtyVisitKeys[String(currentAreaId) + '|' + h.addr] = {areaId:String(currentAreaId), addr:h.addr};
       window._suppressBlockAnimation = true;
       if(openSheetAreaId) renderCsGrid(openSheetAreaId);
       else renderFieldBlocks(currentAreaId);
