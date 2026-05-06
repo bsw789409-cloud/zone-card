@@ -1136,11 +1136,16 @@ function setPickerSheetContent(html) {
   if(!sheet) { showPickerSheet(html); return; }
   var content = document.getElementById('carPickerContent');
   if(content) content.innerHTML = html || '';
-  else sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
+  else sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 12px"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><button onclick="pickerSheetBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB4A4\uB85C</button><button onclick="closePickerSheet()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB2EB\uAE30</button></div><div id="carPickerContent">' + (html || '') + '</div>';
 }
 
 function areaPickerBack() {
   if(areaPickerContext) renderAreaPickerList(areaPickerContext.gi);
+}
+
+function pickerSheetBack() {
+  if(document.getElementById('areaPickerFullCard') && areaPickerContext) areaPickerBack();
+  else closePickerSheet();
 }
 
 function toggleAreaPickerBlock(btn, gi, areaId, blockNum) {
@@ -2654,7 +2659,17 @@ async function loadTodaySignups() {
   } catch(e) {}
 }
 
-function getAreaPct(area) { return area.progress || 0; }
+function getAreaPct(area) {
+  if(!area || !area.blocks) return 0;
+  var areaId = String(area.id || '');
+  if(!areaStatusLoaded[areaId]) return area.progress || 0;
+  var all = [];
+  (area.blocks || []).forEach(function(block){ all = all.concat(getBlockHouses(block)); });
+  var target = all.filter(function(h){ return !EXCLUDED_FROM_TARGET.includes(getStatusForArea(areaId, h)); });
+  if(!target.length) return all.length ? 100 : 0;
+  var done = target.filter(function(h){ return DONE_STATUSES.includes(getStatusForArea(areaId, h)); }).length;
+  return Math.round(done / target.length * 100);
+}
 
 // ═══════════════════════════════════
 // 차량 배정 화면 렌더링 (정렬 및 연결 수정본)
@@ -3371,7 +3386,7 @@ function showPickerSheet(html) {
   var sheet = document.createElement('div');
   sheet.id = 'carPickerSheet';
   sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:61;max-height:78vh;min-height:220px;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
-  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
+  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 12px"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><button onclick="pickerSheetBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB4A4\uB85C</button><button onclick="closePickerSheet()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB2EB\uAE30</button></div><div id="carPickerContent">' + (html || '') + '</div>';
   document.body.appendChild(overlay);
   document.body.appendChild(sheet);
 }
@@ -3682,7 +3697,14 @@ function renderLeader() {
     });
   }
 
+  var visibleLeaderAreas = filtered.slice(0, 80);
+  var unloadedLeaderAreas = visibleLeaderAreas.filter(function(a){ return !areaStatusLoaded[String(a.id)]; });
   var list = document.getElementById('leaderList'); list.innerHTML = '';
+  if(unloadedLeaderAreas.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px">\uC9C4\uD589\uB960\uC744 \uD655\uC778\uD558\uB294 \uC911...</div>';
+    Promise.all(unloadedLeaderAreas.map(function(a){ return ensureAreaStatusLoaded(a.id); })).then(function(){ renderLeader(); }).catch(function(){ renderLeader(); });
+    return;
+  }
   filtered.forEach(a => {
     var pct = getAreaPct(a);
     var complete = isAreaComplete(a);

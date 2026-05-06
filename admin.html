@@ -249,29 +249,17 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
 <!-- ══════════ 설정 탭 ══════════ -->
 <div class="tab-content" id="tab-settings">
 
-  <!-- 공지사항 -->
   <div class="setting-item">
-    <div class="setting-title">📣 공지사항</div>
-    <div class="setting-desc">로그인 화면 상단에 표시됩니다</div>
-    <div class="lbl" style="margin-bottom:4px">공지 내용</div>
-    <textarea id="noticeInput" class="inp" rows="3" placeholder="공지사항을 입력해 주세요" style="resize:none;margin-bottom:8px"></textarea>
+    <div class="setting-title">&#44277;&#51648;&#49324;&#54637;</div>
+    <div class="setting-desc">&#47196;&#44536;&#51064; &#54868;&#47732; &#49345;&#45800;&#50640; &#54364;&#49884;&#46121;&#45768;&#45796;</div>
+    <div class="lbl" style="margin-bottom:4px">&#44277;&#51648; &#45236;&#50857;</div>
+    <textarea id="noticeInput" class="inp" rows="3" placeholder="&#44277;&#51648;&#49324;&#54637;&#51012; &#51077;&#47141;&#54644; &#51452;&#49464;&#50836;" style="resize:none;margin-bottom:8px"></textarea>
     <div style="display:flex;gap:8px">
-      <button onclick="saveNotice()" class="btn-full btn-purple" style="flex:2">저장</button>
-      <button onclick="deleteNotice()" class="btn-full btn-outline" style="flex:1">삭제</button>
+      <button onclick="saveNotice()" class="btn-full btn-purple" style="flex:2">&#51200;&#51109;</button>
+      <button onclick="deleteNotice()" class="btn-full btn-outline" style="flex:1">&#49325;&#51228;</button>
     </div>
   </div>
 
-  <!-- 봉사 계획표 -->
-  <div class="setting-item">
-    <div class="setting-title">📅 봉사 계획표</div>
-    <div class="setting-desc">한 달 일정을 입력하면 오늘 날짜에 맞게 자동으로 표시됩니다</div>
-    <input type="file" id="schedulePhotoInput" accept="image/*" onchange="saveSchedulePhoto(event)" style="display:none"/>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button onclick="document.getElementById('schedulePhotoInput').click()" class="btn-full btn-purple" style="flex:1">사진 등록</button>
-      <button onclick="deleteSchedulePhoto()" class="btn-full btn-outline" style="flex:1">사진 삭제</button>
-    </div>
-    <div id="schedulePhotoPreview" style="font-size:13px;color:#888;margin-top:4px">불러오는 중...</div>
-  </div>
 
   <!-- 회중 게시판 -->
   <div class="setting-item">
