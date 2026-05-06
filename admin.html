@@ -1104,44 +1104,9 @@ async function saveCardEdit() {
     await db.collection('areas').doc(String(editingAreaId)).update({blocks: editingBlocks});
     var idx = areas.findIndex(function(a) { return String(a.id) === String(editingAreaId); });
     if(idx >= 0) areas[idx].blocks = editingBlocks;
-
-    var fixEntries = Object.entries(editingFixMemos);
-    if(fixEntries.length > 0) {
-      var batch = db.batch();
-
-      // fixRequests 삭제
-      fixEntries.forEach(function(entry) {
-        batch.delete(db.collection('fixRequests').doc(entry[1].docId));
-      });
-
-      // 각 수정요청 주소에 대해 visits 직접 업데이트
-      var area = areas.find(function(a) { return String(a.id) === String(editingAreaId); });
-      var round = area ? (area.round || 1) : 1;
-
-      for(var i = 0; i < fixEntries.length; i++) {
-        var addr = fixEntries[i][0];
-        var fixInfo = fixEntries[i][1];
-        var docId = String(editingAreaId) + '_' + addr.replace(/\s/g,'_') + '_' + round;
-        var ref = db.collection('visits').doc(docId);
-        var snap = await ref.get();
-        if(snap.exists) {
-          batch.update(ref, {status: 'none', memo: fixInfo.memo});
-        } else {
-          // 문서가 없으면 새로 생성
-          batch.set(ref, {
-            areaId: String(editingAreaId), round: round,
-            addr: addr, status: 'none', memo: fixInfo.memo,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }
-      }
-
-      await batch.commit();
-    }
-
     closeEditCard();
-    showToast('✅ 저장됐습니다! 수정요청 ' + fixEntries.length + '건 처리완료');
-  } catch(e) { showToast('저장 오류: ' + e.message); }
+    showToast('\uC800\uC7A5\uB410\uC2B5\uB2C8\uB2E4. \uC218\uC815\uC694\uCCAD\uC740 \uAC1C\uBCC4 \uCC98\uB9AC\uC644\uB8CC\uB97C \uB20C\uB7EC \uC0AD\uC81C\uB429\uB2C8\uB2E4.');
+  } catch(e) { showToast('\uC800\uC7A5 \uC624\uB958: ' + e.message); }
   hideLoader();
 }
 

@@ -113,7 +113,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 .waiting-lane-title{font-size:11px;font-weight:800;color:#7c3aed;margin-bottom:6px}
 .pair-chip{border:2px solid rgba(124,58,237,.32)!important;box-shadow:0 0 0 4px rgba(124,58,237,.08);position:relative}
 .pair-chip::before{content:attr(data-pair-label);position:absolute;top:-9px;left:8px;background:white;color:#7c3aed;border:1px solid rgba(124,58,237,.22);border-radius:999px;padding:0 6px;font-size:10px;font-weight:800;line-height:16px}
-.pair-wrap{border:2px solid rgba(124,58,237,.28);background:rgba(124,58,237,.06);border-radius:18px;padding:10px;display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.pair-wrap{border:2px solid rgba(124,58,237,.28);background:rgba(124,58,237,.06);border-radius:14px;padding:7px;display:flex;gap:5px;flex-wrap:wrap;margin:6px 0;align-items:center}
 .pair-wrap.mine{border-color:#7c3aed;background:#ede9fe;box-shadow:0 4px 16px rgba(124,58,237,.18)}
 .car-drop-preview{height:42px;border:2px dashed #8b5cf6;border-radius:14px;background:rgba(139,92,246,.10);display:flex;align-items:center;justify-content:center;color:#7c3aed;font-size:12px;font-weight:900;margin:4px 0}
 .car-drop-preview::after{content:'여기에 놓기'}
@@ -752,6 +752,13 @@ async function loadAndOpenField(aId, fromLeader) {
     var area = areaDoc.exists ? {id: areaDoc.id, ...areaDoc.data()} : null;
     if(!area) { showToast('구역 데이터가 없습니다'); return; }
     currentAreaId = String(aId); currentRound = area.round || 1; currentAreaData = area.blocks || [];
+    if(area.servicePaused && !area.endDate) {
+      var resumeUpdate = {servicePaused:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+      await db.collection('areas').doc(String(aId)).set(resumeUpdate, {merge:true});
+      area.servicePaused = false;
+      var localArea = areas.find(function(x){ return String(x.id) === String(aId); });
+      if(localArea) Object.assign(localArea, resumeUpdate);
+    }
     openFieldScreen(area, fromLeader);
   } catch(e) { showToast('오류가 발생했습니다'); }
 }
@@ -1712,9 +1719,9 @@ async function smartExit() {
         await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
       } else if(await hasOtherActiveUsersInArea(currentAreaId)) {
         showToast('\uAC19\uC740 \uAD6C\uC5ED\uC5D0 \uBD09\uC0AC\uC790\uAC00 \uB0A8\uC544 \uC788\uC5B4 \uC911\uB2E8 \uD45C\uC2DC \uC5C6\uC774 \uB098\uAC11\uB2C8\uB2E4');
-      } else if(confirm('\uC544\uC9C1 \uB9E1\uC740 \uAD6C\uC5ED\uC774 \uBAA8\uB450 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD560\uAE4C\uC694?')) {
+      } else {
         await markAreaServicePaused(currentAreaId);
-        showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
+        showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uC790\uB3D9 \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
       }
     }
   } catch(e) {}
@@ -2346,6 +2353,27 @@ function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPai
   scheduleCarAssignmentSave();
 }
 
+function movePairToCar(fromGi, pairId, toGi) {
+  fromGi = Number(fromGi); toGi = Number(toGi);
+  if(!carGroups[fromGi] || !carGroups[toGi] || !pairId || fromGi === toGi) return;
+  var moving = carGroups[fromGi].filter(function(p){ return p && p.pairId === pairId; });
+  if(!moving.length) return;
+  if(carGroups[toGi].length + moving.length > 5) { showToast('\uD574\uB2F9 \uD638\uCC28\uC5D0 \uC790\uB9AC\uAC00 \uBD80\uC871\uD569\uB2C8\uB2E4'); return; }
+  carGroups[fromGi] = cloneCarGroup(carGroups[fromGi].filter(function(p){ return !(p && p.pairId === pairId); }));
+  moving.forEach(function(p){ carGroups[toGi].push(p); });
+  renderCarAssignment();
+  scheduleCarAssignmentSave();
+}
+function promptMovePair(fromGi, pairId) {
+  if(!carGroups[fromGi]) return;
+  var label = carGroups.map(function(_, i){ return (i + 1) + '\uD638\uCC28'; }).join(', ');
+  var input = prompt('\uC774 \uD300\uC744 \uC5B4\uB290 \uD638\uCC28\uB85C \uC62E\uAE38\uAE4C\uC694?\n' + label, String(Number(fromGi) + 1));
+  if(input === null) return;
+  var toGi = Number(String(input).replace(/[^0-9]/g,'')) - 1;
+  if(!Number.isFinite(toGi) || !carGroups[toGi]) { showToast('\uD638\uCC28\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694'); return; }
+  movePairToCar(fromGi, pairId, toGi);
+}
+
 function getCarGender(group) {
   var first = (group || []).find(function(p) { return p && p.gender; });
   return first ? first.gender : '';
@@ -2501,9 +2529,9 @@ function autoAssignAreasToCars(cars) {
       if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
       return Number(a.id) - Number(b.id);
     });
-  cars.forEach(function(car) {
+  cars.slice().sort(function(a,b){ return (b.length + getPairGroups(b).length * 2) - (a.length + getPairGroups(a).length * 2); }).forEach(function(car) {
     var teamCount = Math.max(1, getPairGroups(car).length);
-    var target = teamCount * 12;
+    var target = Math.max(10, teamCount * 14 + Math.max(0, car.length - 2) * 3);
     var best = null, fallback = null;
     candidates.forEach(function(area) {
       if(best) return;
@@ -2708,13 +2736,14 @@ function renderCarAssignment() {
     var body = '<div data-car-body="1" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
     getPairGroups(group).forEach(function(pair) {
       body += '<div class="pair-wrap" data-gi="' + gi + '" data-pair-id="' + escAttr(pair.key) + '" style="margin:0">';
+      body += '<button onclick="promptMovePair(' + gi + ',\'' + escAttr(pair.key) + '\')" style="border:none;border-radius:999px;background:rgba(124,58,237,.12);color:#7c3aed;padding:3px 7px;font-size:10px;font-weight:900;cursor:pointer;flex:0 0 auto">\uD300 \uC774\uB3D9</button>';
       pair.members.forEach(function(p) {
         var pi = group.indexOf(p);
         var gIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
         body += `
-          <div class="car-person-chip" draggable="true" data-gi="${gi}" data-pi="${pi}" style="background:${lightColor};border-radius:10px;padding:7px 8px;font-size:13px;color:${color};display:flex;align-items:center;justify-content:space-between;gap:6px;font-weight:600;cursor:grab;touch-action:none;user-select:none;min-height:32px;min-width:0;flex:1 1 110px">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pi+1}. ${p.name} ${gIcon} ${p.car ? ' \uD83D\uDE97' : ''}</span>
-            <span onclick="removeFromCar(${gi},${pi})" style="cursor:pointer;font-size:14px;opacity:0.6;flex-shrink:0">✕</span>
+          <div class="car-person-chip" draggable="true" data-gi="${gi}" data-pi="${pi}" style="background:${lightColor};border-radius:9px;padding:5px 7px;font-size:11px;color:${color};display:flex;align-items:center;justify-content:space-between;gap:4px;font-weight:700;cursor:grab;touch-action:none;user-select:none;min-height:26px;min-width:0;flex:1 1 78px;max-width:calc(50% - 4px)">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pi+1}. ${p.name}</span>
+            <span onclick="removeFromCar(${gi},${pi})" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">\u00D7</span>
           </div>`;
       });
       body += '</div>';
