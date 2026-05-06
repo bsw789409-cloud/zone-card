@@ -656,6 +656,9 @@ var dSt = null, dHouseKey = null, dAreaId = null;
 var openSheetAreaId = null, leaderTab = 'all';
 var locationSharing = false, locationWatchId = null;
 var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null;
+var dirtyVisitKeys = {};
+var areaPickerFilterState = {region:'all', type:'all'};
+var carAssignmentSaveTimer = null;
 var lastLocalUpdateTime = 0;
 
 var stLabel = {
@@ -1000,8 +1003,17 @@ async function persistCarAssignment(options) {
 function scheduleCarAssignmentSave() {
   if(currentRole !== 'leader') return;
   if(carAssignmentSaveTimer) clearTimeout(carAssignmentSaveTimer);
-  carAssignmentSaveTimer = setTimeout(function(){ persistCarAssignment({notify:false}).catch(function(){}); }, 450);
+  carAssignmentSaveTimer = setTimeout(function(){
+    carAssignmentSaveTimer = null;
+    persistCarAssignment({notify:false}).catch(function(){ showToast('\uCC28\uB7C9 \uBC30\uC815 \uC790\uB3D9 \uC800\uC7A5 \uC2E4\uD328'); });
+  }, 250);
 }
+async function flushCarAssignmentSave() {
+  if(currentRole !== 'leader') return;
+  if(carAssignmentSaveTimer) { clearTimeout(carAssignmentSaveTimer); carAssignmentSaveTimer = null; }
+  try { await persistCarAssignment({notify:false}); } catch(e) {}
+}
+
 async function cancelCarAssignment() {
   if(!confirm('\uBC30\uC815\uB418\uC5B4 \uC788\uB294 \uCC28\uB7C9 \uBC30\uC815\uC744 \uCD08\uAE30\uD654\uD560\uAE4C\uC694?')) return;
   try { await db.collection('carAssignments').doc(todayStr()).delete(); carGroups = []; ensureCarSlots(1); renderCarAssignment(); showToast('\uBC30\uC815 \uCDE8\uC18C\uB418\uC5C8\uC2B5\uB2C8\uB2E4'); }
@@ -1613,16 +1625,24 @@ function triggerSmartSave() {
 
 async function executeSave() {
   if(!currentAreaId) return;
-  var all = getAllHouses();
+  var areaId = String(currentAreaId);
+  var dirty = Object.keys(dirtyVisitKeys).map(function(k){ return dirtyVisitKeys[k]; }).filter(function(item){ return item && item.areaId === areaId; });
+  var targets = dirty.length ? dirty.map(function(item){ return {addr:item.addr}; }) : [];
+  if(!targets.length) return;
   var batch = db.batch();
-  all.forEach(h => {
-    var st = getSt(h), memo = getMemo(h);
-    var ref = db.collection('visits').doc(currentAreaId + '_' + h.addr.replace(/\s/g,'_') + '_' + currentRound);
+  targets.forEach(function(h) {
+    var st = ((statusData[areaId] || {})[h.addr]) || 'none';
+    var memo = ((memoData[areaId] || {})[h.addr]) || '';
+    var ref = db.collection('visits').doc(areaId + '_' + h.addr.replace(/\s/g,'_') + '_' + currentRound);
     batch.set(ref, {
-      areaId: currentAreaId, round: currentRound, addr: h.addr, status: st, memo: memo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      areaId: areaId, round: currentRound, addr: h.addr, status: st, memo: memo, updatedBy: currentUser || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, {merge: true});
   });
-  try { await batch.commit(); showToast('저장 완료 ✅'); } catch(e) { showToast('저장 실패 😢'); }
+  try {
+    await batch.commit();
+    dirty.forEach(function(item){ delete dirtyVisitKeys[item.areaId + '|' + item.addr]; });
+    showToast('\uC800\uC7A5 \uC644\uB8CC \u2705');
+  } catch(e) { showToast('\uC800\uC7A5 \uC2E4\uD328 \uD83D\uDE22'); }
 }
 
 async function getCurrentAssignedBlockIndexes() {
@@ -1653,6 +1673,26 @@ function calcProgressForBlockIndexes(indexes) {
   return {done: done, total: target.length, pct: target.length ? Math.round(done / target.length * 100) : (all.length > 0 ? 100 : 0)};
 }
 
+async function hasOtherActiveUsersInArea(areaId) {
+  if(!rtdb || !areaId || !currentUser) return false;
+  var now = Date.now();
+  function isOtherActive(data) {
+    data = data || {};
+    return Object.keys(data).some(function(key) {
+      var u = data[key] || {};
+      var name = u.name || key;
+      if(name === currentUser || String(u.areaId || '') !== String(areaId)) return false;
+      return !u.timestamp || now - Number(u.timestamp) < Math.max(LOCATION_TTL_MS || 0, 4 * 60 * 60 * 1000);
+    });
+  }
+  try {
+    var locSnap = await rtdb.ref('locations').once('value');
+    if(isOtherActive(locSnap.val())) return true;
+    var presSnap = await rtdb.ref('presence').once('value');
+    return isOtherActive(presSnap.val());
+  } catch(e) { return false; }
+}
+
 async function smartExit() {
   if(smartSaveTimer) clearTimeout(smartSaveTimer);
   try { await executeSave(); } catch(e) {}
@@ -1662,6 +1702,8 @@ async function smartExit() {
     if(currentAreaId && p.total > 0) {
       if(p.pct >= 100) {
         await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
+      } else if(await hasOtherActiveUsersInArea(currentAreaId)) {
+        showToast('\uAC19\uC740 \uAD6C\uC5ED\uC5D0 \uBD09\uC0AC\uC790\uAC00 \uB0A8\uC544 \uC788\uC5B4 \uC911\uB2E8 \uD45C\uC2DC \uC5C6\uC774 \uB098\uAC11\uB2C8\uB2E4');
       } else if(confirm('\uC544\uC9C1 \uB9E1\uC740 \uAD6C\uC5ED\uC774 \uBAA8\uB450 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD560\uAE4C\uC694?')) {
         await markAreaServicePaused(currentAreaId);
         showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
