@@ -4600,12 +4600,48 @@ function getKakaoMapUrl(lat, lng, label, route) {
   return 'https://map.kakao.com/link/' + mode + '/' + encodeURIComponent(label || 'SOS 위치') + ',' + lat + ',' + lng;
 }
 
-window.openSosKakaoMap = function(lat, lng, label) {
-  if(!lat || !lng) {
-    showToast('아직 SOS 위치를 확인 중입니다');
-    return;
-  }
-  window.open(getKakaoMapUrl(lat, lng, label || 'SOS 위치', true), '_blank');
+var _sosPreviewMap = null;
+var _sosPreviewOverlay = null;
+
+function openLiveMapShell() {
+  lockScroll();
+  var overlay = document.getElementById('liveMapOverlay');
+  var sheet = document.getElementById('liveMapSheet');
+  if(overlay) overlay.classList.add('open');
+  if(sheet) sheet.classList.add('open');
+}
+
+window.showSosLocationSheet = function(lat, lng, label, areaLabel) {
+  var body = document.getElementById('liveMapBody');
+  if(!body) return;
+  openLiveMapShell();
+  lat = Number(lat);
+  lng = Number(lng);
+  var hasLocation = Number.isFinite(lat) && Number.isFinite(lng) && lat && lng;
+  body.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
+    '<div style="min-width:0"><div style="font-size:17px;font-weight:900;color:white">SOS \uC704\uCE58 \uD655\uC778</div>' +
+    '<div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(label || '') + (areaLabel ? ' \u00B7 ' + escHtml(areaLabel) : '') + '</div></div>' +
+    '<button onclick="renderLiveUsersRealtime()" style="border:none;border-radius:999px;background:rgba(255,255,255,.1);color:white;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uBAA9\uB85D</button>' +
+  '</div>' +
+  (hasLocation
+    ? '<div id="sosPreviewMap" style="width:100%;height:330px;border-radius:14px;overflow:hidden;background:#0f0a30"></div><div style="font-size:12px;color:rgba(255,255,255,.5);text-align:center;margin-top:10px">\uCE74\uCE74\uC624\uB9F5\uC5D0\uC11C SOS \uC704\uCE58\uB97C \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4</div>'
+    : '<div style="padding:34px 16px;border-radius:14px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.65);text-align:center;font-size:13px">SOS \uC704\uCE58\uB97C \uC544\uC9C1 \uD655\uC778 \uC911\uC785\uB2C8\uB2E4</div>');
+  if(!hasLocation || !window.kakao || !window.kakao.maps) return;
+  setTimeout(function() {
+    var mapDiv = document.getElementById('sosPreviewMap');
+    if(!mapDiv) return;
+    var coords = new kakao.maps.LatLng(lat, lng);
+    _sosPreviewMap = new kakao.maps.Map(mapDiv, {center: coords, level: 3});
+    _sosPreviewMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+    if(_sosPreviewOverlay) _sosPreviewOverlay.setMap(null);
+    _sosPreviewOverlay = makeDotOverlay(coords, _sosPreviewMap, label || 'SOS', '#ef4444');
+    _sosPreviewMap.relayout();
+    _sosPreviewMap.setCenter(coords);
+  }, 80);
+};
+
+window.openSosKakaoMap = function(lat, lng, label, areaLabel) {
+  showSosLocationSheet(lat, lng, label || 'SOS', areaLabel || '');
 };
 
 function makeDotOverlay(coords, map, label, color) {
