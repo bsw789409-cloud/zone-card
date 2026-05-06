@@ -454,6 +454,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
         <div style="font-size:13px;font-weight:600;color:#555">대기 중 · <span id="waitingCount">0</span>명</div>
         <div>
           <button onclick="autoAssignCars()" style="background:#7c3aed;border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:white;cursor:pointer;font-weight:600;margin-right:6px">🤖 자동 배정</button>
+          <button onclick="cancelCarAssignment()" style="background:none;border:1px solid rgba(124,58,237,0.35);border-radius:6px;padding:4px 8px;font-size:11px;color:#7c3aed;cursor:pointer;font-weight:600;margin-right:6px">&#xBC30;&#xC815; &#xCDE8;&#xC18C;</button>
           <button onclick="resetTodaySignups()" style="background:none;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;color:#ef4444;cursor:pointer;font-weight:600">🔄 전체 초기화</button>
         </div>
       </div>
@@ -957,6 +958,56 @@ function setSelectedAssignBlocks(aId, blocks) {
   selectedAssignBlocks[String(aId)] = blocks;
 }
 
+function normalizeAreaTypeForFilter(type) {
+  var t = String(type || '');
+  if(t.indexOf('\uC0C1\uAC00') >= 0) return 'store';
+  if(t.indexOf('\uC804\uD654') >= 0) return 'phone';
+  if(t.indexOf('\uC544\uD30C') >= 0) return 'apt';
+  if(t.indexOf('\uC8FC\uD0DD') >= 0) return 'home';
+  return t || 'other';
+}
+function getLowestActiveRound() {
+  var rounds = areas.filter(function(a){ return !isAreaComplete(a); }).map(function(a){ return Number(a.round || 1); }).filter(function(n){ return Number.isFinite(n); });
+  return rounds.length ? Math.min.apply(null, rounds) : 1;
+}
+function isAreaInCurrentRecommendationRound(a) { return Number((a && a.round) || 1) === getLowestActiveRound(); }
+function setAreaPickerFilter(kind, value) { areaPickerFilterState[kind] = value; if(areaPickerContext) renderAreaPickerList(areaPickerContext.gi); }
+function renderPickerFilterButton(kind, value, label) {
+  var active = areaPickerFilterState[kind] === value;
+  return '<button onclick="setAreaPickerFilter(&quot;' + kind + '&quot;,&quot;' + value + '&quot;)" style="border:1px solid ' + (active ? '#7c3aed' : '#ddd') + ';border-radius:999px;background:' + (active ? '#7c3aed' : 'white') + ';color:' + (active ? 'white' : '#555') + ';padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">' + label + '</button>';
+}
+function getSerializableCarGroups() {
+  return carGroups.map(function(g, i) { return {carNum:i+1, areaNum:g.areaNum || '', blockNum:g.blockNum || '', members:g.map(function(p){ return normalizePerson(p); })}; }).filter(function(g){ return g.members.length > 0 || g.areaNum || g.blockNum; });
+}
+async function persistCarAssignment(options) {
+  options = options || {};
+  var today = todayStr();
+  var result = getSerializableCarGroups();
+  var leaderName = currentRole === 'leader' ? (currentUser || '') : '';
+  if(!result.length) { await db.collection('carAssignments').doc(today).delete().catch(function(){}); return []; }
+  await db.collection('carAssignments').doc(today).set({date:today, assignedLeaderName:leaderName, groups:result, updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  var assignedAreas = {};
+  result.forEach(function(g){ if(g.areaNum) assignedAreas[String(g.areaNum)] = true; });
+  await Promise.all(Object.keys(assignedAreas).map(function(aId) {
+    var area = areas.find(function(a){ return String(a.id) === String(aId); });
+    var update = {startDate: area && area.startDate ? area.startDate : today, assignedLeaderName: leaderName, servicePaused:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+    if(leaderName && !(area && area.leader)) update.leader = leaderName;
+    return db.collection('areas').doc(String(aId)).set(update, {merge:true}).then(function(){ if(area) Object.assign(area, update); });
+  }));
+  if(options.notify) result.forEach(function(g){ rtdb.ref('assignmentEvents').push({type:'assigned', carNum:g.carNum, areaNum:g.areaNum || '', blockNum:g.blockNum || '', members:(g.members || []).map(function(m){ return m.name; }), timestamp:Date.now()}); });
+  return result;
+}
+function scheduleCarAssignmentSave() {
+  if(currentRole !== 'leader') return;
+  if(carAssignmentSaveTimer) clearTimeout(carAssignmentSaveTimer);
+  carAssignmentSaveTimer = setTimeout(function(){ persistCarAssignment({notify:false}).catch(function(){}); }, 450);
+}
+async function cancelCarAssignment() {
+  if(!confirm('\uBC30\uC815\uB418\uC5B4 \uC788\uB294 \uCC28\uB7C9 \uBC30\uC815\uC744 \uCD08\uAE30\uD654\uD560\uAE4C\uC694?')) return;
+  try { await db.collection('carAssignments').doc(todayStr()).delete(); carGroups = []; ensureCarSlots(1); renderCarAssignment(); showToast('\uBC30\uC815 \uCDE8\uC18C\uB418\uC5C8\uC2B5\uB2C8\uB2E4'); }
+  catch(e) { showToast('\uBC30\uC815 \uCDE8\uC18C \uC2E4\uD328'); }
+}
+
 function assignAreaBlockToCar(areaNum, blockSpec) {
   areaNum = String(areaNum || '');
   blockSpec = String(blockSpec || '');
@@ -984,13 +1035,14 @@ function assignAreaBlockToCarIndex(gi, areaNum, blockSpec) {
   carGroups[gi].blockNum = String(blockSpec || '');
   closePickerSheet();
   renderCarAssignment();
-  showToast('구역을 선택했습니다');
+  scheduleCarAssignmentSave();
+  showToast('\uAD6C\uC5ED\uC744 \uC120\uD0DD\uD588\uC2B5\uB2C8\uB2E4');
 }
 
 function openAreaPickerForCar(gi) {
   ensureCarSlots(gi + 1);
   var sorted = areas
-    .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
+    .filter(function(a){ return !isAreaComplete(a) && isAreaInCurrentRecommendationRound(a); })
     .sort(function(a,b){
       var ap = a.servicePaused ? 0 : 1;
       var bp = b.servicePaused ? 0 : 1;
@@ -1167,19 +1219,27 @@ async function renderAreaPickerDetail(gi, areaId) {
 function renderAreaPickerList(gi) {
   areaPickerContext = {gi: gi};
   areaPickerSelections[String(gi)] = {};
-  var sorted = areas
-    .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
-    .sort(function(a,b){
-      var ap = a.servicePaused ? 0 : 1;
-      var bp = b.servicePaused ? 0 : 1;
+  var regions = ['all','\uD765\uB355\uBA74','\uC904\uD3EC\uBA74','\uBCF4\uC548\uBA74','\uC9C4\uC11C\uBA74','\uC8FC\uC0B0\uBA74','\uC0C1\uC11C\uBA74'];
+  var regionLabels = {'all':'\uC804\uCCB4'};
+  regions.forEach(function(r){ if(r !== 'all') regionLabels[r] = r; });
+  var types = [{v:'all',l:'\uC804\uCCB4'},{v:'home',l:'\uC8FC\uD0DD'},{v:'store',l:'\uC0C1\uAC00'},{v:'apt',l:'\uC544\uD30C\uD2B8'},{v:'phone',l:'\uC804\uD654'}];
+  var sorted = areas.filter(function(a){
+      if(isAreaComplete(a) || !isAreaInCurrentRecommendationRound(a)) return false;
+      if(areaPickerFilterState.region !== 'all' && getAreaName(a.id) !== areaPickerFilterState.region) return false;
+      if(areaPickerFilterState.type !== 'all' && normalizeAreaTypeForFilter(a.type) !== areaPickerFilterState.type) return false;
+      return true;
+    }).sort(function(a,b){
+      var ap = a.servicePaused ? 0 : 1, bp = b.servicePaused ? 0 : 1;
       if(ap !== bp) return ap - bp;
       if((a.progress || 0) !== (b.progress || 0)) return (a.progress || 0) - (b.progress || 0);
       return Number(a.id) - Number(b.id);
     });
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px">' +
-    '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '호차 구역 선택</div>' +
-    '<div style="font-size:12px;color:#888;margin-top:2px">남은 가구를 보고 여러 블럭을 선택할 수 있습니다</div></div>' +
-    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">비우기</button></div>';
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
+    '<div><div style="font-size:16px;font-weight:900;color:#1a1040">' + (gi + 1) + '\uD638\uCC28 \uAD6C\uC5ED \uC120\uD0DD</div>' +
+    '<div style="font-size:12px;color:#888;margin-top:2px">\uB0A8\uC740 \uAC00\uAD6C\uB97C \uBCF4\uACE0 \uC5EC\uB7EC \uBE14\uB7ED\uC744 \uC120\uD0DD\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4</div></div>' +
+    '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uBE44\uC6B0\uAE30</button></div>' +
+    '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px">' + regions.map(function(r){ return renderPickerFilterButton('region', r, regionLabels[r]); }).join('') + '</div>' +
+    '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px">' + types.map(function(t){ return renderPickerFilterButton('type', t.v, t.l); }).join('') + '</div>';
   var count = 0;
   sorted.slice(0, 40).forEach(function(a) {
     var blocks = a.blocks || [];
@@ -1188,28 +1248,25 @@ function renderAreaPickerList(gi) {
     count++;
     html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
-        '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '번 ' + escHtml(a.name || '') + '</div>' +
-        '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">진행률 ' + getAreaPct(a) + '% · 남은 ' + total + '가구</div></div>' +
-        '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">카드 보기</button>' +
+        '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '\uBC88 ' + escHtml(a.name || '') + '</div>' +
+        '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">\uC9C4\uD589\uB960 ' + getAreaPct(a) + '% \u00B7 \uB0A8\uC740 ' + total + '\uAC00\uAD6C</div></div>' +
+        '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">\uCE74\uB4DC \uBCF4\uAE30</button>' +
       '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' +
-        '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">전체 · ' + total + '</button>';
+        '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#1a1040;color:white;padding:7px 11px;font-size:12px;font-weight:900;cursor:pointer">\uC804\uCCB4 \u00B7 ' + total + '</button>';
     blocks.forEach(function(b, idx) {
       var remain = countBlockRemaining(a, idx);
-      if(remain <= 0) {
-        html += '<button onclick="showToast(&quot;이 블럭은 모두 방문하였습니다&quot;)" style="border:1px solid #e5e7eb;border-radius:999px;background:#f3f4f6;color:#aaa;padding:7px 10px;font-size:12px;font-weight:800;cursor:not-allowed">' + (idx + 1) + '블럭 · 0</button>';
-      } else {
-        html += '<button data-area-picker-block="' + gi + '-' + escAttr(a.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '블럭 · ' + remain + '</button>';
-      }
+      if(remain <= 0) html += '<button onclick="showToast(&quot;\uC774 \uBE14\uB7ED\uC740 \uBAA8\uB450 \uBC29\uBB38\uD558\uC600\uC2B5\uB2C8\uB2E4&quot;)" style="border:1px solid #e5e7eb;border-radius:999px;background:#f3f4f6;color:#aaa;padding:7px 10px;font-size:12px;font-weight:800;cursor:not-allowed">' + (idx + 1) + '\uBE14\uB7ED \u00B7 0</button>';
+      else html += '<button data-area-picker-block="' + gi + '-' + escAttr(a.id) + '-' + (idx + 1) + '" onclick="toggleAreaPickerBlock(this,' + gi + ',&quot;' + escAttr(a.id) + '&quot;,&quot;' + (idx + 1) + '&quot;)" style="border:1px solid #ddd;border-radius:999px;background:white;color:#555;padding:7px 10px;font-size:12px;font-weight:800;cursor:pointer">' + (idx + 1) + '\uBE14\uB7ED \u00B7 ' + remain + '</button>';
     });
-    html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(a.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="width:100%;margin-top:8px;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer;opacity:.45">선택 배정</button></div>';
+    html += '</div><button id="areaPickerCommit-' + gi + '-' + escAttr(a.id) + '" onclick="commitAreaPickerBlocks(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="width:100%;margin-top:8px;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer;opacity:.45">\uC120\uD0DD \uBC30\uC815</button></div>';
   });
-  if(!count) html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">선택할 미완료 구역이 없습니다</div>';
+  if(!count) html += '<div style="padding:18px;border-radius:14px;background:#f8f8fb;color:#aaa;text-align:center;font-size:13px">\uC120\uD0DD\uD560 \uBBF8\uC644\uB8CC \uAD6C\uC5ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
   setPickerSheetContent(html);
 }
 
 async function openAreaPickerForCar(gi) {
   ensureCarSlots(gi + 1);
-  var candidates = areas.filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); }).slice(0, 30);
+  var candidates = areas.filter(function(a){ return !isAreaComplete(a) && isAreaInCurrentRecommendationRound(a); }).slice(0, 30);
   await Promise.all(candidates.map(function(a){ return ensureAreaStatusLoaded(a.id); }));
   showPickerSheet('');
   renderAreaPickerList(gi);
@@ -1568,17 +1625,46 @@ async function executeSave() {
   try { await batch.commit(); showToast('저장 완료 ✅'); } catch(e) { showToast('저장 실패 😢'); }
 }
 
+async function getCurrentAssignedBlockIndexes() {
+  if(!currentUser || !currentAreaId) return null;
+  try {
+    var doc = await db.collection('carAssignments').doc(todayStr()).get();
+    if(!doc.exists) return null;
+    var match = null;
+    (doc.data().groups || []).forEach(function(g) {
+      if(match) return;
+      var sameArea = String(g.areaNum || '') === String(currentAreaId);
+      var hasMe = (g.members || []).some(function(m){ return m.name === currentUser; });
+      if(sameArea && hasMe) match = g;
+    });
+    if(!match) return null;
+    var spec = String(match.blockNum || '').trim();
+    if(!spec) return null;
+    return spec.split(',').map(function(v){ return Number(v.trim()) - 1; }).filter(function(n){ return Number.isFinite(n) && n >= 0; });
+  } catch(e) { return null; }
+}
+function calcProgressForBlockIndexes(indexes) {
+  var blocks = currentAreaData || [];
+  var selected = indexes && indexes.length ? indexes : blocks.map(function(_, i){ return i; });
+  var all = [];
+  selected.forEach(function(i){ var block = blocks[i]; if(block) all = all.concat(getBlockHouses(block)); });
+  var target = all.filter(function(h){ return !EXCLUDED_FROM_TARGET.includes(getSt(h)); });
+  var done = target.filter(function(h){ return DONE_STATUSES.includes(getSt(h)); }).length;
+  return {done: done, total: target.length, pct: target.length ? Math.round(done / target.length * 100) : (all.length > 0 ? 100 : 0)};
+}
+
 async function smartExit() {
   if(smartSaveTimer) clearTimeout(smartSaveTimer);
   try { await executeSave(); } catch(e) {}
   try {
-    var p = calcProgress();
+    var assignedIndexes = await getCurrentAssignedBlockIndexes();
+    var p = calcProgressForBlockIndexes(assignedIndexes);
     if(currentAreaId && p.total > 0) {
       if(p.pct >= 100) {
         await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
-      } else if(confirm('봉사 중단을 하시겠습니까?')) {
+      } else if(confirm('\uC544\uC9C1 \uB9E1\uC740 \uAD6C\uC5ED\uC774 \uBAA8\uB450 \uC644\uB8CC\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD560\uAE4C\uC694?')) {
         await markAreaServicePaused(currentAreaId);
-        showToast('봉사 중단으로 표시했습니다');
+        showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
       }
     }
   } catch(e) {}
@@ -2181,7 +2267,7 @@ function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPai
     : (carGroups[fromGi] ? carGroups[fromGi][fromPi] : null);
   if(!person || !person.name) return;
   if(!canAddPersonToCar(carGroups[toGi], person)) {
-    showToast('이 사람은 이 차량에 배정할 수 없습니다');
+    showToast('\uC774 \uC0AC\uB78C\uC740 \uC774 \uCC28\uB7C9\uC5D0 \uBC30\uC815\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4');
     renderCarAssignment();
     return;
   }
@@ -2190,9 +2276,7 @@ function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPai
   if(targetPairId) {
     var pairGender = '';
     target.some(function(m) { if(m && m.pairId === targetPairId) { pairGender = m.gender || ''; return true; } return false; });
-    if(pairGender && person.gender && pairGender !== person.gender) {
-      targetPairId = '';
-    }
+    if(pairGender && person.gender && pairGender !== person.gender) targetPairId = '';
   }
   if(targetPairId) {
     person.pairId = targetPairId;
@@ -2209,6 +2293,7 @@ function movePersonBetweenCars(fromGi, fromPi, toGi, personName, toPi, targetPai
     target.push(person);
   }
   renderCarAssignment();
+  scheduleCarAssignmentSave();
 }
 
 function getCarGender(group) {
@@ -2258,9 +2343,7 @@ function movePersonWithinCar(gi, fromPi, toPi, targetPairId) {
   if(targetPairId) {
     var pairGender = '';
     arr.some(function(m) { if(m && m.pairId === targetPairId) { pairGender = m.gender || ''; return true; } return false; });
-    if(pairGender && item.gender && pairGender !== item.gender) {
-      targetPairId = '';
-    }
+    if(pairGender && item.gender && pairGender !== item.gender) targetPairId = '';
   }
   if(targetPairId) {
     item.pairId = targetPairId;
@@ -2274,6 +2357,7 @@ function movePersonWithinCar(gi, fromPi, toPi, targetPairId) {
     arr.splice(toPi, 0, item);
   }
   renderCarAssignment();
+  scheduleCarAssignmentSave();
 }
 
 function getPairGroups(members) {
@@ -2303,12 +2387,17 @@ function assignVisualPairs(car, carIndex) {
   }
   var buckets = {brother: [], sister: [], other: []};
   (car || []).forEach(function(p){ buckets[genderKey(p)].push(p); });
-  ['brother','sister','other'].forEach(function(key) {
+  ['brother','other'].forEach(function(key) {
     var list = buckets[key];
-    for(var i = 0; i < list.length; i += 3) {
-      mark(list.slice(i, i + 3));
-    }
+    for(var i = 0; i < list.length; i += 3) mark(list.slice(i, i + 3));
   });
+  var sisters = buckets.sister;
+  for(var j = 0; j < sisters.length;) {
+    var remain = sisters.length - j;
+    if(remain >= 3) { mark(sisters.slice(j, j + 3)); j += 3; }
+    else if(remain === 2) { mark(sisters.slice(j, j + 2)); j += 2; }
+    else { j += 1; }
+  }
 }
 
 function refreshAllCarPairs() {
@@ -2354,7 +2443,7 @@ function autoAssignAreasToCars(cars) {
     return {blocks:picked.map(function(b){ return b.num; }), total:total};
   }
   var candidates = areas
-    .filter(function(a){ return !isAreaComplete(a) && !isMoreRoundArea(a); })
+    .filter(function(a){ return !isAreaComplete(a) && isAreaInCurrentRecommendationRound(a); })
     .sort(function(a,b){
       var ap = a.servicePaused ? 0 : 1;
       var bp = b.servicePaused ? 0 : 1;
@@ -2439,14 +2528,15 @@ function renderCarAssignment() {
   var recContainer = document.getElementById('recommendAreaList');
   if(recContainer) {
       // 숫자로 변환하여 오름차순 정렬 (1, 2, 3... 순서로)
+      var lowestRound = getLowestActiveRound();
       var recs = areas
-        .filter(a => getAreaPct(a) < 100 && !isAreaComplete(a))
-        .sort((a, b) => {
+        .filter(function(a) { return getAreaPct(a) < 100 && !isAreaComplete(a) && Number(a.round || 1) === lowestRound; })
+        .sort(function(a, b) {
           var ap = a.servicePaused && !isAreaComplete(a) ? 0 : 1;
           var bp = b.servicePaused && !isAreaComplete(b) ? 0 : 1;
           if(ap !== bp) return ap - bp;
           return Number(a.id) - Number(b.id);
-        }) 
+        })
         .slice(0, 4);
 
       recContainer.innerHTML = '';
@@ -2589,7 +2679,7 @@ function renderCarAssignment() {
   var nextCard = document.createElement('div');
   nextCard.style.cssText = 'border:2px dashed #ddd;border-radius:14px;padding:14px;text-align:center;cursor:pointer;background:#fafafa';
   nextCard.innerHTML = '<span style="font-size:13px;color:#aaa">'+(carGroups.length+1)+'호차 · 탭해서 추가</span>';
-  nextCard.onclick = function() { carGroups.push(makeEmptyCarGroup()); renderCarAssignment(); };
+  nextCard.onclick = function() { carGroups.push(makeEmptyCarGroup()); renderCarAssignment(); scheduleCarAssignmentSave(); };
   carList.appendChild(nextCard);
   initCarPersonDrag();
 }
@@ -3018,137 +3108,105 @@ window.autoAssignCars = autoAssignCars = function() {
 window.autoAssignCars = autoAssignCars = function() {
   var assigned = carGroups.flat().map(function(p){ return p.name; });
   var waiting = sortPeopleForAssignment(todaySignups.filter(function(p){ return !assigned.includes(p.name); }));
-  if(waiting.length === 0) { showToast('자동 배정할 인원이 없습니다'); return; }
-  if(!confirm('대기 인원을 자동 배정할까요?\n각 호차에 운전자를 먼저 두고, 가능하면 형제팀과 자매팀을 함께 배정합니다.')) return;
-
+  if(waiting.length === 0) { showToast('\uC790\uB3D9 \uBC30\uC815\uD560 \uC778\uC6D0\uC774 \uC5C6\uC2B5\uB2C8\uB2E4'); return; }
+  if(!confirm('\uB300\uAE30 \uC778\uC6D0\uC744 \uC790\uB3D9 \uBC30\uC815\uD560\uAE4C\uC694?\n\uC790\uB9E4\uB294 2\uBA85 \uB610\uB294 3\uBA85 \uD300\uC73C\uB85C\uB9CC \uBB36\uC2B5\uB2C8\uB2E4.')) return;
   function genderBucket(p) {
     var g = String((p && p.gender) || '');
-    if(g === '형제' || g.indexOf('형') >= 0 || g.indexOf('뺤젣') >= 0) return 'brother';
-    if(g === '자매' || g.indexOf('자') >= 0 || g.indexOf('먮') >= 0) return 'sister';
+    if(g === '\uC790\uB9E4' || g.indexOf('\uC790') >= 0 || g.indexOf('\uB9E4') >= 0) return 'sister';
+    if(g === '\uD615\uC81C' || g.indexOf('\uD615') >= 0 || g.indexOf('\uC81C') >= 0) return 'brother';
     return 'other';
   }
-
   var unassignedSisters = [];
-
   function makeTeams(people, gender) {
     var drivers = people.filter(function(p){ return !!p.car; });
     var riders = people.filter(function(p){ return !p.car; });
+    var ordered = drivers.concat(riders);
     var teams = [];
-
     function pushTeam(members) {
       if(!members || !members.length) return;
       if(gender === 'sister' && (members.length < 2 || members.length > 3)) {
         members.forEach(function(p){ unassignedSisters.push(p); });
         return;
       }
-      teams.push({
-        gender: gender,
-        driver: members.some(function(p){ return !!p.car; }),
-        members: members.map(function(p){ return normalizePerson(p); })
-      });
+      teams.push({gender:gender, driver:members.some(function(p){ return !!p.car; }), members:members.map(function(p){ return normalizePerson(p); })});
     }
-
     if(gender === 'sister') {
-      var sisters = drivers.concat(riders);
-      while(sisters.length >= 2) {
-        var size = (sisters.length % 2 === 1) ? 3 : 2;
-        pushTeam(sisters.splice(0, size));
+      while(ordered.length) {
+        if(ordered.length === 1) { unassignedSisters.push(ordered.shift()); }
+        else if(ordered.length === 4) pushTeam(ordered.splice(0, 2));
+        else if(ordered.length >= 3) pushTeam(ordered.splice(0, 3));
+        else pushTeam(ordered.splice(0, 2));
       }
-      if(sisters.length) unassignedSisters = unassignedSisters.concat(sisters);
       return teams;
     }
-
     while(drivers.length || riders.length) {
       var members = [];
       if(drivers.length) members.push(drivers.shift());
       if(riders.length) members.push(riders.shift());
       else if(drivers.length) members.push(drivers.shift());
       if(members.length < 2 && riders.length) members.push(riders.shift());
+      if(members.length < 2 && drivers.length) members.push(drivers.shift());
       pushTeam(members);
     }
     return teams;
   }
-
   function takeBestTeam(teams, car) {
     if(!teams.length || car.length >= 5) return null;
     var hasBrother = car._genders && car._genders.indexOf('brother') >= 0;
     var hasSister = car._genders && car._genders.indexOf('sister') >= 0;
     var preferred = hasBrother ? 'sister' : (hasSister ? 'brother' : '');
-    var idx = -1;
-    if(preferred) {
-      idx = teams.findIndex(function(t){ return t.gender === preferred && car.length + t.members.length <= 5; });
-    }
+    var idx = preferred ? teams.findIndex(function(t){ return t.gender === preferred && car.length + t.members.length <= 5; }) : -1;
     if(idx < 0) idx = teams.findIndex(function(t){ return car.length + t.members.length <= 5; });
-    if(idx < 0) return null;
-    return teams.splice(idx, 1)[0];
+    return idx < 0 ? null : teams.splice(idx, 1)[0];
   }
-
   function addTeam(car, team) {
     if(!team) return;
     car._genders = car._genders || [];
     if(car._genders.indexOf(team.gender) < 0) car._genders.push(team.gender);
     team.members.forEach(function(p){ car.push(p); });
   }
-
-  var brotherTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'brother'; }), 'brother');
-  var sisterTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'sister'; }), 'sister');
-  var otherTeams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'other'; }), 'other');
-  var allTeams = brotherTeams.concat(sisterTeams).concat(otherTeams);
-  var driverTeams = allTeams.filter(function(t){ return t.driver; });
-  var riderTeams = allTeams.filter(function(t){ return !t.driver; });
+  var teams = makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'brother'; }), 'brother')
+    .concat(makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'sister'; }), 'sister'))
+    .concat(makeTeams(waiting.filter(function(p){ return genderBucket(p) === 'other'; }), 'other'));
+  var driverTeams = teams.filter(function(t){ return t.driver; });
+  var riderTeams = teams.filter(function(t){ return !t.driver; });
   var activeCars = [];
-
   driverTeams.forEach(function(driverTeam) {
     var car = makeEmptyCarGroup();
     addTeam(car, driverTeam);
     addTeam(car, takeBestTeam(riderTeams, car));
     activeCars.push(car);
   });
-
   riderTeams.slice().forEach(function(team) {
     var placed = false;
     for(var i = 0; i < activeCars.length; i++) {
-      if(activeCars[i].length + team.members.length <= 5) {
-        addTeam(activeCars[i], team);
-        placed = true;
-        break;
-      }
+      if(activeCars[i].length + team.members.length <= 5) { addTeam(activeCars[i], team); placed = true; break; }
     }
     var idx = riderTeams.indexOf(team);
     if(idx >= 0) riderTeams.splice(idx, 1);
-    if(!placed) {
-      var car = makeEmptyCarGroup();
-      addTeam(car, team);
-      activeCars.push(car);
-    }
+    if(!placed) { var car = makeEmptyCarGroup(); addTeam(car, team); activeCars.push(car); }
   });
-
-  if(unassignedSisters.length) {
-    showToast('자매 ' + unassignedSisters.length + '명은 단독 배정 방지를 위해 대기 상태로 남겼습니다');
-  }
-
-  activeCars.forEach(function(car, idx) { assignVisualPairs(car, idx); });
+  if(unassignedSisters.length) showToast('\uC790\uB9E4 ' + unassignedSisters.length + '\uBA85\uC740 2~3\uBA85 \uD300\uC774 \uB418\uC9C0 \uC54A\uC544 \uB300\uAE30\uC5D0 \uB0A8\uACBC\uC2B5\uB2C8\uB2E4');
+  activeCars.forEach(function(car, idx){ assignVisualPairs(car, idx); });
   autoAssignAreasToCars(activeCars);
   var baseGroups = carGroups.map(cloneCarGroup);
   while(baseGroups.length < Math.max(1, activeCars.length)) baseGroups.push(makeEmptyCarGroup());
-  activeCars.forEach(function(autoCar) {
+  activeCars.forEach(function(autoCar){
     var fillIndexes = getCarAutoFillIndexes(baseGroups.length);
     var target = null;
-    for(var ai = 0; ai < fillIndexes.length; ai++) {
+    for(var ai=0; ai<fillIndexes.length; ai++) {
       var candidate = baseGroups[fillIndexes[ai]];
       if(candidate && candidate.length === 0) { target = candidate; break; }
     }
-    if(!target) {
-      target = makeEmptyCarGroup();
-      baseGroups.push(target);
-    }
+    if(!target) { target = makeEmptyCarGroup(); baseGroups.push(target); }
     target.areaNum = autoCar.areaNum || target.areaNum || '';
     target.blockNum = autoCar.blockNum || target.blockNum || '';
-    autoCar.forEach(function(p) { target.push(p); });
+    autoCar.forEach(function(p){ target.push(p); });
   });
   carGroups = baseGroups;
   renderCarAssignment();
-  showToast('자동 배정했습니다');
+  scheduleCarAssignmentSave();
+  showToast('\uC790\uB3D9 \uBC30\uC815\uD588\uC2B5\uB2C8\uB2E4');
 };
 
 var pickerTarget = null;
@@ -3217,7 +3275,7 @@ function addToCar(gi, btn) {
     }
     carGroups[gi].push(normalizePerson(person));
   }
-  closePickerSheet(); renderCarAssignment();
+  closePickerSheet(); renderCarAssignment(); scheduleCarAssignmentSave();
 }
 
 function addToCarByName(gi, el) {
@@ -3231,58 +3289,17 @@ function addToCarByName(gi, el) {
     }
     carGroups[gi].push(normalizePerson(person));
   }
-  closePickerSheet(); renderCarAssignment();
+  closePickerSheet(); renderCarAssignment(); scheduleCarAssignmentSave();
 }
 
-function removeFromCar(gi, pi) { carGroups[gi].splice(pi, 1); renderCarAssignment(); }
-function removeCarGroup(gi) { carGroups.splice(gi, 1); ensureCarSlots(1); renderCarAssignment(); }
+function removeFromCar(gi, pi) { carGroups[gi].splice(pi, 1); renderCarAssignment(); scheduleCarAssignmentSave(); }
+function removeCarGroup(gi) { carGroups.splice(gi, 1); ensureCarSlots(1); renderCarAssignment(); scheduleCarAssignmentSave(); }
 
 async function completeAssignment() {
-  var today = todayStr();
   try {
-    var result = carGroups.map(function(g, i) {
-      return {
-        carNum: i+1,
-        areaNum: g.areaNum || '',
-        blockNum: g.blockNum || '',
-        members: g.map(function(p){ return normalizePerson(p); })
-      };
-    }).filter(function(g){ return g.members.length > 0; });
-    
-    var leaderName = currentRole === 'leader' ? (currentUser || '') : '';
-    await db.collection('carAssignments').doc(today).set({
-      date: today,
-      assignedLeaderName: leaderName,
-      groups: result,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    var assignedAreas = {};
-    result.forEach(function(g){ if(g.areaNum) assignedAreas[String(g.areaNum)] = true; });
-    await Promise.all(Object.keys(assignedAreas).map(function(aId) {
-      var area = areas.find(function(a){ return String(a.id) === String(aId); });
-      var update = {
-        startDate: area && area.startDate ? area.startDate : today,
-        assignedLeaderName: leaderName,
-        servicePaused: false,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if(leaderName && !(area && area.leader)) update.leader = leaderName;
-      return db.collection('areas').doc(String(aId)).set(update, {merge:true}).then(function(){
-        if(area) Object.assign(area, update);
-      });
-    }));
-    result.forEach(function(g) {
-      rtdb.ref('assignmentEvents').push({
-        type: 'assigned',
-        carNum: g.carNum,
-        areaNum: g.areaNum || '',
-        blockNum: g.blockNum || '',
-        members: (g.members || []).map(function(m){ return m.name; }),
-        timestamp: Date.now()
-      });
-    });
-    showToast('✅ 차량 배정이 완료됐습니다!');
-  } catch(e) { showToast('저장 중 오류 발생'); }
+    var result = await persistCarAssignment({notify:true});
+    showToast(result.length ? '\uCC28\uB7C9 \uBC30\uC815\uC774 \uC800\uC7A5\uB418\uACE0 \uC54C\uB9BC\uC744 \uBCF4\uB0C8\uC2B5\uB2C8\uB2E4' : '\uC800\uC7A5\uD560 \uBC30\uC815\uC774 \uC5C6\uC2B5\uB2C8\uB2E4');
+  } catch(e) { showToast('\uC800\uC7A5 \uC911 \uC624\uB958 \uBC1C\uC0DD'); }
 }
 
 
