@@ -985,17 +985,17 @@ function renderCardEditor() {
       // ?? ??
       var hdr = document.createElement('div');
       hdr.style.cssText = 'background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between';
-      hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '??</span>';
+      hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '\uBE14\uB7ED</span>';
       var hdrBtns = document.createElement('div');
       hdrBtns.style.cssText = 'display:flex;gap:6px';
 
       var parkBtn = document.createElement('button');
-      parkBtn.textContent = '?? ??';
+      parkBtn.textContent = '\uC8FC\uCC28 \uC218\uC815';
       parkBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
       parkBtn.onclick = (function(b){ return function(){ editBlkParking(b); }; })(bi);
 
       var delBlkBtn = document.createElement('button');
-      delBlkBtn.textContent = '??';
+      delBlkBtn.textContent = '\uC0AD\uC81C';
       delBlkBtn.style.cssText = 'background:rgba(255,0,0,0.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
       delBlkBtn.onclick = (function(b){ return function(){ removeBlk(b); }; })(bi);
 
@@ -1018,9 +1018,9 @@ function renderCardEditor() {
         var subTitle = document.createElement('div');
         subTitle.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
         subTitle.innerHTML =
-          '<span style="font-size:12px;font-weight:600;color:#7c3aed;flex:1">? ' + (sub.name||'??? ??') + '</span>' +
-          '<button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">??</button>' +
-          '<button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">??</button>';
+          '<span style="font-size:12px;font-weight:600;color:#7c3aed;flex:1">\u2514 ' + (sub.name||'\uB3C4\uB85C\uBA85 \uC5C6\uC74C') + '</span>' +
+          '<button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">\uC218\uC815</button>' +
+          '<button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">\uC0AD\uC81C</button>';
         subDiv.appendChild(subTitle);
 
         // ?? ??
@@ -1039,7 +1039,7 @@ function renderCardEditor() {
           viewMode.style.cssText = 'display:flex;align-items:center;gap:8px';
 
           var handle = document.createElement('span');
-          handle.textContent = '?';
+          handle.textContent = '\u2630';
           handle.style.cssText = 'color:#999;font-size:16px;cursor:grab;flex-shrink:0;background:white;border-radius:6px;padding:3px 6px;touch-action:none;user-select:none';
 
           var addrSpan = document.createElement('span');
@@ -1047,12 +1047,12 @@ function renderCardEditor() {
           addrSpan.style.cssText = 'font-size:13px;font-weight:600;color:#333;min-width:60px;cursor:text';
 
           var memoSpan = document.createElement('span');
-          memoSpan.textContent = memo || '?? ??';
+          memoSpan.textContent = memo || '\uBA54\uBAA8 \uC5C6\uC74C';
           memoSpan.style.cssText = 'font-size:12px;color:#aaa;flex:1;cursor:text';
 
           if(fixInfo) {
             var fixBadge = document.createElement('span');
-            fixBadge.textContent = '????';
+            fixBadge.textContent = '\uC218\uC815\uC694\uCCAD';
             fixBadge.style.cssText = 'font-size:11px;background:#e65100;color:white;padding:2px 6px;border-radius:999px;flex-shrink:0';
             viewMode.appendChild(handle);
             viewMode.appendChild(addrSpan);
@@ -1065,7 +1065,7 @@ function renderCardEditor() {
           }
 
           var delBtn = document.createElement('button');
-          delBtn.textContent = '??';
+          delBtn.textContent = '\uC0AD\uC81C';
           delBtn.style.cssText = 'background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0';
           delBtn.onclick = (function(b,s,i){ return function(){ removeHouse(b,s,i); }; })(bi,si,hi);
 
@@ -1076,7 +1076,7 @@ function renderCardEditor() {
           if(fixInfo) {
             var fixMemoDiv = document.createElement('div');
             fixMemoDiv.style.cssText = 'background:#FFF0E8;border-radius:6px;padding:5px 8px;font-size:12px;color:#854F0B;margin-top:4px;display:flex;align-items:center;gap:6px';
-            fixMemoDiv.innerHTML = '?? ???? ??:';
+            fixMemoDiv.innerHTML = '\uD83D\uDCAC \uC218\uC815\uC694\uCCAD \uBA54\uBAA8:';
             var fixMemoInp = document.createElement('input');
             fixMemoInp.type = 'text';
             fixMemoInp.value = fixInfo.memo;
@@ -1093,24 +1093,24 @@ function renderCardEditor() {
           var addrInp = document.createElement('input');
           addrInp.type = 'text';
           addrInp.value = addr;
-          addrInp.placeholder = '??';
+          addrInp.placeholder = '\uC8FC\uC18C';
           addrInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #7c3aed;border-radius:8px;font-size:13px;font-weight:600;outline:none';
 
           var memoInp = document.createElement('input');
           memoInp.type = 'text';
           memoInp.value = memo;
-          memoInp.placeholder = '?? (??)';
+          memoInp.placeholder = '\uBA54\uBAA8 (\uC120\uD0DD)';
           memoInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#555;outline:none';
 
           var saveBtnRow = document.createElement('div');
           saveBtnRow.style.cssText = 'display:flex;gap:6px';
 
           var confirmBtn = document.createElement('button');
-          confirmBtn.textContent = '? ??';
+          confirmBtn.textContent = '\u2713 \uD655\uC778';
           confirmBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:none;background:#7c3aed;color:white;font-size:13px;font-weight:600;cursor:pointer';
 
           var cancelBtn = document.createElement('button');
-          cancelBtn.textContent = '??';
+          cancelBtn.textContent = '\uCDE8\uC18C';
           cancelBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;background:white;color:#888;font-size:13px;cursor:pointer';
 
           saveBtnRow.appendChild(confirmBtn);
@@ -1138,7 +1138,7 @@ function renderCardEditor() {
               editingBlocks[b].subTopics[s].houses[i].addr = newAddr;
               editingBlocks[b].subTopics[s].houses[i].note = newMemo;
               aSpan.textContent = newAddr;
-              mSpan.textContent = newMemo || '?? ??';
+              mSpan.textContent = newMemo || '\uBA54\uBAA8 \uC5C6\uC74C';
               vm.style.display = 'flex';
               em.style.display = 'none';
             };
@@ -1185,7 +1185,7 @@ function renderCardEditor() {
 
         // ?? ?? ??
         var addHouseBtn = document.createElement('button');
-        addHouseBtn.textContent = '+ ?? ??';
+        addHouseBtn.textContent = '+ \uC8FC\uC18C \uCD94\uAC00';
         addHouseBtn.style.cssText = 'width:100%;padding:6px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px';
         addHouseBtn.onclick = (function(b,s){ return function(){ addHouse(b,s); }; })(bi,si);
         subDiv.appendChild(addHouseBtn);
@@ -1194,7 +1194,7 @@ function renderCardEditor() {
 
       // ??? ?? ??
       var addSubBtn = document.createElement('button');
-      addSubBtn.textContent = '+ ??? ??';
+      addSubBtn.textContent = '+ \uB3C4\uB85C\uBA85 \uCD94\uAC00';
       addSubBtn.style.cssText = 'width:calc(100% - 24px);margin:8px 12px;padding:6px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block';
       addSubBtn.onclick = (function(b){ return function(){ addSubTopic(b); }; })(bi);
       blkDiv.appendChild(addSubBtn);
@@ -1203,7 +1203,7 @@ function renderCardEditor() {
 
     // ?? ?? ??
     var addBlkBtn = document.createElement('button');
-    addBlkBtn.textContent = '+ ?? ??';
+    addBlkBtn.textContent = '+ \uBE14\uB7ED \uCD94\uAC00';
     addBlkBtn.style.cssText = 'width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px';
     addBlkBtn.onclick = addBlock;
     body.appendChild(addBlkBtn);

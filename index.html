@@ -286,7 +286,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <div style="width:100%;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;display:flex;flex-direction:column;gap:8px">
         
         <button onclick="openCarResult()" style="width:100%;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
-          <span style="font-size:18px">\uD83D\uDE97</span>
+          <span style="font-size:18px">&#128663;</span>
           <div style="flex:1;text-align:left">
             <div style="font-size:13px;font-weight:600;color:#a78bfa">오늘 차량 배정 결과</div>
             <div style="font-size:11px;color:rgba(167,139,250,0.7)">누구와 같은 차인지 확인하세요</div>
@@ -328,15 +328,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   <div style="margin-bottom:12px">
     <div style="font-size:13px;color:#888;margin-bottom:6px">성별 구분</div>
     <div style="display:flex;gap:8px">
-      <button id="genBro" onclick="setGenderVal('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDC66 형제</button>
-      <button id="genSis" onclick="setGenderVal('자매')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDC67 자매</button>
+      <button id="genBro" onclick="setGenderVal('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">&#128102; 형제</button>
+      <button id="genSis" onclick="setGenderVal('자매')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">&#128103; 자매</button>
     </div>
   </div>
   
   <div style="margin-bottom:12px">
     <div style="font-size:13px;color:#888;margin-bottom:6px">차량</div>
     <div style="display:flex;gap:8px">
-      <button id="carYes" onclick="setCarAvail(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDE97 차 있음</button>
+      <button id="carYes" onclick="setCarAvail(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">&#128663; 차 있음</button>
       <button id="carNo" onclick="setCarAvail(false)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">🚶 차 없음</button>
     </div>
   </div>
@@ -382,7 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     </div>
     <div class="tb-right">
       <span class="pill" id="fieldUserPill"></span>
-      <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">\uD83D\uDE97 차량</button>
+      <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">&#128663; 차량</button>
       <button class="sos-btn" onclick="openSOS()">🚨 SOS</button>
       <button class="exit-btn" onclick="smartExit()">나가기</button>
     </div>
@@ -574,7 +574,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 <div id="carResultSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:41;max-height:80vh;overflow-y:auto">
   <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:700;color:#1a1040">\uD83D\uDE97 오늘 차량 배정</div>
+    <div style="font-size:16px;font-weight:700;color:#1a1040">&#128663; 오늘 차량 배정</div>
     <button onclick="closeCarResult()" style="background:none;border:1px solid #eee;border-radius:8px;padding:5px 12px;font-size:13px;color:#888;cursor:pointer">닫기</button>
   </div>
   <div id="carResultList">
