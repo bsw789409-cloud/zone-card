@@ -286,7 +286,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <div style="width:100%;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;display:flex;flex-direction:column;gap:8px">
         
         <button onclick="openCarResult()" style="width:100%;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
-          <span style="font-size:18px">🚗</span>
+          <span style="font-size:18px">\uD83D\uDE97</span>
           <div style="flex:1;text-align:left">
             <div style="font-size:13px;font-weight:600;color:#a78bfa">오늘 차량 배정 결과</div>
             <div style="font-size:11px;color:rgba(167,139,250,0.7)">누구와 같은 차인지 확인하세요</div>
@@ -328,15 +328,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   <div style="margin-bottom:12px">
     <div style="font-size:13px;color:#888;margin-bottom:6px">성별 구분</div>
     <div style="display:flex;gap:8px">
-      <button id="genBro" onclick="setGenderVal('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">👦 형제</button>
-      <button id="genSis" onclick="setGenderVal('자매')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">👧 자매</button>
+      <button id="genBro" onclick="setGenderVal('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDC66 형제</button>
+      <button id="genSis" onclick="setGenderVal('자매')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDC67 자매</button>
     </div>
   </div>
   
   <div style="margin-bottom:12px">
     <div style="font-size:13px;color:#888;margin-bottom:6px">차량</div>
     <div style="display:flex;gap:8px">
-      <button id="carYes" onclick="setCarAvail(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">🚗 차 있음</button>
+      <button id="carYes" onclick="setCarAvail(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">\uD83D\uDE97 차 있음</button>
       <button id="carNo" onclick="setCarAvail(false)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">🚶 차 없음</button>
     </div>
   </div>
@@ -382,7 +382,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     </div>
     <div class="tb-right">
       <span class="pill" id="fieldUserPill"></span>
-      <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">🚗 차량</button>
+      <button onclick="openCarResult()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 10px;cursor:pointer">\uD83D\uDE97 차량</button>
       <button class="sos-btn" onclick="openSOS()">🚨 SOS</button>
       <button class="exit-btn" onclick="smartExit()">나가기</button>
     </div>
@@ -505,7 +505,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
   <div class="ldr-scroll" id="leaderList"></div>
   </div>
-  <button class="live-map-btn" onclick="openLiveMap()" title="실시간 위치 지도">📍</button>
+  <button class="live-map-btn" onclick="openLiveMap()" title="실시간 위치 지도"></button>
 </div>
 
 <div class="sheet-overlay" id="liveMapOverlay" onclick="closeLiveMap()"></div>
@@ -574,7 +574,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 <div id="carResultSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:41;max-height:80vh;overflow-y:auto">
   <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div style="font-size:16px;font-weight:700;color:#1a1040">🚗 오늘 차량 배정</div>
+    <div style="font-size:16px;font-weight:700;color:#1a1040">\uD83D\uDE97 오늘 차량 배정</div>
     <button onclick="closeCarResult()" style="background:none;border:1px solid #eee;border-radius:8px;padding:5px 12px;font-size:13px;color:#888;cursor:pointer">닫기</button>
   </div>
   <div id="carResultList">
@@ -1133,7 +1133,10 @@ var areaPickerContext = null;
 
 function setPickerSheetContent(html) {
   var sheet = document.getElementById('carPickerSheet');
-  if(sheet) sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>' + html;
+  if(!sheet) { showPickerSheet(html); return; }
+  var content = document.getElementById('carPickerContent');
+  if(content) content.innerHTML = html || '';
+  else sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
 }
 
 function areaPickerBack() {
@@ -1278,10 +1281,15 @@ function renderAreaPickerList(gi) {
 
 async function openAreaPickerForCar(gi) {
   ensureCarSlots(gi + 1);
-  var candidates = areas.filter(function(a){ return !isAreaComplete(a) && isAreaInCurrentRecommendationRound(a); }).slice(0, 30);
-  await Promise.all(candidates.map(function(a){ return ensureAreaStatusLoaded(a.id); }));
-  showPickerSheet('');
-  renderAreaPickerList(gi);
+  areaPickerContext = {gi: gi};
+  showPickerSheet('<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">\uAD6C\uC5ED \uBAA9\uB85D\uC744 \uBD88\uB7EC\uC624\uB294 \uC911...</div>');
+  try {
+    var candidates = areas.filter(function(a){ return !isAreaComplete(a) && isAreaInCurrentRecommendationRound(a); }).slice(0, 30);
+    await Promise.all(candidates.map(function(a){ return ensureAreaStatusLoaded(a.id); }));
+    renderAreaPickerList(gi);
+  } catch(e) {
+    setPickerSheetContent('<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px;font-weight:700">\uAD6C\uC5ED \uBAA9\uB85D\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span></div>');
+  }
 }
 async function editCardParking(bi) {
   if(!currentAreaData[bi]) return;
@@ -2610,13 +2618,13 @@ function renderCarAssignment() {
   } else {
     function appendWaitingPeople(lane, people) {
       sortPeopleForAssignment(people).forEach(function(p) {
-        var genderIcon = p.gender === '자매' ? '👧' : (p.gender === '형제' ? '👦' : '');
+        var genderIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
         var chip = document.createElement('div');
         chip.className = 'waiting-person-chip';
         chip.draggable = true;
         chip.dataset.name = p.name;
         chip.style.cssText = 'background:white;border:0.5px solid #ddd;border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer;display:flex;flex-direction:column;gap:2px;margin-bottom:6px';
-        chip.innerHTML = '<span style="font-weight:700;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' 🚗' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
+        chip.innerHTML = '<span style="font-weight:700;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' \uD83D\uDE97' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
         chip.onclick = function() { openCarPicker(p); };
         lane.appendChild(chip);
       });
@@ -2639,13 +2647,13 @@ function renderCarAssignment() {
     }
     /*
     sortPeopleForAssignment(waiting).forEach(function(p) {
-      var genderIcon = p.gender === '자매' ? '👧' : (p.gender === '형제' ? '👦' : '');
+      var genderIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
       var chip = document.createElement('div');
       chip.className = 'waiting-person-chip';
       chip.draggable = true;
       chip.dataset.name = p.name;
       chip.style.cssText = 'background:white;border:0.5px solid #ddd;border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer;display:flex;flex-direction:column;gap:2px';
-      chip.innerHTML = '<span style="font-weight:600;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' 🚗' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
+      chip.innerHTML = '<span style="font-weight:600;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' \uD83D\uDE97' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
       chip.onclick = function() { openCarPicker(p); };
       wList.appendChild(chip);
     });
@@ -2702,10 +2710,10 @@ function renderCarAssignment() {
       body += '<div class="pair-wrap" data-gi="' + gi + '" data-pair-id="' + escAttr(pair.key) + '" style="margin:0">';
       pair.members.forEach(function(p) {
         var pi = group.indexOf(p);
-        var gIcon = p.gender === '자매' ? '👧' : (p.gender === '형제' ? '👦' : '');
+        var gIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
         body += `
           <div class="car-person-chip" draggable="true" data-gi="${gi}" data-pi="${pi}" style="background:${lightColor};border-radius:10px;padding:7px 8px;font-size:13px;color:${color};display:flex;align-items:center;justify-content:space-between;gap:6px;font-weight:600;cursor:grab;touch-action:none;user-select:none;min-height:32px;min-width:0;flex:1 1 110px">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pi+1}. ${p.name} ${gIcon} ${p.car ? ' 🚗' : ''}</span>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pi+1}. ${p.name} ${gIcon} ${p.car ? ' \uD83D\uDE97' : ''}</span>
             <span onclick="removeFromCar(${gi},${pi})" style="cursor:pointer;font-size:14px;opacity:0.6;flex-shrink:0">✕</span>
           </div>`;
       });
@@ -3276,10 +3284,10 @@ function showCarPickerModal(person, gi) {
     
   } else {
     var opts2 = waiting.map(function(p) { 
-      var gIcon = p.gender === '자매' ? '👧' : (p.gender === '형제' ? '👦' : '');
+      var gIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
       return '<div onclick="addToCarByName(' + gi + ',this)" data-name="' + p.name + '" ' +
              'style="display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer">' +
-             '<div style="flex:1"><div style="font-size:14px;font-weight:600">' + p.name + ' ' + gIcon + (p.car ? ' 🚗' : '') + '</div>' +
+             '<div style="flex:1"><div style="font-size:14px;font-weight:600">' + p.name + ' ' + gIcon + (p.car ? ' \uD83D\uDE97' : '') + '</div>' +
              (p.memo ? '<div style="font-size:12px;color:#aaa">' + p.memo + '</div>' : '') +
              '</div></div>';
     }).join('');
@@ -3288,22 +3296,21 @@ function showCarPickerModal(person, gi) {
 }
 
 function showPickerSheet(html) {
+  closePickerSheet();
   var overlay = document.createElement('div');
   overlay.id = 'carPickerOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:60';
   overlay.onclick = closePickerSheet;
   var sheet = document.createElement('div');
   sheet.id = 'carPickerSheet';
-  sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:61;max-height:70vh;overflow-y:auto';
-  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>' + html;
+  sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:61;max-height:78vh;min-height:220px;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
+  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
   document.body.appendChild(overlay);
   document.body.appendChild(sheet);
 }
 
 function closePickerSheet() {
-  var o = document.getElementById('carPickerOverlay');
-  var s = document.getElementById('carPickerSheet');
-  if(o) o.remove(); if(s) s.remove();
+  document.querySelectorAll('#carPickerOverlay,#carPickerSheet').forEach(function(el){ el.remove(); });
 }
 
 function addToCar(gi, btn) {
@@ -3433,15 +3440,15 @@ async function openCarResult() {
   lockScroll();
   document.getElementById('carResultOverlay').style.display = 'block';
   document.getElementById('carResultSheet').style.display = 'block';
-  
   var d = new Date();
   var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   var list = document.getElementById('carResultList');
-  
+  var viewerName = currentUser || localStorage.getItem('savedUserName') || '';
+  list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uBD88\uB7EC\uC624\uB294 \uC911...</div>';
   try {
     var doc = await db.collection('carAssignments').doc(today).get();
     if(!doc.exists || !doc.data().groups || !doc.data().groups.length) {
-      list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">오늘 배정된 차량이 없습니다</div>';
+      list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uC624\uB298 \uBC30\uC815\uB41C \uCC28\uB7C9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
       return;
     }
     var colors = ['#7c3aed','#0F6E56','#993C1D','#185FA5','#854F0B','#1a1040'];
@@ -3450,54 +3457,52 @@ async function openCarResult() {
     var groups = doc.data().groups || [];
     var myAssignment = null;
     groups.forEach(function(g, i) {
-      if(myAssignment) return;
+      if(myAssignment || !viewerName) return;
       getPairGroups(g.members || []).forEach(function(pair) {
         if(myAssignment) return;
-        if(pair.members.some(function(m){ return m.name === currentUser; })) myAssignment = {group:g, index:i, pair:pair};
+        if(pair.members.some(function(m){ return m.name === viewerName; })) myAssignment = {group:g, index:i, pair:pair};
       });
     });
     if(myAssignment) {
       var g0 = myAssignment.group;
-      var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' · ');
-      var areaText = g0.areaNum ? ('구역 ' + g0.areaNum + (g0.blockNum ? ' (' + g0.blockNum + '블럭)' : '')) : '구역 미배정';
+      var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' ? ');
+      var areaText = g0.areaNum ? ('\uAD6C\uC5ED ' + g0.areaNum + (g0.blockNum ? ' (' + g0.blockNum + '\uBE14\uB7ED)' : '')) : '\uAD6C\uC5ED \uBBF8\uBC30\uC815';
       var areaArg = String(g0.areaNum || '').replace(/'/g, '\&#39;');
       var blockArg = String(g0.blockNum || '').replace(/'/g, '\&#39;');
       list.innerHTML += '<div style="border:2px solid #7c3aed;background:#f3f0ff;border-radius:16px;padding:12px;margin-bottom:12px">' +
-        '<div style="font-size:12px;color:#7c3aed;font-weight:900;margin-bottom:4px">내 배정</div>' +
-        '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '호차 · ' + escHtml(pairNames) + '</div>' +
-        '<button onclick="goToFieldFromCarResult(\'' + areaArg + '\',\'' + blockArg + '\')" style="margin-top:8px;width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer">' + escHtml(areaText) + ' 바로가기</button>' +
+        '<div style="font-size:12px;color:#7c3aed;font-weight:900;margin-bottom:4px">\uB0B4 \uBC30\uC815</div>' +
+        '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '\uD638\uCC28 ? ' + escHtml(pairNames) + '</div>' +
+        '<div style="font-size:13px;color:#555;font-weight:800;margin-top:6px">' + escHtml(areaText) + '</div>' +
+        '<button onclick="goToFieldFromCarResult(\'' + areaArg + '\',\'' + blockArg + '\')" style="margin-top:8px;width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer">\uAD6C\uC5ED \uCE74\uB4DC\uB85C \uBC14\uB85C\uAC00\uAE30</button>' +
       '</div>';
+    } else if(viewerName) {
+      list.innerHTML += '<div style="border:1px solid #eee;background:#fafafa;border-radius:14px;padding:12px;margin-bottom:12px;text-align:center;color:#999;font-size:13px">' + escHtml(viewerName) + ' \uB2D8\uC758 \uBC30\uC815\uC740 \uC544\uC9C1 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
     }
-    
     groups.forEach(function(g, i) {
       var color = colors[i % colors.length];
       var lightColor = lightColors[i % lightColors.length];
       var card = document.createElement('div');
       card.style.cssText = 'border:2px solid '+color+';border-radius:14px;overflow:hidden;margin-bottom:10px';
-      
       var areaLabel = '?';
-      if (g.areaNum) {
-        areaLabel = g.areaNum + '번';
-        if (g.blockNum) areaLabel += ' (' + g.blockNum + '블럭)';
+      if(g.areaNum) {
+        areaLabel = g.areaNum + '\uBC88';
+        if(g.blockNum) areaLabel += ' (' + g.blockNum + '\uBE14\uB7ED)';
       }
-
       var clickCode = g.areaNum ? 'onclick="goToFieldFromCarResult(\''+g.areaNum+'\', \''+(g.blockNum||'')+'\')"' : '';
       var pointer = g.areaNum ? 'cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3);' : '';
-
       var header = '<div style="background:'+color+';padding:12px 14px;display:flex;align-items:center;justify-content:space-between">' +
-        '<div ' + clickCode + ' style="font-size:16px;font-weight:800;color:white;background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:8px;' + pointer + '">📍 구역 ' + areaLabel + '</div>' +
-        '<span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8)">'+(i+1)+'호차</span>' +
+        '<div ' + clickCode + ' style="font-size:16px;font-weight:800;color:white;background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:8px;' + pointer + '">\uD83D\uDCCD \uAD6C\uC5ED ' + areaLabel + '</div>' +
+        '<span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8)">'+(i+1)+'\uD638\uCC28</span>' +
         '</div>';
-        
       var members = '<div style="padding:10px 12px">';
       getPairGroups(g.members || []).forEach(function(pair) {
-        var isMinePair = pair.members.some(function(m){ return m.name === currentUser; });
+        var isMinePair = viewerName && pair.members.some(function(m){ return m.name === viewerName; });
         members += '<div class="pair-wrap ' + (isMinePair ? 'mine' : '') + '">';
         pair.members.forEach(function(m) {
-          var mIcon = m.gender === '자매' ? '👧' : (m.gender === '형제' ? '👦' : '');
-          var mine = m.name === currentUser;
+          var mIcon = m.gender === '\uC790\uB9E4' ? '\uD83D\uDC67' : (m.gender === '\uD615\uC81C' ? '\uD83D\uDC66' : '');
+          var mine = viewerName && m.name === viewerName;
           members += '<div class="' + (mine ? 'mine-chip' : '') + '" style="background:'+lightColor+';border-radius:999px;padding:6px 14px;font-size:13px;color:'+color+';font-weight:700">' +
-            (mine ? '내 자리 · ' : '') + m.name + ' ' + mIcon + (m.car ? ' 🚗' : '') + '</div>';
+            (mine ? '\uB0B4 \uC790\uB9AC ? ' : '') + escHtml(m.name) + ' ' + mIcon + (m.car ? ' \uD83D\uDE97' : '') + '</div>';
         });
         members += '</div>';
       });
@@ -3505,7 +3510,9 @@ async function openCarResult() {
       card.innerHTML = header + members;
       list.appendChild(card);
     });
-  } catch(e) { list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">불러올 수 없습니다</div>'; }
+  } catch(e) {
+    list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
+  }
 }
 
 function closeCarResult() {
