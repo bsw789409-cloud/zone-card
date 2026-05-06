@@ -420,25 +420,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   <!-- 차량 배정 탭 -->
   <div id="ldrAssignTab" style="flex:1;overflow-y:auto;padding:12px 16px;background:#f0f0f5;display:flex;flex-direction:column;gap:10px;">
     
-    <!-- 추천 구역 리스트 (미니 바) -->
-    <div style="background:white;border-radius:14px;padding:12px 14px;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-      <div style="font-size:13px;font-weight:600;color:#555;margin-bottom:8px">📌 추천 구역 (미완료)</div>
-      <div id="recommendAreaList" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;">
-        <div style="font-size:12px;color:#aaa">로딩 중...</div>
-      </div>
-    </div>
-
     <!-- 대기 중 -->
     <div style="background:#e8e8ee;border-radius:14px;padding:12px 14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:600;color:#555">대기 중 · <span id="waitingCount">0</span>명</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div onclick="toggleWaitingList()" style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none">
+          <span style="font-size:13px;font-weight:600;color:#555">대기 중 · <span id="waitingCount">0</span>명</span>
+          <span id="waitingToggleIcon" style="font-size:11px;color:#888;transition:transform 0.2s">▲</span>
+        </div>
         <div>
           <button onclick="autoAssignCars()" style="background:#7c3aed;border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:white;cursor:pointer;font-weight:600;margin-right:6px">🤖 자동 배정</button>
           <button onclick="cancelCarAssignment()" style="background:none;border:1px solid rgba(124,58,237,0.35);border-radius:6px;padding:4px 8px;font-size:11px;color:#7c3aed;cursor:pointer;font-weight:600;margin-right:6px">&#xBC30;&#xC815; &#xCDE8;&#xC18C;</button>
           <button onclick="resetTodaySignups()" style="background:none;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;color:#ef4444;cursor:pointer;font-weight:600">🔄 전체 초기화</button>
         </div>
       </div>
-      <div id="waitingList" style="display:flex;flex-wrap:wrap;gap:6px">
+      <div id="waitingList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
         <div style="font-size:12px;color:#aaa">봉사 신청자가 없습니다</div>
       </div>
     </div>
@@ -1269,6 +1264,7 @@ function renderAreaPickerList(gi) {
     html += '<div style="border:1px solid #eee;border-radius:14px;padding:12px;margin-bottom:10px;background:#fff">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">' +
         '<div style="min-width:0"><div style="font-size:15px;font-weight:900;color:#1a1040;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(a.id) + '\uBC88 ' + escHtml(a.name || '') + '</div>' +
+        '<div style="font-size:11px;color:#888;margin-top:1px">' + getAreaName(a.id) + '</div>' +
         '<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-top:2px">\uC9C4\uD589\uB960 ' + getAreaPct(a) + '% \u00B7 \uB0A8\uC740 ' + total + '\uAC00\uAD6C</div></div>' +
         '<button onclick="renderAreaPickerDetail(' + gi + ',&quot;' + escAttr(a.id) + '&quot;)" style="border:none;border-radius:999px;background:#f3f0ff;color:#7c3aed;padding:8px 12px;font-size:12px;font-weight:900;cursor:pointer;flex-shrink:0">\uCE74\uB4DC \uBCF4\uAE30</button>' +
       '</div><div style="display:flex;gap:6px;flex-wrap:wrap">' +
@@ -2656,38 +2652,17 @@ function getAreaPct(area) { return area.progress || 0; }
 // ═══════════════════════════════════
 // 차량 배정 화면 렌더링 (정렬 및 연결 수정본)
 // ═══════════════════════════════════
+function toggleWaitingList() {
+  var list = document.getElementById('waitingList');
+  var icon = document.getElementById('waitingToggleIcon');
+  if(!list) return;
+  var hidden = list.style.display === 'none';
+  list.style.display = hidden ? 'flex' : 'none';
+  if(icon) icon.textContent = hidden ? '▲' : '▼';
+}
+
 function renderCarAssignment() {
   ensureCarSlots(1);
-  // [수정] 추천 구역: 번호순 정렬 및 클릭 이벤트 강화
-  var recContainer = document.getElementById('recommendAreaList');
-  if(recContainer) {
-      // 숫자로 변환하여 오름차순 정렬 (1, 2, 3... 순서로)
-      var lowestRound = getLowestActiveRound();
-      var recs = areas
-        .filter(function(a) { return getAreaPct(a) < 100 && !isAreaComplete(a) && Number(a.round || 1) === lowestRound; })
-        .sort(function(a, b) {
-          var ap = a.servicePaused && !isAreaComplete(a) ? 0 : 1;
-          var bp = b.servicePaused && !isAreaComplete(b) ? 0 : 1;
-          if(ap !== bp) return ap - bp;
-          return Number(a.id) - Number(b.id);
-        })
-        .slice(0, 4);
-
-      recContainer.innerHTML = '';
-      if(recs.length === 0) {
-        recContainer.innerHTML = '<div style="font-size:12px;color:#aaa;padding:10px;">추천할 미완료 구역이 없습니다.</div>';
-      } else {
-        recs.forEach(a => {
-            var pct = getAreaPct(a);
-            // 클릭 시 openCardSheet가 확실히 호출되도록 수정
-            recContainer.innerHTML += `
-              <div onclick="openCardSheet('${a.id}')" style="min-width:100px; flex:1; background:rgba(124,58,237,0.06); border:1px solid rgba(124,58,237,0.2); border-radius:10px; padding:10px 12px; display:flex; flex-direction:column; gap:4px; cursor:pointer; flex-shrink:0; transition: transform 0.1s active {transform: scale(0.95)}">
-                <div style="font-size:14px; font-weight:700; color:#1a1040;">📍 ${a.id}번</div>
-                <div style="font-size:11px; color:#7c3aed; font-weight:600;">진행률 ${pct}%</div>
-              </div>`;
-        });
-      }
-  }
 
   // 대기 명단 처리
   var assigned = carGroups.flat().map(p => p.name);
