@@ -496,6 +496,19 @@ var AREA_RANGES = {
   '진서면':[129,169],'주산면':[170,205],'상서면':[206,235]
 };
 
+
+function escHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escAttr(value) {
+  return escHtml(value);
+}
+
 function getAreaFace(id) {
   var n = Number(id);
   for(var k in AREA_RANGES) {
