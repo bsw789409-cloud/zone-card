@@ -630,7 +630,7 @@ var areaStatusLoaded = {};
 var dSt = null, dHouseKey = null, dAreaId = null;
 var openSheetAreaId = null, leaderTab = 'all';
 var locationSharing = false, locationWatchId = null;
-var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null;
+var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null, csVisitUnsubscribe = null;
 var dirtyVisitKeys = {};
 var areaPickerFilterState = {region:'all', type:'all'};
 var carAssignmentSaveTimer = null;
@@ -2247,9 +2247,10 @@ function listenAssignmentEvents() {
     var ev = snap.val();
     if(!ev || Date.now() - ev.timestamp > 15000) return;
     if(ev.type === 'done') {
-      var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
-      if(confirm(msg)) setLdrTab('assign');
+      var msg = (ev.carNum ? ev.carNum + '\uD638\uCC28 ' : '') + (ev.areaNum || '') + '\uBC88 \uAD6C\uC5ED' + (ev.blockNum ? ' ' + ev.blockNum + '\uBE14\uB7ED' : '') + ' \uC644\uB8CC';
+      showToast(msg);
       loadTodaySignups();
+      renderLeader();
     }
   });
 }
@@ -3846,6 +3847,25 @@ window.openCardSheet = async function(aId) {
     
     // 방문 기록 로드 및 리스트 렌더링
     await loadVisitRecords(String(aId));
+    if(csVisitUnsubscribe) { csVisitUnsubscribe(); csVisitUnsubscribe = null; }
+    csVisitUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
+      if(!openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
+      var changed = false;
+      if(!statusData[String(aId)]) statusData[String(aId)] = {};
+      if(!memoData[String(aId)]) memoData[String(aId)] = {};
+      snap.docChanges().forEach(function(change) {
+        var r = change.doc.data() || {};
+        if(!(PERSISTENT.includes(r.status) || Number(r.round) === Number(currentRound))) return;
+        var prev = statusData[String(aId)][r.addr];
+        var prevMemo = memoData[String(aId)][r.addr];
+        if(prev !== r.status || prevMemo !== (r.memo || '')) {
+          statusData[String(aId)][r.addr] = r.status;
+          memoData[String(aId)][r.addr] = r.memo || '';
+          changed = true;
+        }
+      });
+      if(changed) renderCsGrid(aId);
+    });
     initCsBlockTabs(area || {id: aId, blocks: currentAreaData});
     renderCsAssignTools(aId);
     renderCsGrid(aId);
@@ -3870,6 +3890,7 @@ window.openCardSheet = async function(aId) {
 function closeCardSheet() {
   unlockScroll();
   if(areaUnsubscribe && currentRole === 'leader') { areaUnsubscribe(); areaUnsubscribe = null; }
+  if(csVisitUnsubscribe) { csVisitUnsubscribe(); csVisitUnsubscribe = null; }
   var sheet = document.getElementById('cardSheet');
   var overlay = document.getElementById('sheetOverlay');
   if (sheet) sheet.classList.remove('open');
