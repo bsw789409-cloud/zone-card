@@ -3465,13 +3465,13 @@ async function openCarResult() {
     });
     if(myAssignment) {
       var g0 = myAssignment.group;
-      var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' ? ');
+      var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' \u00B7 ');
       var areaText = g0.areaNum ? ('\uAD6C\uC5ED ' + g0.areaNum + (g0.blockNum ? ' (' + g0.blockNum + '\uBE14\uB7ED)' : '')) : '\uAD6C\uC5ED \uBBF8\uBC30\uC815';
       var areaArg = String(g0.areaNum || '').replace(/'/g, '\&#39;');
       var blockArg = String(g0.blockNum || '').replace(/'/g, '\&#39;');
       list.innerHTML += '<div style="border:2px solid #7c3aed;background:#f3f0ff;border-radius:16px;padding:12px;margin-bottom:12px">' +
         '<div style="font-size:12px;color:#7c3aed;font-weight:900;margin-bottom:4px">\uB0B4 \uBC30\uC815</div>' +
-        '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '\uD638\uCC28 ? ' + escHtml(pairNames) + '</div>' +
+        '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '\uD638\uCC28 \u00B7 ' + escHtml(pairNames) + '</div>' +
         '<div style="font-size:13px;color:#555;font-weight:800;margin-top:6px">' + escHtml(areaText) + '</div>' +
         '<button onclick="goToFieldFromCarResult(\'' + areaArg + '\',\'' + blockArg + '\')" style="margin-top:8px;width:100%;border:none;border-radius:10px;background:#7c3aed;color:white;padding:10px;font-size:13px;font-weight:900;cursor:pointer">\uAD6C\uC5ED \uCE74\uB4DC\uB85C \uBC14\uB85C\uAC00\uAE30</button>' +
       '</div>';
@@ -3502,7 +3502,7 @@ async function openCarResult() {
           var mIcon = m.gender === '\uC790\uB9E4' ? '\uD83D\uDC67' : (m.gender === '\uD615\uC81C' ? '\uD83D\uDC66' : '');
           var mine = viewerName && m.name === viewerName;
           members += '<div class="' + (mine ? 'mine-chip' : '') + '" style="background:'+lightColor+';border-radius:999px;padding:6px 14px;font-size:13px;color:'+color+';font-weight:700">' +
-            (mine ? '\uB0B4 \uC790\uB9AC ? ' : '') + escHtml(m.name) + ' ' + mIcon + (m.car ? ' \uD83D\uDE97' : '') + '</div>';
+            (mine ? '\uB0B4 \uC790\uB9AC \u00B7 ' : '') + escHtml(m.name) + ' ' + mIcon + (m.car ? ' \uD83D\uDE97' : '') + '</div>';
         });
         members += '</div>';
       });

@@ -845,38 +845,44 @@ async function doDeleteArea(type) {
 // ══════════════════════════
 var editingFixMemos = {}; // addr → memo
 
-async function openEditCard(
-aId) {
+async function openEditCard(aId) {
   lockScroll();
   editingAreaId = aId;
   editingFixMemos = {};
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
-  document.getElementById('editCardTitle').textContent = aId + '번 · ' + (a ? a.name : '') + ' 수정';
-  document.getElementById('editCardOverlay').classList.add('open');
-  document.getElementById('editCardSheet').classList.add('open');
-  document.getElementById('editCardBody').innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
-
+  var overlay = document.getElementById('editCardOverlay');
+  var sheet = document.getElementById('editCardSheet');
+  var body = document.getElementById('editCardBody');
+  document.getElementById('editCardTitle').textContent = aId + '\uBC88 \u00B7 ' + (a ? a.name : '') + ' \uC218\uC815';
+  body.innerHTML = '<div style="text-align:center;color:#aaa;padding:24px">\uBD88\uB7EC\uC624\uB294 \uC911...</div>';
+  overlay.classList.add('open');
+  sheet.classList.add('open');
+  sheet.style.display = 'flex';
+  sheet.style.flexDirection = 'column';
   try {
     var doc = await db.collection('areas').doc(String(aId)).get();
-    editingBlocks = doc.exists ? (doc.data().blocks || []) : [];
-
-    // 수정요청 메모 불러오기
+    var rawBlocks = doc.exists ? (doc.data().blocks || []) : (a && a.blocks ? a.blocks : []);
+    if(rawBlocks && !Array.isArray(rawBlocks)) rawBlocks = Object.values(rawBlocks);
+    editingBlocks = Array.isArray(rawBlocks) ? JSON.parse(JSON.stringify(rawBlocks)) : [];
     var fixSnap = await db.collection('fixRequests')
       .where('areaId','==',String(aId))
-      .where('status','==','미처리').get();
+      .where('status','==','\uBBF8\uCC98\uB9AC').get();
     fixSnap.docs.forEach(function(d) {
-      var r = d.data();
-      editingFixMemos[r.addr] = {memo: r.memo, docId: d.id};
+      var r = d.data() || {};
+      if(r.addr) editingFixMemos[r.addr] = {memo: r.memo || '', docId: d.id};
     });
-
     renderCardEditor();
-  } catch(e) {}
+  } catch(e) {
+    body.innerHTML = '<div style="text-align:center;color:#dc2626;padding:24px;font-size:13px;font-weight:700">\uCE74\uB4DC \uB0B4\uC6A9\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span></div>';
+  }
 }
 
 function closeEditCard() {
   unlockScroll();
   document.getElementById('editCardOverlay').classList.remove('open');
-  document.getElementById('editCardSheet').classList.remove('open');
+  var sheet = document.getElementById('editCardSheet');
+  sheet.classList.remove('open');
+  sheet.style.display = '';
 }
 
 var dragSrcData = null;
