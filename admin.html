@@ -455,7 +455,7 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
     <button onclick="closeEditCard()" style="background:none;border:1px solid #eee;border-radius:8px;padding:5px 12px;font-size:13px;color:#888;cursor:pointer">닫기</button>
   </div>
   <div id="editCardBody"></div>
-  <div style="display:flex;gap:8px;margin-top:12px">
+  <div class="edit-card-actions">
     <button onclick="closeEditCard()" class="btn-full btn-outline" style="flex:1">취소</button>
     <button onclick="saveCardEdit()" class="btn-full btn-purple" style="flex:2">저장하기</button>
   </div>
@@ -980,247 +980,60 @@ function renderCardEditor() {
       body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
     }
-
+    var html = '';
     editingBlocks.forEach(function(blk, bi) {
-      var blkDiv = document.createElement('div');
-      blkDiv.style.cssText = 'border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px';
-
-      // ?? ??
-      var hdr = document.createElement('div');
-      hdr.style.cssText = 'background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between';
-      hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '\uBE14\uB7ED</span>';
-      var hdrBtns = document.createElement('div');
-      hdrBtns.style.cssText = 'display:flex;gap:6px';
-
-      var parkBtn = document.createElement('button');
-      parkBtn.textContent = '\uC8FC\uCC28 \uC218\uC815';
-      parkBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
-      parkBtn.onclick = (function(b){ return function(){ editBlkParking(b); }; })(bi);
-
-      var delBlkBtn = document.createElement('button');
-      delBlkBtn.textContent = '\uC0AD\uC81C';
-      delBlkBtn.style.cssText = 'background:rgba(255,0,0,0.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
-      delBlkBtn.onclick = (function(b){ return function(){ removeBlk(b); }; })(bi);
-
-      hdrBtns.appendChild(parkBtn);
-      hdrBtns.appendChild(delBlkBtn);
-      hdr.appendChild(hdrBtns);
-      blkDiv.appendChild(hdr);
-
-      var parkingView = document.createElement('div');
-      parkingView.style.cssText = 'padding:8px 12px;background:#f6f0ff;border-bottom:1px solid #eadcff;font-size:12px;color:#4c1d95;font-weight:700;display:flex;gap:6px;align-items:center;justify-content:space-between';
-      parkingView.innerHTML = '<span>' + (bi+1) + '\uBE14\uB7ED \uC8FC\uCC28 \uC704\uCE58</span><span style="font-weight:600;color:#555;text-align:right;flex:1">' + (blk.parking ? escHtml(blk.parking) : '\uBBF8\uC785\uB825') + '</span>';
-      blkDiv.appendChild(parkingView);
-
-      // ???
+      html += '<div style="border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px;background:white">';
+      html += '<div style="background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
+      html += '<span style="font-size:13px;font-weight:800;color:white">' + (bi + 1) + '\uBE14\uB7ED</span>';
+      html += '<span style="display:flex;gap:6px"><button onclick="editBlkParking(' + bi + ')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer">\uC8FC\uCC28 \uC218\uC815</button><button onclick="removeBlk(' + bi + ')" style="background:rgba(255,0,0,.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer">\uC0AD\uC81C</button></span>';
+      html += '</div>';
+      html += '<div style="padding:8px 12px;background:#f6f0ff;border-bottom:1px solid #eadcff;font-size:12px;color:#4c1d95;font-weight:800;display:flex;gap:6px;justify-content:space-between"><span>' + (bi + 1) + '\uBE14\uB7ED \uC8FC\uCC28 \uC704\uCE58</span><span style="font-weight:600;color:#555;text-align:right">' + (blk.parking ? escHtml(blk.parking) : '\uBBF8\uC785\uB825') + '</span></div>';
       var topics = blk.subTopics || [];
+      if(!topics.length) {
+        html += '<div style="padding:10px 12px;color:#aaa;font-size:12px">\uB3C4\uB85C\uBA85\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
+      }
       topics.forEach(function(sub, si) {
-        var subDiv = document.createElement('div');
-        subDiv.style.cssText = 'padding:8px 12px;border-bottom:0.5px solid #f0f0f0';
-
-        var subTitle = document.createElement('div');
-        subTitle.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
-        subTitle.innerHTML =
-          '<span style="font-size:12px;font-weight:600;color:#7c3aed;flex:1">\u2514 ' + (sub.name||'\uB3C4\uB85C\uBA85 \uC5C6\uC74C') + '</span>' +
-          '<button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">\uC218\uC815</button>' +
-          '<button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">\uC0AD\uC81C</button>';
-        subDiv.appendChild(subTitle);
-
-        // ?? ??
-        (sub.houses||[]).forEach(function(h, hi) {
-          var addr = h.addr||h.num||'';
-          var memo = h.note||h.memo||'';
+        html += '<div style="padding:8px 12px;border-bottom:1px solid #f0f0f0">';
+        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:12px;font-weight:800;color:#7c3aed;flex:1">\u2514 ' + escHtml(sub.name || '\uB3C4\uB85C\uBA85 \uC5C6\uC74C') + '</span><button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:4px 8px;font-size:11px;color:#7c3aed;cursor:pointer">\uC218\uC815</button><button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:4px 8px;font-size:11px;color:#dc2626;cursor:pointer">\uC0AD\uC81C</button></div>';
+        var houses = sub.houses || [];
+        if(!houses.length) html += '<div style="padding:8px;background:#f8f8fb;border-radius:8px;color:#aaa;font-size:12px;margin-bottom:6px">\uC8FC\uC18C\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
+        houses.forEach(function(h, hi) {
+          var addr = h.addr || h.num || '';
+          var memo = h.note || h.memo || '';
           var fixInfo = editingFixMemos[addr];
-
-          var row = document.createElement('div');
-          row.draggable = true;
-          row.dataset.bi = bi; row.dataset.si = si; row.dataset.hi = hi;
-          row.style.cssText = 'padding:8px;background:' + (fixInfo?'#FFF7ED':'#f5f5f7') + ';border-radius:8px;margin-bottom:4px;' + (fixInfo?'border:1px solid #e65100;':'');
-
-          // ?? ? (?? ??)
-          var viewMode = document.createElement('div');
-          viewMode.style.cssText = 'display:flex;align-items:center;gap:8px';
-
-          var handle = document.createElement('span');
-          handle.textContent = '\u2630';
-          handle.style.cssText = 'color:#999;font-size:16px;cursor:grab;flex-shrink:0;background:white;border-radius:6px;padding:3px 6px;touch-action:none;user-select:none';
-
-          var addrSpan = document.createElement('span');
-          addrSpan.textContent = addr;
-          addrSpan.style.cssText = 'font-size:13px;font-weight:600;color:#333;min-width:60px;cursor:text';
-
-          var memoSpan = document.createElement('span');
-          memoSpan.textContent = memo || '\uBA54\uBAA8 \uC5C6\uC74C';
-          memoSpan.style.cssText = 'font-size:12px;color:#aaa;flex:1;cursor:text';
-
-          if(fixInfo) {
-            var fixBadge = document.createElement('span');
-            fixBadge.textContent = '\uC218\uC815\uC694\uCCAD';
-            fixBadge.style.cssText = 'font-size:11px;background:#e65100;color:white;padding:2px 6px;border-radius:999px;flex-shrink:0';
-            viewMode.appendChild(handle);
-            viewMode.appendChild(addrSpan);
-            viewMode.appendChild(fixBadge);
-            viewMode.appendChild(memoSpan);
-          } else {
-            viewMode.appendChild(handle);
-            viewMode.appendChild(addrSpan);
-            viewMode.appendChild(memoSpan);
-          }
-
-          var delBtn = document.createElement('button');
-          delBtn.textContent = '\uC0AD\uC81C';
-          delBtn.style.cssText = 'background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0';
-          delBtn.onclick = (function(b,s,i){ return function(){ removeHouse(b,s,i); }; })(bi,si,hi);
-
-          viewMode.appendChild(delBtn);
-          row.appendChild(viewMode);
-
-          // ???? ?? ??
-          if(fixInfo) {
-            var fixMemoDiv = document.createElement('div');
-            fixMemoDiv.style.cssText = 'background:#FFF0E8;border-radius:6px;padding:5px 8px;font-size:12px;color:#854F0B;margin-top:4px;display:flex;align-items:center;gap:6px';
-            fixMemoDiv.innerHTML = '\uD83D\uDCAC \uC218\uC815\uC694\uCCAD \uBA54\uBAA8:';
-            var fixMemoInp = document.createElement('input');
-            fixMemoInp.type = 'text';
-            fixMemoInp.value = fixInfo.memo;
-            fixMemoInp.style.cssText = 'flex:1;border:none;background:transparent;font-size:12px;color:#854F0B;outline:none';
-            fixMemoInp.onchange = (function(a){ return function(e){ editingFixMemos[a].memo = e.target.value; }; })(addr);
-            fixMemoDiv.appendChild(fixMemoInp);
-            row.appendChild(fixMemoDiv);
-          }
-
-          // ??? ?? ??
-          var editMode = document.createElement('div');
-          editMode.style.cssText = 'display:none;flex-direction:column;gap:6px';
-
-          var addrInp = document.createElement('input');
-          addrInp.type = 'text';
-          addrInp.value = addr;
-          addrInp.placeholder = '\uC8FC\uC18C';
-          addrInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #7c3aed;border-radius:8px;font-size:13px;font-weight:600;outline:none';
-
-          var memoInp = document.createElement('input');
-          memoInp.type = 'text';
-          memoInp.value = memo;
-          memoInp.placeholder = '\uBA54\uBAA8 (\uC120\uD0DD)';
-          memoInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#555;outline:none';
-
-          var saveBtnRow = document.createElement('div');
-          saveBtnRow.style.cssText = 'display:flex;gap:6px';
-
-          var confirmBtn = document.createElement('button');
-          confirmBtn.textContent = '\u2713 \uD655\uC778';
-          confirmBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:none;background:#7c3aed;color:white;font-size:13px;font-weight:600;cursor:pointer';
-
-          var cancelBtn = document.createElement('button');
-          cancelBtn.textContent = '\uCDE8\uC18C';
-          cancelBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;background:white;color:#888;font-size:13px;cursor:pointer';
-
-          saveBtnRow.appendChild(confirmBtn);
-          saveBtnRow.appendChild(cancelBtn);
-          editMode.appendChild(addrInp);
-          editMode.appendChild(memoInp);
-          editMode.appendChild(saveBtnRow);
-          row.appendChild(editMode);
-
-          // ??? ??? ??? ?? ??? ?? ???
-          function openInlineEdit() {
-            viewMode.style.display = 'none';
-            editMode.style.display = 'flex';
-            addrInp.focus();
-          }
-          addrSpan.onclick = openInlineEdit;
-          memoSpan.onclick = openInlineEdit;
-
-          // ?? ??
-          confirmBtn.onclick = (function(b,s,i,aInp,mInp,vm,em,aSpan,mSpan){
-            return function() {
-              var newAddr = aInp.value.trim();
-              var newMemo = mInp.value.trim();
-              if(!newAddr) return;
-              editingBlocks[b].subTopics[s].houses[i].addr = newAddr;
-              editingBlocks[b].subTopics[s].houses[i].note = newMemo;
-              aSpan.textContent = newAddr;
-              mSpan.textContent = newMemo || '\uBA54\uBAA8 \uC5C6\uC74C';
-              vm.style.display = 'flex';
-              em.style.display = 'none';
-            };
-          })(bi,si,hi,addrInp,memoInp,viewMode,editMode,addrSpan,memoSpan);
-
-          // ?? ??
-          cancelBtn.onclick = function() {
-            viewMode.style.display = 'flex';
-            editMode.style.display = 'none';
-          };
-
-          // ??? ???
-          row.addEventListener('dragstart', function(e) {
-            dragSrcData = {bi: parseInt(this.dataset.bi), si: parseInt(this.dataset.si), hi: parseInt(this.dataset.hi)};
-            e.dataTransfer.effectAllowed = 'move';
-            var self = this;
-            setTimeout(function(){ self.style.opacity = '0.4'; }, 0);
-          });
-          row.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.style.outline = '2px solid #7c3aed';
-          });
-          row.addEventListener('dragleave', function() {
-            this.style.outline = '';
-          });
-          row.addEventListener('drop', function(e) {
-            e.preventDefault();
-            this.style.outline = '';
-            if(!dragSrcData) return;
-            var tgtBi = parseInt(this.dataset.bi), tgtSi = parseInt(this.dataset.si), tgtHi = parseInt(this.dataset.hi);
-            moveHouseWithinSubtopic(dragSrcData, {bi:tgtBi, si:tgtSi, hi:tgtHi});
-            dragSrcData = null;
-            renderCardEditor();
-          });
-          row.addEventListener('dragend', function() {
-            this.style.opacity = '1';
-            this.style.outline = '';
-            dragSrcData = null;
-          });
-          attachCardTouchDrag(row, handle);
-
-          subDiv.appendChild(row);
+          html += '<div data-bi="' + bi + '" data-si="' + si + '" data-hi="' + hi + '" style="padding:8px;background:' + (fixInfo ? '#FFF7ED' : '#f5f5f7') + ';border-radius:8px;margin-bottom:6px;' + (fixInfo ? 'border:1px solid #e65100;' : '') + '">';
+          html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center">';
+          html += '<input value="' + escAttr(addr) + '" onchange="updateHouseAddr(' + bi + ',' + si + ',' + hi + ',this.value)" placeholder="\uC8FC\uC18C" style="min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-weight:700;background:white">';
+          html += '<input value="' + escAttr(memo) + '" onchange="updateHouseNote(' + bi + ',' + si + ',' + hi + ',this.value)" placeholder="\uBA54\uBAA8" style="min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:12px;background:white;color:#555">';
+          html += '<button onclick="removeHouse(' + bi + ',' + si + ',' + hi + ')" style="background:#fff0f0;border:none;border-radius:8px;padding:8px 9px;font-size:11px;color:#dc2626;cursor:pointer">\uC0AD\uC81C</button>';
+          html += '</div>';
+          if(fixInfo) html += '<div style="margin-top:6px;background:#FFF0E8;border-radius:6px;padding:6px 8px;font-size:12px;color:#854F0B">\uD83D\uDCAC \uC218\uC815\uC694\uCCAD \uBA54\uBAA8: <input value="' + escAttr(fixInfo.memo || '') + '" onchange="updateFixMemo(\'' + escAttr(addr) + '\',this.value)" style="width:calc(100% - 98px);border:none;background:transparent;color:#854F0B;outline:none"></div>';
+          html += '</div>';
         });
-
-        // ?? ?? ??
-        var addHouseBtn = document.createElement('button');
-        addHouseBtn.textContent = '+ \uC8FC\uC18C \uCD94\uAC00';
-        addHouseBtn.style.cssText = 'width:100%;padding:6px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px';
-        addHouseBtn.onclick = (function(b,s){ return function(){ addHouse(b,s); }; })(bi,si);
-        subDiv.appendChild(addHouseBtn);
-        blkDiv.appendChild(subDiv);
+        html += '<button onclick="addHouse(' + bi + ',' + si + ')" style="width:100%;padding:7px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px">+ \uC8FC\uC18C \uCD94\uAC00</button>';
+        html += '</div>';
       });
-
-      // ??? ?? ??
-      var addSubBtn = document.createElement('button');
-      addSubBtn.textContent = '+ \uB3C4\uB85C\uBA85 \uCD94\uAC00';
-      addSubBtn.style.cssText = 'width:calc(100% - 24px);margin:8px 12px;padding:6px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block';
-      addSubBtn.onclick = (function(b){ return function(){ addSubTopic(b); }; })(bi);
-      blkDiv.appendChild(addSubBtn);
-      body.appendChild(blkDiv);
+      html += '<button onclick="addSubTopic(' + bi + ')" style="width:calc(100% - 24px);margin:8px 12px;padding:7px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block">+ \uB3C4\uB85C\uBA85 \uCD94\uAC00</button>';
+      html += '</div>';
     });
-
-    if(!body.children.length) {
-      body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uD45C\uC2DC\uD560 \uCE74\uB4DC \uB0B4\uC6A9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
-      return;
-    }
+    html += '<button onclick="addBlock()" style="width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px">+ \uBE14\uB7ED \uCD94\uAC00</button>';
+    body.innerHTML = html;
     body.scrollTop = 0;
-    var sheet = document.getElementById('editCardSheet');
-    if(sheet) sheet.scrollTop = 0;
-
-    // ?? ?? ??
-    var addBlkBtn = document.createElement('button');
-    addBlkBtn.textContent = '+ \uBE14\uB7ED \uCD94\uAC00';
-    addBlkBtn.style.cssText = 'width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px';
-    addBlkBtn.onclick = addBlock;
-    body.appendChild(addBlkBtn);
   } catch(e) {
     body.innerHTML = '<div style="text-align:center;color:#dc2626;padding:28px 16px;font-size:13px;font-weight:800;line-height:1.7">\uCE74\uB4DC \uC218\uC815 \uD654\uBA74\uC744 \uADF8\uB9AC\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span><br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
   }
+}
+
+function updateHouseAddr(bi, si, hi, value) {
+  if(!editingBlocks[bi] || !editingBlocks[bi].subTopics || !editingBlocks[bi].subTopics[si] || !editingBlocks[bi].subTopics[si].houses[hi]) return;
+  editingBlocks[bi].subTopics[si].houses[hi].addr = String(value || '').trim();
+}
+function updateHouseNote(bi, si, hi, value) {
+  if(!editingBlocks[bi] || !editingBlocks[bi].subTopics || !editingBlocks[bi].subTopics[si] || !editingBlocks[bi].subTopics[si].houses[hi]) return;
+  editingBlocks[bi].subTopics[si].houses[hi].note = String(value || '').trim();
+}
+function updateFixMemo(addr, value) {
+  if(editingFixMemos[addr]) editingFixMemos[addr].memo = String(value || '').trim();
 }
 
 function removeBlk(bi) {
