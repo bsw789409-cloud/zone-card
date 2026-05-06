@@ -4775,9 +4775,27 @@ window.toggleLocation = function() {
 };
 
 var _originalCloseCardSheet = closeCardSheet;
-window.closeCardSheet = closeCardSheet = function() {
+window.closeCardSheet = closeCardSheet = async function() {
+  var sheetAreaId = openSheetAreaId;
   stopLocationSharing();
   _originalCloseCardSheet();
+  if(currentRole === 'leader' && sheetAreaId) {
+    var area = areas.find(function(a){ return String(a.id) === String(sheetAreaId); });
+    if(area && !isAreaComplete(area) && !area.servicePaused) {
+      var aStatus = statusData[String(sheetAreaId)] || {};
+      var hasProgress = Object.values(aStatus).some(function(s){ return s && s !== 'none'; });
+      if(hasProgress) {
+        try {
+          await db.collection('areas').doc(String(sheetAreaId)).set(
+            { servicePaused: true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+            { merge: true }
+          );
+          area.servicePaused = true;
+        } catch(e) {}
+      }
+    }
+    renderLeader();
+  }
 };
 
 function renderLiveUsersRealtime() {

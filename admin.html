@@ -1152,8 +1152,26 @@ async function loadFixList() {
 
 async function resolveFixRequest(docId) {
   try {
+    var doc = await db.collection('fixRequests').doc(docId).get();
+    if(doc.exists) {
+      var r = doc.data();
+      if(r.addr && r.type !== 'parking') {
+        var vSnap = await db.collection('visits')
+          .where('areaId','==',String(r.areaId))
+          .where('addr','==',r.addr)
+          .where('status','==','fix')
+          .get();
+        if(!vSnap.empty) {
+          var batch = db.batch();
+          vSnap.docs.forEach(function(d) {
+            batch.update(d.ref, { status:'visited', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+          });
+          await batch.commit();
+        }
+      }
+    }
     await db.collection('fixRequests').doc(docId).delete();
-    showToast('✅ 처리완료 후 삭제됐습니다');
+    showToast('✅ 처리완료 됐습니다');
     loadFixList();
   } catch(e) {}
 }
@@ -1725,7 +1743,6 @@ function clearBoardImage() {
 async function saveBoard() {
   var title = document.getElementById('boardTitle').value.trim();
   var boardContent = document.getElementById('boardContent').value.trim();
-  if(!title || !boardContent) { showToast('제목과 내용을 입력해 주세요'); return; }
   try {
     await db.collection('board').add({
       title, content: boardContent,
