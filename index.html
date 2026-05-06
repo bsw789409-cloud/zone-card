@@ -1255,8 +1255,15 @@ function renderAreaPickerList(gi) {
     '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uBE44\uC6B0\uAE30</button></div>' +
     '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px">' + regions.map(function(r){ return renderPickerFilterButton('region', r, regionLabels[r]); }).join('') + '</div>' +
     '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px">' + types.map(function(t){ return renderPickerFilterButton('type', t.v, t.l); }).join('') + '</div>';
+  var visibleAreas = sorted.slice(0, 40);
+  var unloadedAreas = visibleAreas.filter(function(a){ return !areaStatusLoaded[String(a.id)]; });
+  if(unloadedAreas.length) {
+    setPickerSheetContent('<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">\uB0A8\uC740 \uAC00\uAD6C\uB97C \uD655\uC778\uD558\uB294 \uC911...</div>');
+    Promise.all(unloadedAreas.map(function(a){ return ensureAreaStatusLoaded(a.id); })).then(function(){ renderAreaPickerList(gi); }).catch(function(){ renderAreaPickerList(gi); });
+    return;
+  }
   var count = 0;
-  sorted.slice(0, 40).forEach(function(a) {
+  visibleAreas.forEach(function(a) {
     var blocks = a.blocks || [];
     var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(a, idx); }, 0);
     if(total <= 0) return;
