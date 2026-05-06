@@ -3436,6 +3436,33 @@ window.goToFieldFromCarResultDirect = function(areaNum, blockNum) {
   });
 };
 
+function cleanCarResultValue(v) {
+  if(v == null) return '';
+  if(Array.isArray(v)) return v.map(cleanCarResultValue).filter(Boolean).join(',');
+  if(typeof v === 'object') {
+    if(Array.isArray(v.blocks)) return cleanCarResultValue(v.blocks);
+    if(v.blockNum != null) return cleanCarResultValue(v.blockNum);
+    if(v.areaNum != null) return cleanCarResultValue(v.areaNum);
+    if(v.num != null) return cleanCarResultValue(v.num);
+    if(v.id != null) return cleanCarResultValue(v.id);
+    return '';
+  }
+  var text = String(v).trim();
+  return text === '[object Object]' ? '' : text;
+}
+
+function formatCarResultAreaText(g) {
+  var area = cleanCarResultValue(g && g.areaNum);
+  var block = cleanCarResultValue(g && g.blockNum);
+  return area ? ('\uAD6C\uC5ED ' + area + (block ? ' (' + block + '\uBE14\uB7ED)' : '')) : '\uAD6C\uC5ED \uBBF8\uBC30\uC815';
+}
+
+function formatCarResultHeaderLabel(g) {
+  var area = cleanCarResultValue(g && g.areaNum);
+  var block = cleanCarResultValue(g && g.blockNum);
+  return area ? (area + '\uBC88' + (block ? ' (' + block + '\uBE14\uB7ED)' : '')) : '-';
+}
+
 async function openCarResult() {
   lockScroll();
   document.getElementById('carResultOverlay').style.display = 'block';
@@ -3466,9 +3493,9 @@ async function openCarResult() {
     if(myAssignment) {
       var g0 = myAssignment.group;
       var pairNames = myAssignment.pair.members.map(function(m){ return m.name; }).join(' \u00B7 ');
-      var areaText = g0.areaNum ? ('\uAD6C\uC5ED ' + g0.areaNum + (g0.blockNum ? ' (' + g0.blockNum + '\uBE14\uB7ED)' : '')) : '\uAD6C\uC5ED \uBBF8\uBC30\uC815';
-      var areaArg = String(g0.areaNum || '').replace(/'/g, '\&#39;');
-      var blockArg = String(g0.blockNum || '').replace(/'/g, '\&#39;');
+      var areaText = formatCarResultAreaText(g0);
+      var areaArg = cleanCarResultValue(g0.areaNum).replace(/'/g, '\&#39;');
+      var blockArg = cleanCarResultValue(g0.blockNum).replace(/'/g, '\&#39;');
       list.innerHTML += '<div style="border:2px solid #7c3aed;background:#f3f0ff;border-radius:16px;padding:12px;margin-bottom:12px">' +
         '<div style="font-size:12px;color:#7c3aed;font-weight:900;margin-bottom:4px">\uB0B4 \uBC30\uC815</div>' +
         '<div style="font-size:16px;font-weight:900;color:#1a1040">' + (myAssignment.index + 1) + '\uD638\uCC28 \u00B7 ' + escHtml(pairNames) + '</div>' +
@@ -3483,13 +3510,11 @@ async function openCarResult() {
       var lightColor = lightColors[i % lightColors.length];
       var card = document.createElement('div');
       card.style.cssText = 'border:2px solid '+color+';border-radius:14px;overflow:hidden;margin-bottom:10px';
-      var areaLabel = '?';
-      if(g.areaNum) {
-        areaLabel = g.areaNum + '\uBC88';
-        if(g.blockNum) areaLabel += ' (' + g.blockNum + '\uBE14\uB7ED)';
-      }
-      var clickCode = g.areaNum ? 'onclick="goToFieldFromCarResult(\''+g.areaNum+'\', \''+(g.blockNum||'')+'\')"' : '';
-      var pointer = g.areaNum ? 'cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3);' : '';
+      var areaLabel = formatCarResultHeaderLabel(g);
+      var cleanAreaNum = cleanCarResultValue(g.areaNum);
+      var cleanBlockNum = cleanCarResultValue(g.blockNum);
+      var clickCode = cleanAreaNum ? 'onclick="goToFieldFromCarResult(\''+cleanAreaNum+'\', \''+cleanBlockNum+'\')"' : '';
+      var pointer = cleanAreaNum ? 'cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.3);' : '';
       var header = '<div style="background:'+color+';padding:12px 14px;display:flex;align-items:center;justify-content:space-between">' +
         '<div ' + clickCode + ' style="font-size:16px;font-weight:800;color:white;background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:8px;' + pointer + '">\uD83D\uDCCD \uAD6C\uC5ED ' + areaLabel + '</div>' +
         '<span style="font-size:14px;font-weight:700;color:rgba(255,255,255,0.8)">'+(i+1)+'\uD638\uCC28</span>' +

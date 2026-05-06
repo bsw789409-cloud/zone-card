@@ -103,9 +103,9 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
 .btn-outline{background:white;color:#555;border:1px solid #ddd}
 
 /* 바텀시트 */
-.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:20}
+.sheet-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900}
 .sheet-overlay.open{display:block}
-.bottom-sheet{display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:21;max-height:90vh;overflow-y:auto}
+.bottom-sheet{display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:901;max-height:90vh;overflow-y:auto}
 .bottom-sheet.open{display:block}
 #editCardSheet.open{display:flex;flex-direction:column}
 #editCardBody{min-height:160px;max-height:calc(90vh - 175px);overflow-y:auto;padding-bottom:8px}
@@ -948,239 +948,268 @@ function attachCardTouchDrag(row, handle) {
   }, {passive:true});
 }
 
+function normalizeEditingBlocksForEditor(blocks) {
+  if(!Array.isArray(blocks)) return [];
+  return blocks.map(function(blk, idx) {
+    blk = blk && typeof blk === 'object' ? blk : {};
+    var next = Object.assign({}, blk);
+    next.name = next.name || ((idx + 1) + '\uBE14\uB7ED');
+    next.parking = next.parking || '';
+    if(!Array.isArray(next.subTopics)) {
+      if(Array.isArray(next.houses)) next.subTopics = [{name: next.name || '', houses: next.houses}];
+      else if(Array.isArray(next.topics)) next.subTopics = next.topics;
+      else next.subTopics = [];
+    }
+    next.subTopics = next.subTopics.map(function(sub) {
+      sub = sub && typeof sub === 'object' ? sub : {};
+      return {name: sub.name || sub.title || '', houses: Array.isArray(sub.houses) ? sub.houses : []};
+    });
+    return next;
+  });
+}
+
 function renderCardEditor() {
   var body = document.getElementById('editCardBody');
   body.innerHTML = '';
+  try {
+    editingBlocks = normalizeEditingBlocksForEditor(editingBlocks);
+    if(!editingBlocks.length) {
+      body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
+      return;
+    }
 
-  editingBlocks.forEach(function(blk, bi) {
-    var blkDiv = document.createElement('div');
-    blkDiv.style.cssText = 'border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px';
+    editingBlocks.forEach(function(blk, bi) {
+      var blkDiv = document.createElement('div');
+      blkDiv.style.cssText = 'border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px';
 
-    // 블럭 헤더
-    var hdr = document.createElement('div');
-    hdr.style.cssText = 'background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between';
-    hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '블럭</span>';
-    var hdrBtns = document.createElement('div');
-    hdrBtns.style.cssText = 'display:flex;gap:6px';
+      // ?? ??
+      var hdr = document.createElement('div');
+      hdr.style.cssText = 'background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between';
+      hdr.innerHTML = '<span style="font-size:13px;font-weight:700;color:white">' + (bi+1) + '??</span>';
+      var hdrBtns = document.createElement('div');
+      hdrBtns.style.cssText = 'display:flex;gap:6px';
 
-    var parkBtn = document.createElement('button');
-    parkBtn.textContent = '주차 수정';
-    parkBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
-    parkBtn.onclick = (function(b){ return function(){ editBlkParking(b); }; })(bi);
+      var parkBtn = document.createElement('button');
+      parkBtn.textContent = '?? ??';
+      parkBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
+      parkBtn.onclick = (function(b){ return function(){ editBlkParking(b); }; })(bi);
 
-    var delBlkBtn = document.createElement('button');
-    delBlkBtn.textContent = '삭제';
-    delBlkBtn.style.cssText = 'background:rgba(255,0,0,0.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
-    delBlkBtn.onclick = (function(b){ return function(){ removeBlk(b); }; })(bi);
+      var delBlkBtn = document.createElement('button');
+      delBlkBtn.textContent = '??';
+      delBlkBtn.style.cssText = 'background:rgba(255,0,0,0.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer';
+      delBlkBtn.onclick = (function(b){ return function(){ removeBlk(b); }; })(bi);
 
-    hdrBtns.appendChild(parkBtn);
-    hdrBtns.appendChild(delBlkBtn);
-    hdr.appendChild(hdrBtns);
-    blkDiv.appendChild(hdr);
+      hdrBtns.appendChild(parkBtn);
+      hdrBtns.appendChild(delBlkBtn);
+      hdr.appendChild(hdrBtns);
+      blkDiv.appendChild(hdr);
 
-    var parkingView = document.createElement('div');
-    parkingView.style.cssText = 'padding:8px 12px;background:#f6f0ff;border-bottom:1px solid #eadcff;font-size:12px;color:#4c1d95;font-weight:700;display:flex;gap:6px;align-items:center;justify-content:space-between';
-    parkingView.innerHTML = '<span>' + (bi+1) + '\uBE14\uB7ED \uC8FC\uCC28 \uC704\uCE58</span><span style="font-weight:600;color:#555;text-align:right;flex:1">' + (blk.parking ? escHtml(blk.parking) : '\uBBF8\uC785\uB825') + '</span>';
-    blkDiv.appendChild(parkingView);
+      var parkingView = document.createElement('div');
+      parkingView.style.cssText = 'padding:8px 12px;background:#f6f0ff;border-bottom:1px solid #eadcff;font-size:12px;color:#4c1d95;font-weight:700;display:flex;gap:6px;align-items:center;justify-content:space-between';
+      parkingView.innerHTML = '<span>' + (bi+1) + '\uBE14\uB7ED \uC8FC\uCC28 \uC704\uCE58</span><span style="font-weight:600;color:#555;text-align:right;flex:1">' + (blk.parking ? escHtml(blk.parking) : '\uBBF8\uC785\uB825') + '</span>';
+      blkDiv.appendChild(parkingView);
 
-    // 도로명
-    var topics = blk.subTopics || [];
-    topics.forEach(function(sub, si) {
-      var subDiv = document.createElement('div');
-      subDiv.style.cssText = 'padding:8px 12px;border-bottom:0.5px solid #f0f0f0';
+      // ???
+      var topics = blk.subTopics || [];
+      topics.forEach(function(sub, si) {
+        var subDiv = document.createElement('div');
+        subDiv.style.cssText = 'padding:8px 12px;border-bottom:0.5px solid #f0f0f0';
 
-      var subTitle = document.createElement('div');
-      subTitle.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
-      subTitle.innerHTML =
-        '<span style="font-size:12px;font-weight:600;color:#7c3aed;flex:1">└ ' + (sub.name||'도로명 없음') + '</span>' +
-        '<button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">수정</button>' +
-        '<button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">삭제</button>';
-      subDiv.appendChild(subTitle);
+        var subTitle = document.createElement('div');
+        subTitle.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:6px';
+        subTitle.innerHTML =
+          '<span style="font-size:12px;font-weight:600;color:#7c3aed;flex:1">? ' + (sub.name||'??? ??') + '</span>' +
+          '<button onclick="editSubTopicName(' + bi + ',' + si + ')" style="background:#EEEDFE;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#7c3aed;cursor:pointer;flex-shrink:0">??</button>' +
+          '<button onclick="removeSubTopic(' + bi + ',' + si + ')" style="background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0">??</button>';
+        subDiv.appendChild(subTitle);
 
-      // 주소 목록
-      (sub.houses||[]).forEach(function(h, hi) {
-        var addr = h.addr||h.num||'';
-        var memo = h.note||h.memo||'';
-        var fixInfo = editingFixMemos[addr];
+        // ?? ??
+        (sub.houses||[]).forEach(function(h, hi) {
+          var addr = h.addr||h.num||'';
+          var memo = h.note||h.memo||'';
+          var fixInfo = editingFixMemos[addr];
 
-        var row = document.createElement('div');
-        row.draggable = true;
-        row.dataset.bi = bi; row.dataset.si = si; row.dataset.hi = hi;
-        row.style.cssText = 'padding:8px;background:' + (fixInfo?'#FFF7ED':'#f5f5f7') + ';border-radius:8px;margin-bottom:4px;' + (fixInfo?'border:1px solid #e65100;':'');
+          var row = document.createElement('div');
+          row.draggable = true;
+          row.dataset.bi = bi; row.dataset.si = si; row.dataset.hi = hi;
+          row.style.cssText = 'padding:8px;background:' + (fixInfo?'#FFF7ED':'#f5f5f7') + ';border-radius:8px;margin-bottom:4px;' + (fixInfo?'border:1px solid #e65100;':'');
 
-        // 일반 뷰 (잠긴 상태)
-        var viewMode = document.createElement('div');
-        viewMode.style.cssText = 'display:flex;align-items:center;gap:8px';
+          // ?? ? (?? ??)
+          var viewMode = document.createElement('div');
+          viewMode.style.cssText = 'display:flex;align-items:center;gap:8px';
 
-        var handle = document.createElement('span');
-        handle.textContent = '☰';
-        handle.style.cssText = 'color:#999;font-size:16px;cursor:grab;flex-shrink:0;background:white;border-radius:6px;padding:3px 6px;touch-action:none;user-select:none';
+          var handle = document.createElement('span');
+          handle.textContent = '?';
+          handle.style.cssText = 'color:#999;font-size:16px;cursor:grab;flex-shrink:0;background:white;border-radius:6px;padding:3px 6px;touch-action:none;user-select:none';
 
-        var addrSpan = document.createElement('span');
-        addrSpan.textContent = addr;
-        addrSpan.style.cssText = 'font-size:13px;font-weight:600;color:#333;min-width:60px;cursor:text';
+          var addrSpan = document.createElement('span');
+          addrSpan.textContent = addr;
+          addrSpan.style.cssText = 'font-size:13px;font-weight:600;color:#333;min-width:60px;cursor:text';
 
-        var memoSpan = document.createElement('span');
-        memoSpan.textContent = memo || '메모 없음';
-        memoSpan.style.cssText = 'font-size:12px;color:#aaa;flex:1;cursor:text';
+          var memoSpan = document.createElement('span');
+          memoSpan.textContent = memo || '?? ??';
+          memoSpan.style.cssText = 'font-size:12px;color:#aaa;flex:1;cursor:text';
 
-        if(fixInfo) {
-          var fixBadge = document.createElement('span');
-          fixBadge.textContent = '수정요청';
-          fixBadge.style.cssText = 'font-size:11px;background:#e65100;color:white;padding:2px 6px;border-radius:999px;flex-shrink:0';
-          viewMode.appendChild(handle);
-          viewMode.appendChild(addrSpan);
-          viewMode.appendChild(fixBadge);
-          viewMode.appendChild(memoSpan);
-        } else {
-          viewMode.appendChild(handle);
-          viewMode.appendChild(addrSpan);
-          viewMode.appendChild(memoSpan);
-        }
+          if(fixInfo) {
+            var fixBadge = document.createElement('span');
+            fixBadge.textContent = '????';
+            fixBadge.style.cssText = 'font-size:11px;background:#e65100;color:white;padding:2px 6px;border-radius:999px;flex-shrink:0';
+            viewMode.appendChild(handle);
+            viewMode.appendChild(addrSpan);
+            viewMode.appendChild(fixBadge);
+            viewMode.appendChild(memoSpan);
+          } else {
+            viewMode.appendChild(handle);
+            viewMode.appendChild(addrSpan);
+            viewMode.appendChild(memoSpan);
+          }
 
-        var delBtn = document.createElement('button');
-        delBtn.textContent = '삭제';
-        delBtn.style.cssText = 'background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0';
-        delBtn.onclick = (function(b,s,i){ return function(){ removeHouse(b,s,i); }; })(bi,si,hi);
+          var delBtn = document.createElement('button');
+          delBtn.textContent = '??';
+          delBtn.style.cssText = 'background:#fff0f0;border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:#dc2626;cursor:pointer;flex-shrink:0';
+          delBtn.onclick = (function(b,s,i){ return function(){ removeHouse(b,s,i); }; })(bi,si,hi);
 
-        viewMode.appendChild(delBtn);
-        row.appendChild(viewMode);
+          viewMode.appendChild(delBtn);
+          row.appendChild(viewMode);
 
-        // 수정요청 메모 표시
-        if(fixInfo) {
-          var fixMemoDiv = document.createElement('div');
-          fixMemoDiv.style.cssText = 'background:#FFF0E8;border-radius:6px;padding:5px 8px;font-size:12px;color:#854F0B;margin-top:4px;display:flex;align-items:center;gap:6px';
-          fixMemoDiv.innerHTML = '💬 수정요청 메모:';
-          var fixMemoInp = document.createElement('input');
-          fixMemoInp.type = 'text';
-          fixMemoInp.value = fixInfo.memo;
-          fixMemoInp.style.cssText = 'flex:1;border:none;background:transparent;font-size:12px;color:#854F0B;outline:none';
-          fixMemoInp.onchange = (function(a){ return function(e){ editingFixMemos[a].memo = e.target.value; }; })(addr);
-          fixMemoDiv.appendChild(fixMemoInp);
-          row.appendChild(fixMemoDiv);
-        }
+          // ???? ?? ??
+          if(fixInfo) {
+            var fixMemoDiv = document.createElement('div');
+            fixMemoDiv.style.cssText = 'background:#FFF0E8;border-radius:6px;padding:5px 8px;font-size:12px;color:#854F0B;margin-top:4px;display:flex;align-items:center;gap:6px';
+            fixMemoDiv.innerHTML = '?? ???? ??:';
+            var fixMemoInp = document.createElement('input');
+            fixMemoInp.type = 'text';
+            fixMemoInp.value = fixInfo.memo;
+            fixMemoInp.style.cssText = 'flex:1;border:none;background:transparent;font-size:12px;color:#854F0B;outline:none';
+            fixMemoInp.onchange = (function(a){ return function(e){ editingFixMemos[a].memo = e.target.value; }; })(addr);
+            fixMemoDiv.appendChild(fixMemoInp);
+            row.appendChild(fixMemoDiv);
+          }
 
-        // 인라인 편집 모드
-        var editMode = document.createElement('div');
-        editMode.style.cssText = 'display:none;flex-direction:column;gap:6px';
+          // ??? ?? ??
+          var editMode = document.createElement('div');
+          editMode.style.cssText = 'display:none;flex-direction:column;gap:6px';
 
-        var addrInp = document.createElement('input');
-        addrInp.type = 'text';
-        addrInp.value = addr;
-        addrInp.placeholder = '주소';
-        addrInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #7c3aed;border-radius:8px;font-size:13px;font-weight:600;outline:none';
+          var addrInp = document.createElement('input');
+          addrInp.type = 'text';
+          addrInp.value = addr;
+          addrInp.placeholder = '??';
+          addrInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #7c3aed;border-radius:8px;font-size:13px;font-weight:600;outline:none';
 
-        var memoInp = document.createElement('input');
-        memoInp.type = 'text';
-        memoInp.value = memo;
-        memoInp.placeholder = '메모 (선택)';
-        memoInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#555;outline:none';
+          var memoInp = document.createElement('input');
+          memoInp.type = 'text';
+          memoInp.value = memo;
+          memoInp.placeholder = '?? (??)';
+          memoInp.style.cssText = 'width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;color:#555;outline:none';
 
-        var saveBtnRow = document.createElement('div');
-        saveBtnRow.style.cssText = 'display:flex;gap:6px';
+          var saveBtnRow = document.createElement('div');
+          saveBtnRow.style.cssText = 'display:flex;gap:6px';
 
-        var confirmBtn = document.createElement('button');
-        confirmBtn.textContent = '✓ 확인';
-        confirmBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:none;background:#7c3aed;color:white;font-size:13px;font-weight:600;cursor:pointer';
+          var confirmBtn = document.createElement('button');
+          confirmBtn.textContent = '? ??';
+          confirmBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:none;background:#7c3aed;color:white;font-size:13px;font-weight:600;cursor:pointer';
 
-        var cancelBtn = document.createElement('button');
-        cancelBtn.textContent = '취소';
-        cancelBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;background:white;color:#888;font-size:13px;cursor:pointer';
+          var cancelBtn = document.createElement('button');
+          cancelBtn.textContent = '??';
+          cancelBtn.style.cssText = 'flex:1;padding:7px;border-radius:8px;border:1px solid #ddd;background:white;color:#888;font-size:13px;cursor:pointer';
 
-        saveBtnRow.appendChild(confirmBtn);
-        saveBtnRow.appendChild(cancelBtn);
-        editMode.appendChild(addrInp);
-        editMode.appendChild(memoInp);
-        editMode.appendChild(saveBtnRow);
-        row.appendChild(editMode);
+          saveBtnRow.appendChild(confirmBtn);
+          saveBtnRow.appendChild(cancelBtn);
+          editMode.appendChild(addrInp);
+          editMode.appendChild(memoInp);
+          editMode.appendChild(saveBtnRow);
+          row.appendChild(editMode);
 
-        // 주소나 메모를 누르면 바로 인라인 편집 모드로
-        function openInlineEdit() {
-          viewMode.style.display = 'none';
-          editMode.style.display = 'flex';
-          addrInp.focus();
-        }
-        addrSpan.onclick = openInlineEdit;
-        memoSpan.onclick = openInlineEdit;
+          // ??? ??? ??? ?? ??? ?? ???
+          function openInlineEdit() {
+            viewMode.style.display = 'none';
+            editMode.style.display = 'flex';
+            addrInp.focus();
+          }
+          addrSpan.onclick = openInlineEdit;
+          memoSpan.onclick = openInlineEdit;
 
-        // 확인 버튼
-        confirmBtn.onclick = (function(b,s,i,aInp,mInp,vm,em,aSpan,mSpan){
-          return function() {
-            var newAddr = aInp.value.trim();
-            var newMemo = mInp.value.trim();
-            if(!newAddr) return;
-            editingBlocks[b].subTopics[s].houses[i].addr = newAddr;
-            editingBlocks[b].subTopics[s].houses[i].note = newMemo;
-            aSpan.textContent = newAddr;
-            mSpan.textContent = newMemo || '메모 없음';
-            vm.style.display = 'flex';
-            em.style.display = 'none';
+          // ?? ??
+          confirmBtn.onclick = (function(b,s,i,aInp,mInp,vm,em,aSpan,mSpan){
+            return function() {
+              var newAddr = aInp.value.trim();
+              var newMemo = mInp.value.trim();
+              if(!newAddr) return;
+              editingBlocks[b].subTopics[s].houses[i].addr = newAddr;
+              editingBlocks[b].subTopics[s].houses[i].note = newMemo;
+              aSpan.textContent = newAddr;
+              mSpan.textContent = newMemo || '?? ??';
+              vm.style.display = 'flex';
+              em.style.display = 'none';
+            };
+          })(bi,si,hi,addrInp,memoInp,viewMode,editMode,addrSpan,memoSpan);
+
+          // ?? ??
+          cancelBtn.onclick = function() {
+            viewMode.style.display = 'flex';
+            editMode.style.display = 'none';
           };
-        })(bi,si,hi,addrInp,memoInp,viewMode,editMode,addrSpan,memoSpan);
 
-        // 취소 버튼
-        cancelBtn.onclick = function() {
-          viewMode.style.display = 'flex';
-          editMode.style.display = 'none';
-        };
+          // ??? ???
+          row.addEventListener('dragstart', function(e) {
+            dragSrcData = {bi: parseInt(this.dataset.bi), si: parseInt(this.dataset.si), hi: parseInt(this.dataset.hi)};
+            e.dataTransfer.effectAllowed = 'move';
+            var self = this;
+            setTimeout(function(){ self.style.opacity = '0.4'; }, 0);
+          });
+          row.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.outline = '2px solid #7c3aed';
+          });
+          row.addEventListener('dragleave', function() {
+            this.style.outline = '';
+          });
+          row.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.outline = '';
+            if(!dragSrcData) return;
+            var tgtBi = parseInt(this.dataset.bi), tgtSi = parseInt(this.dataset.si), tgtHi = parseInt(this.dataset.hi);
+            moveHouseWithinSubtopic(dragSrcData, {bi:tgtBi, si:tgtSi, hi:tgtHi});
+            dragSrcData = null;
+            renderCardEditor();
+          });
+          row.addEventListener('dragend', function() {
+            this.style.opacity = '1';
+            this.style.outline = '';
+            dragSrcData = null;
+          });
+          attachCardTouchDrag(row, handle);
 
-        // 드래그 이벤트
-        row.addEventListener('dragstart', function(e) {
-          dragSrcData = {bi: parseInt(this.dataset.bi), si: parseInt(this.dataset.si), hi: parseInt(this.dataset.hi)};
-          e.dataTransfer.effectAllowed = 'move';
-          var self = this;
-          setTimeout(function(){ self.style.opacity = '0.4'; }, 0);
+          subDiv.appendChild(row);
         });
-        row.addEventListener('dragover', function(e) {
-          e.preventDefault();
-          this.style.outline = '2px solid #7c3aed';
-        });
-        row.addEventListener('dragleave', function() {
-          this.style.outline = '';
-        });
-        row.addEventListener('drop', function(e) {
-          e.preventDefault();
-          this.style.outline = '';
-          if(!dragSrcData) return;
-          var tgtBi = parseInt(this.dataset.bi), tgtSi = parseInt(this.dataset.si), tgtHi = parseInt(this.dataset.hi);
-          moveHouseWithinSubtopic(dragSrcData, {bi:tgtBi, si:tgtSi, hi:tgtHi});
-          dragSrcData = null;
-          renderCardEditor();
-        });
-        row.addEventListener('dragend', function() {
-          this.style.opacity = '1';
-          this.style.outline = '';
-          dragSrcData = null;
-        });
-        attachCardTouchDrag(row, handle);
 
-        subDiv.appendChild(row);
+        // ?? ?? ??
+        var addHouseBtn = document.createElement('button');
+        addHouseBtn.textContent = '+ ?? ??';
+        addHouseBtn.style.cssText = 'width:100%;padding:6px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px';
+        addHouseBtn.onclick = (function(b,s){ return function(){ addHouse(b,s); }; })(bi,si);
+        subDiv.appendChild(addHouseBtn);
+        blkDiv.appendChild(subDiv);
       });
 
-      // 주소 추가 버튼
-      var addHouseBtn = document.createElement('button');
-      addHouseBtn.textContent = '+ 주소 추가';
-      addHouseBtn.style.cssText = 'width:100%;padding:6px;border-radius:8px;border:1px dashed #7c3aed;background:transparent;color:#7c3aed;font-size:12px;cursor:pointer;margin-top:4px';
-      addHouseBtn.onclick = (function(b,s){ return function(){ addHouse(b,s); }; })(bi,si);
-      subDiv.appendChild(addHouseBtn);
-      blkDiv.appendChild(subDiv);
+      // ??? ?? ??
+      var addSubBtn = document.createElement('button');
+      addSubBtn.textContent = '+ ??? ??';
+      addSubBtn.style.cssText = 'width:calc(100% - 24px);margin:8px 12px;padding:6px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block';
+      addSubBtn.onclick = (function(b){ return function(){ addSubTopic(b); }; })(bi);
+      blkDiv.appendChild(addSubBtn);
+      body.appendChild(blkDiv);
     });
 
-    // 도로명 추가 버튼
-    var addSubBtn = document.createElement('button');
-    addSubBtn.textContent = '+ 도로명 추가';
-    addSubBtn.style.cssText = 'width:calc(100% - 24px);margin:8px 12px;padding:6px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block';
-    addSubBtn.onclick = (function(b){ return function(){ addSubTopic(b); }; })(bi);
-    blkDiv.appendChild(addSubBtn);
-    body.appendChild(blkDiv);
-  });
-
-  // 블럭 추가 버튼
-  var addBlkBtn = document.createElement('button');
-  addBlkBtn.textContent = '+ 블럭 추가';
-  addBlkBtn.style.cssText = 'width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px';
-  addBlkBtn.onclick = addBlock;
-  body.appendChild(addBlkBtn);
+    // ?? ?? ??
+    var addBlkBtn = document.createElement('button');
+    addBlkBtn.textContent = '+ ?? ??';
+    addBlkBtn.style.cssText = 'width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px';
+    addBlkBtn.onclick = addBlock;
+    body.appendChild(addBlkBtn);
+  } catch(e) {
+    body.innerHTML = '<div style="text-align:center;color:#dc2626;padding:28px 16px;font-size:13px;font-weight:800;line-height:1.7">\uCE74\uB4DC \uC218\uC815 \uD654\uBA74\uC744 \uADF8\uB9AC\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span><br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
+  }
 }
 
 function removeBlk(bi) {
