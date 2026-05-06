@@ -261,16 +261,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      <div id="scheduleCard" onclick="openSchedule()" style="background:#1a1040;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;cursor:pointer;min-height:90px;display:flex;flex-direction:column">
-        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.6);margin-bottom:6px">📅 오늘 봉사 일정</div>
-        <div id="scheduleText" style="font-size:13px;color:white;line-height:1.7;flex:1">불러오는 중...</div>
-      </div>
-      <div onclick="openBoard()" style="background:#7c3aed;border-radius:12px;padding:12px;cursor:pointer;min-height:90px">
-        <div style="font-size:18px;margin-bottom:6px">📋</div>
-        <div style="font-size:12px;font-weight:600;color:white;margin-bottom:4px">회중 게시판</div>
+    <div id="todayAreaCard" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px">
+      <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.4);margin-bottom:8px">오늘 봉사 구역</div>
+      <div id="todayAreaContent"></div>
+    </div>
+
+    <div onclick="openBoard()" style="background:#7c3aed;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px">
+      <span style="font-size:18px">📋</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:white">회중 게시판</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.6)">탭해서 확인</div>
       </div>
+      <span style="color:rgba(255,255,255,0.7)">›</span>
     </div>
 
     <div class="login-card" style="width:100%">
@@ -285,16 +287,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <button class="start-btn" onclick="doLogin()">시작하기</button>
       <div style="width:100%;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;display:flex;flex-direction:column;gap:8px">
         
-        <button onclick="openCarResult()" style="width:100%;background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
-          <span style="font-size:18px">&#128663;</span>
-          <div style="flex:1;text-align:left">
-            <div style="font-size:13px;font-weight:600;color:#a78bfa">오늘 차량 배정 결과</div>
-            <div style="font-size:11px;color:rgba(167,139,250,0.7)">누구와 같은 차인지 확인하세요</div>
-          </div>
-          <span style="color:#a78bfa">›</span>
-        </button>
-
-        <button onclick="openServiceSignup()" style="width:100%;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
+<button onclick="openServiceSignup()" style="width:100%;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
           <span style="font-size:18px">✋</span>
           <div style="flex:1;text-align:left">
             <div style="font-size:13px;font-weight:600;color:#22c55e">오늘의 봉사 참여 신청</div>
@@ -677,6 +670,7 @@ window.onload = async function() {
   if(savedArea) document.getElementById('areaInput').value = savedArea;
   loadWeather();
   loadNoticeAndSchedule();
+  loadTodayServiceArea();
 
   // 페이지 닫거나 새로고침 시 위치 삭제
   window.addEventListener('beforeunload', function() {
@@ -1961,6 +1955,47 @@ function toggleMapFullscreen() {
     btn.textContent = '✕ 닫기';
   }
   if(_kakaoMap) setTimeout(function(){ _kakaoMap.relayout(); }, 300);
+}
+
+async function loadTodayServiceArea() {
+  var content = document.getElementById('todayAreaContent');
+  if (!content) return;
+  var userName = localStorage.getItem('savedUserName') || '';
+  if (!userName) return;
+  var d = new Date();
+  var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  try {
+    var doc = await db.collection('carAssignments').doc(today).get();
+    if (!doc.exists || !(doc.data().groups || []).length) return;
+    var groups = doc.data().groups;
+    var myGroup = null;
+    for (var i = 0; i < groups.length; i++) {
+      if ((groups[i].members || []).some(function(m){ return m.name === userName; })) {
+        myGroup = { group: groups[i], index: i };
+        break;
+      }
+    }
+    if (!myGroup) return;
+    var g = myGroup.group;
+    var areaNum = cleanCarResultValue(g.areaNum);
+    var blockNum = cleanCarResultValue(g.blockNum);
+    var carNum = myGroup.index + 1;
+    var memberNames = (g.members || []).map(function(m){ return m.name; }).join(' · ');
+    var area = areas.find(function(a){ return Number(a.id) === Number(areaNum) || a.id == areaNum; });
+    var areaName = area ? area.name : '';
+    var areaArg = areaNum.replace(/'/g,"&#39;");
+    var blockArg = blockNum.replace(/'/g,"&#39;");
+    content.innerHTML =
+      '<div style="margin-bottom:10px">' +
+        '<div style="font-size:18px;font-weight:800;color:white;margin-bottom:3px">' + carNum + '호차 · ' + areaNum + '번 구역' + (blockNum ? ' · ' + blockNum + '블럭' : '') + '</div>' +
+        (areaName ? '<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:5px">' + escHtml(areaName) + '</div>' : '') +
+        '<div style="font-size:13px;color:rgba(255,255,255,0.7)">' + escHtml(memberNames) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button onclick="openKakaoNaviToParking(\'' + areaArg + '\',\'' + blockArg + '\')" style="flex:1;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 8px;color:white;font-size:12px;font-weight:600;cursor:pointer">🗺 카카오맵 열기</button>' +
+        '<button onclick="goToFieldFromCarResultDirect(\'' + areaArg + '\',\'' + blockArg + '\')" style="flex:1;background:rgba(124,58,237,0.4);border:1px solid rgba(124,58,237,0.5);border-radius:10px;padding:10px 8px;color:white;font-size:12px;font-weight:600;cursor:pointer">📋 구역카드 바로 열기</button>' +
+      '</div>';
+  } catch(e) {}
 }
 
 async function loadWeather() {
