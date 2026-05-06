@@ -2359,19 +2359,35 @@ function movePairToCar(fromGi, pairId, toGi) {
   var moving = carGroups[fromGi].filter(function(p){ return p && p.pairId === pairId; });
   if(!moving.length) return;
   if(carGroups[toGi].length + moving.length > 5) { showToast('\uD574\uB2F9 \uD638\uCC28\uC5D0 \uC790\uB9AC\uAC00 \uBD80\uC871\uD569\uB2C8\uB2E4'); return; }
-  carGroups[fromGi] = cloneCarGroup(carGroups[fromGi].filter(function(p){ return !(p && p.pairId === pairId); }));
+
+  var fromAreaNum = carGroups[fromGi].areaNum || '';
+  var fromBlockNum = carGroups[fromGi].blockNum || '';
+  var kept = carGroups[fromGi].filter(function(p){ return !(p && p.pairId === pairId); });
+  kept.areaNum = fromAreaNum;
+  kept.blockNum = fromBlockNum;
+  carGroups[fromGi] = cloneCarGroup(kept);
+
   moving.forEach(function(p){ carGroups[toGi].push(p); });
+  closePickerSheet();
   renderCarAssignment();
   scheduleCarAssignmentSave();
 }
 function promptMovePair(fromGi, pairId) {
+  fromGi = Number(fromGi);
   if(!carGroups[fromGi]) return;
-  var label = carGroups.map(function(_, i){ return (i + 1) + '\uD638\uCC28'; }).join(', ');
-  var input = prompt('\uC774 \uD300\uC744 \uC5B4\uB290 \uD638\uCC28\uB85C \uC62E\uAE38\uAE4C\uC694?\n' + label, String(Number(fromGi) + 1));
-  if(input === null) return;
-  var toGi = Number(String(input).replace(/[^0-9]/g,'')) - 1;
-  if(!Number.isFinite(toGi) || !carGroups[toGi]) { showToast('\uD638\uCC28\uB97C \uD655\uC778\uD574 \uC8FC\uC138\uC694'); return; }
-  movePairToCar(fromGi, pairId, toGi);
+  var pair = getPairGroups(carGroups[fromGi]).find(function(p){ return p.key === pairId; });
+  var names = pair ? pair.members.map(function(m){ return m.name; }).join(' \u00B7 ') : '';
+  var html = '<div style="font-size:15px;font-weight:800;color:#1a1040;margin-bottom:4px">\uD300 \uC774\uB3D9</div>' +
+    '<div style="font-size:12px;color:#888;margin-bottom:12px">' + escHtml(names) + '</div>';
+  carGroups.forEach(function(group, i) {
+    var disabled = i === fromGi;
+    var full = group.length + (pair ? pair.members.length : 0) > 5;
+    var areaLabel = getCarAreaLabel(group);
+    html += '<button onclick="movePairToCar(' + fromGi + ',\'' + escAttr(pairId) + '\',' + i + ')" ' + ((disabled || full) ? 'disabled' : '') +
+      ' style="width:100%;margin-bottom:8px;border:1px solid ' + (disabled ? '#eee' : '#ddd') + ';border-radius:12px;background:' + (disabled ? '#f5f5f7' : 'white') + ';color:' + (disabled || full ? '#aaa' : '#1a1040') + ';padding:12px;text-align:left;font-size:14px;font-weight:900;cursor:' + (disabled || full ? 'default' : 'pointer') + '">' +
+      (i + 1) + '\uD638\uCC28 <span style="font-size:12px;color:#888;font-weight:700">\u00B7 ' + escHtml(areaLabel) + ' \u00B7 ' + group.length + '\uBA85' + (disabled ? ' \u00B7 \uD604\uC7AC' : '') + (full ? ' \u00B7 \uC790\uB9AC \uBD80\uC871' : '') + '</span></button>';
+  });
+  showPickerSheet(html);
 }
 
 function getCarGender(group) {
