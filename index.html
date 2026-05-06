@@ -266,13 +266,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <div id="todayAreaContent"></div>
     </div>
 
-    <div onclick="openBoard()" style="background:#7c3aed;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px">
-      <span style="font-size:18px">📋</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:white">회중 게시판</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div onclick="openBoard()" style="background:#7c3aed;border-radius:12px;padding:12px;cursor:pointer;min-height:72px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:18px;margin-bottom:4px">📋</div>
+        <div style="font-size:12px;font-weight:600;color:white">회중 게시판</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.6)">탭해서 확인</div>
       </div>
-      <span style="color:rgba(255,255,255,0.7)">›</span>
+      <div onclick="openServiceSignup()" style="background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px;cursor:pointer;min-height:72px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:18px;margin-bottom:4px">✋</div>
+        <div style="font-size:12px;font-weight:600;color:#22c55e">봉사 신청</div>
+        <div style="font-size:11px;color:rgba(34,197,94,0.7)">탭해서 등록</div>
+      </div>
     </div>
 
     <div class="login-card" style="width:100%">
@@ -285,25 +289,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <input class="inp" id="nameInput" type="text" placeholder="이름을 입력해 주세요" />
       <input class="inp" id="areaInput" type="number" placeholder="구역 번호를 입력해 주세요" />
       <button class="start-btn" onclick="doLogin()">시작하기</button>
-      <div style="width:100%;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;display:flex;flex-direction:column;gap:8px">
-        
-<button onclick="openServiceSignup()" style="width:100%;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
-          <span style="font-size:18px">✋</span>
-          <div style="flex:1;text-align:left">
-            <div style="font-size:13px;font-weight:600;color:#22c55e">오늘의 봉사 참여 신청</div>
-            <div style="font-size:11px;color:rgba(34,197,94,0.7)">탭하면 봉사 목록에 등록됩니다</div>
-          </div>
-          <span style="color:#22c55e">›</span>
-        </button>
-        <button onclick="showInstallGuide()" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer">
-          <span style="font-size:18px">📱</span>
-          <div style="flex:1;text-align:left">
-            <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.8)">홈 화면에 추가하기</div>
-            <div style="font-size:11px;color:rgba(255,255,255,0.4)">앱처럼 바로 열 수 있어요</div>
-          </div>
-          <span style="color:rgba(255,255,255,0.4)">›</span>
-        </button>
-      </div>
     </div>
   </div>
 </div>
