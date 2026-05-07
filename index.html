@@ -557,6 +557,31 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
 </div>
 
+<!-- 대기자 정보 수정 바텀시트 -->
+<div id="editWaitingOverlay" onclick="closeEditWaiting()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50"></div>
+<div id="editWaitingSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51">
+  <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
+  <div style="font-size:16px;font-weight:700;color:#1a1040;margin-bottom:16px" id="editWaitingTitle">정보 수정</div>
+  <div style="margin-bottom:12px">
+    <div style="font-size:13px;color:#888;margin-bottom:6px">성별 구분</div>
+    <div style="display:flex;gap:8px">
+      <button id="ewGenBro" onclick="setEditWaitingGender('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">👦 형제</button>
+      <button id="ewGenSis" onclick="setEditWaitingGender('자매')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">👧 자매</button>
+    </div>
+  </div>
+  <div style="margin-bottom:20px">
+    <div style="font-size:13px;color:#888;margin-bottom:6px">차량</div>
+    <div style="display:flex;gap:8px">
+      <button id="ewCarYes" onclick="setEditWaitingCar(true)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">🚗 차 있음</button>
+      <button id="ewCarNo" onclick="setEditWaitingCar(false)" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">🚶 차 없음</button>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <button onclick="closeEditWaiting()" style="flex:1;padding:14px;border-radius:12px;border:1px solid #eee;background:white;font-size:15px;color:#888;cursor:pointer">취소</button>
+    <button onclick="saveEditWaiting()" style="flex:2;padding:14px;border-radius:12px;border:none;background:#1a1040;color:white;font-size:15px;font-weight:700;cursor:pointer">저장</button>
+  </div>
+</div>
+
 <!-- 인도자 완료 알림 바텀시트 -->
 <div id="doneNotifOverlay" onclick="closeDoneNotif()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:50"></div>
 <div id="doneNotifSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51">
@@ -786,6 +811,7 @@ function openFieldScreen(area, fromLeader) {
     name: currentUser, areaId: currentAreaId, areaName: area.name || '', timestamp: Date.now()
   });
 
+  if(currentRole === 'leader') listenAssignmentEvents();
   showScreen('field');
   startRealtimeSync();
 }
@@ -1526,18 +1552,31 @@ async function checkAssignedWorkCompletion() {
   if(!currentUser || !currentAreaId) return;
   var today = todayStr();
   try {
-    var doc = await db.collection('carAssignments').doc(today).get();
-    if(!doc.exists) return;
-    var match = null;
-    (doc.data().groups || []).forEach(function(g) {
-      if(match) return;
-      var sameArea = String(g.areaNum || '') === String(currentAreaId);
-      var hasMe = (g.members || []).some(function(m){ return m.name === currentUser; });
-      if(sameArea && hasMe) match = g;
-    });
-    if(!match) return;
-    // 배정된 블럭 기준으로 진행률 계산
-    var blockSpec = String(match.blockNum || '').trim();
+    // 차량 배정에서 나의 블럭/호차 정보 탐색
+    var blockSpec = '';
+    var carNum = '';
+    var assignedLeader = '';
+    try {
+      var doc = await db.collection('carAssignments').doc(today).get();
+      if(doc.exists) {
+        (doc.data().groups || []).forEach(function(g) {
+          if(blockSpec !== '' || carNum !== '') return;
+          var sameArea = String(g.areaNum || '') === String(currentAreaId);
+          var hasMe = (g.members || []).some(function(m){ return m.name === currentUser; });
+          if(sameArea && hasMe) {
+            blockSpec = String(g.blockNum || '').trim();
+            carNum = String(g.carNum || '');
+          }
+        });
+        assignedLeader = doc.data().assignedLeaderName || '';
+      }
+    } catch(e) {}
+    // 배정된 인도자가 없으면 구역 leader 필드 사용
+    if(!assignedLeader) {
+      var areaObj = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
+      assignedLeader = areaObj ? (areaObj.assignedLeaderName || areaObj.leader || '') : '';
+    }
+    // 배정된 블럭 기준 진행률 계산
     var assignedIndexes = blockSpec
       ? blockSpec.split(',').map(function(v){ return Number(v.trim()) - 1; }).filter(function(n){ return Number.isFinite(n) && n >= 0; })
       : null;
@@ -1546,17 +1585,18 @@ async function checkAssignedWorkCompletion() {
     var doneKey = 'assignmentDone_' + today + '_' + currentUser + '_' + currentAreaId + '_' + (blockSpec || 'all');
     if(localStorage.getItem(doneKey)) return;
     localStorage.setItem(doneKey, '1');
-    var leaderName = doc.data().assignedLeaderName || '';
-    if(leaderName && leaderName !== currentUser) rtdb.ref('notifications/' + leaderName).push({
-      type: 'done',
-      name: currentUser,
-      areaNum: currentAreaId,
-      blockNum: match.blockNum || '',
-      carNum: match.carNum || '',
-      timestamp: Date.now()
-    });
-    updateAreaCompletionIfAllDone(currentAreaId, leaderName);
-    showToast('인도자에게 완료 알림을 보냈습니다');
+    if(assignedLeader && assignedLeader !== currentUser) {
+      rtdb.ref('notifications/' + assignedLeader).push({
+        type: 'done',
+        name: currentUser,
+        areaNum: currentAreaId,
+        blockNum: blockSpec,
+        carNum: carNum,
+        timestamp: Date.now()
+      });
+      showToast('인도자에게 완료 알림을 보냈습니다');
+    }
+    updateAreaCompletionIfAllDone(currentAreaId, assignedLeader);
   } catch(e) {}
 }
 
@@ -2472,8 +2512,9 @@ var carResultUnsubscribe = null;
 var manualFormState = {};
 var todayAreaUnsubscribe = null;
 var preLoginNotifOff = null;
-var assignNotifData = null; // {areaNum, blockNum, carNum, preLoginName}
+var assignNotifData = null;
 var preLoginNotifName = '';
+var editingWaitingPerson = null;
 
 function cloneCarGroup(g) {
   var arr = Array.from(g || []);
@@ -2843,8 +2884,17 @@ function renderCarAssignment() {
         chip.className = 'waiting-person-chip';
         chip.draggable = true;
         chip.dataset.name = p.name;
-        chip.style.cssText = 'background:white;border:0.5px solid #ddd;border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer;display:flex;flex-direction:column;gap:2px;margin-bottom:6px';
-        chip.innerHTML = '<span style="font-weight:700;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' \uD83D\uDE97' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
+        chip.style.cssText = 'background:white;border:0.5px solid #ddd;border-radius:10px;padding:7px 10px;font-size:13px;cursor:pointer;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px';
+        var mainDiv = document.createElement('div');
+        mainDiv.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1;min-width:0';
+        mainDiv.innerHTML = '<span style="font-weight:700;color:#333">' + p.name + ' ' + genderIcon + (p.car ? ' \uD83D\uDE97' : '') + '</span>' + (p.memo ? '<span style="font-size:11px;color:#aaa">' + p.memo + '</span>' : '');
+        (function(person){ mainDiv.onclick = function(e){ e.stopPropagation(); openCarPicker(person); }; })(p);
+        var editBtn = document.createElement('button');
+        editBtn.textContent = '\uC218\uC815';
+        editBtn.style.cssText = 'background:none;border:1px solid #ddd;border-radius:6px;padding:3px 8px;font-size:11px;color:#888;cursor:pointer;flex-shrink:0';
+        (function(person){ editBtn.onclick = function(e){ e.stopPropagation(); openEditWaiting(person); }; })(p);
+        chip.appendChild(mainDiv);
+        chip.appendChild(editBtn);
         chip.onclick = function() { openCarPicker(p); };
         lane.appendChild(chip);
       });
@@ -3561,6 +3611,60 @@ function addToCar(gi, btn) {
     carGroups[gi].push(normalizePerson(person));
   }
   closePickerSheet(); renderCarAssignment(); scheduleCarAssignmentSave();
+}
+
+function openEditWaiting(person) {
+  editingWaitingPerson = person;
+  document.getElementById('editWaitingTitle').textContent = person.name + ' 정보 수정';
+  var g = person.gender || '';
+  var c = person.car;
+  document.getElementById('ewGenBro').style.background = g === '형제' ? '#1a1040' : 'white';
+  document.getElementById('ewGenBro').style.color = g === '형제' ? 'white' : '#333';
+  document.getElementById('ewGenSis').style.background = g === '자매' ? '#1a1040' : 'white';
+  document.getElementById('ewGenSis').style.color = g === '자매' ? 'white' : '#333';
+  document.getElementById('ewCarYes').style.background = c === true ? '#1a1040' : 'white';
+  document.getElementById('ewCarYes').style.color = c === true ? 'white' : '#333';
+  document.getElementById('ewCarNo').style.background = c === false ? '#1a1040' : 'white';
+  document.getElementById('ewCarNo').style.color = c === false ? 'white' : '#333';
+  document.getElementById('editWaitingOverlay').style.display = 'block';
+  document.getElementById('editWaitingSheet').style.display = 'block';
+}
+function setEditWaitingGender(val) {
+  if(!editingWaitingPerson) return;
+  editingWaitingPerson.gender = val;
+  document.getElementById('ewGenBro').style.background = val === '형제' ? '#1a1040' : 'white';
+  document.getElementById('ewGenBro').style.color = val === '형제' ? 'white' : '#333';
+  document.getElementById('ewGenSis').style.background = val === '자매' ? '#1a1040' : 'white';
+  document.getElementById('ewGenSis').style.color = val === '자매' ? 'white' : '#333';
+}
+function setEditWaitingCar(val) {
+  if(!editingWaitingPerson) return;
+  editingWaitingPerson.car = val;
+  document.getElementById('ewCarYes').style.background = val === true ? '#1a1040' : 'white';
+  document.getElementById('ewCarYes').style.color = val === true ? 'white' : '#333';
+  document.getElementById('ewCarNo').style.background = val === false ? '#1a1040' : 'white';
+  document.getElementById('ewCarNo').style.color = val === false ? 'white' : '#333';
+}
+async function saveEditWaiting() {
+  if(!editingWaitingPerson) return;
+  var p = editingWaitingPerson;
+  // todaySignups 로컬 업데이트
+  var idx = todaySignups.findIndex(function(s){ return s.name === p.name; });
+  if(idx >= 0) { todaySignups[idx].gender = p.gender; todaySignups[idx].car = p.car; }
+  // carGroups 내에 같은 이름 있으면 업데이트
+  carGroups.forEach(function(g){ g.forEach(function(m){ if(m.name === p.name){ m.gender = p.gender; m.car = p.car; } }); });
+  // Firestore 저장
+  if(p.id) {
+    try { await db.collection('serviceSignups').doc(p.id).update({gender: p.gender, car: p.car}); } catch(e) {}
+  }
+  closeEditWaiting();
+  renderCarAssignment();
+  scheduleCarAssignmentSave();
+}
+function closeEditWaiting() {
+  document.getElementById('editWaitingOverlay').style.display = 'none';
+  document.getElementById('editWaitingSheet').style.display = 'none';
+  editingWaitingPerson = null;
 }
 
 function setManualGender(gi, val) {
