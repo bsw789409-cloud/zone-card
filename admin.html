@@ -2323,14 +2323,19 @@ async function doResetSelected() {
     for(var aId of checked) {
       var a = areas.find(x => String(x.id) === String(aId));
       if(!a) continue;
-      var lastRecord = {round: a.round||1, leader: a.leader||'', startDate: a.startDate||'', endDate: a.endDate||''};
+      var currentRound = Number(a.round || 1);
       var histRef = db.collection('areaHistory').doc(String(aId));
       var histSnap = await histRef.get();
       var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
-      history.push({...lastRecord, archived: true});
-      var newHistory = [{...lastRecord, round: 1}];
-      batch.set(histRef, {rounds: history, current: newHistory});
-      batch.update(db.collection('areas').doc(String(aId)), {round: 1});
+      // 진행 중이던 회차는 기록에서 제거 (완료되지 않았으므로 보관하지 않음)
+      history = history.filter(function(h) { return Number(h.round) !== currentRound; });
+      batch.set(histRef, {rounds: history}, {merge: true});
+      batch.update(db.collection('areas').doc(String(aId)), {
+        round: 1,
+        leader: '',
+        startDate: '',
+        endDate: ''
+      });
     }
     await batch.commit();
     var snap = await db.collection('areas').orderBy('id').get();
