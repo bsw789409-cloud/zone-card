@@ -266,7 +266,7 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
     <div style="display:flex;flex-direction:column;gap:8px">
       <div style="background:#f5f5f7;border-radius:10px;padding:12px">
         <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:8px">완료 구역 다음 회차로</div>
-        <button onclick="bulkNextRound()" class="btn-full btn-green">완료 구역 일괄 넘기기</button>
+        <button onclick="openBulkNextSheet()" class="btn-full btn-green">완료 구역 일괄 넘기기</button>
       </div>
       <div style="background:#f5f5f7;border-radius:10px;padding:12px">
         <div style="font-size:13px;font-weight:600;color:#333;margin-bottom:4px">일괄 회차 변경</div>
@@ -321,10 +321,6 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
     <div>
       <div class="lbl">구역명</div>
       <input type="text" id="newAreaName" class="inp" placeholder="예: 줄포 중심가"/>
-    </div>
-    <div>
-      <div class="lbl">지도 URL (선택)</div>
-      <input type="text" id="newAreaMapUrl" class="inp" placeholder="구글 마이맵 링크"/>
     </div>
     <div style="display:flex;gap:8px">
       <button onclick="closeAddArea()" class="btn-full btn-outline" style="flex:1">취소</button>
@@ -717,7 +713,6 @@ function openAddArea()
   selectedType = '주택'; selectedFace = '';
   document.getElementById('newAreaId').value = '';
   document.getElementById('newAreaName').value = '';
-  document.getElementById('newAreaMapUrl').value = '';
   document.querySelectorAll('#addAreaSheet .round-type-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('#addAreaSheet .round-type-btn').classList.add('active');
   document.getElementById('addAreaOverlay').classList.add('open');
@@ -742,7 +737,6 @@ function selectFace(el, face) {
 async function submitAddArea() {
   var id = document.getElementById('newAreaId').value.trim();
   var name = document.getElementById('newAreaName').value.trim();
-  var mapUrl = document.getElementById('newAreaMapUrl').value.trim();
   if(!id) { showToast('구역 번호를 입력해 주세요'); return; }
   if(!name) { showToast('구역명을 입력해 주세요'); return; }
   if(!selectedFace) { showToast('면을 선택해 주세요'); return; }
@@ -771,7 +765,6 @@ async function submitAddArea() {
       id: String(numId),
       name: name,
       type: selectedType,
-      mapUrl: mapUrl,
       round: 1,
       leader: '',
       startDate: '',
@@ -1179,13 +1172,35 @@ function daysAgo(ts) {
   return diff + '일 전';
 }
 
-async function deleteStatItem(colName, docId) {
-  if(!confirm('삭제하시겠습니까?')) return;
+async function editStatMemo(colName, docId) {
   try {
+    var doc = await db.collection(colName).doc(docId).get();
+    if(!doc.exists) return;
+    var r = doc.data();
+    var newMemo = prompt('메모를 수정해 주세요', r.memo || '');
+    if(newMemo === null) return;
+    await db.collection(colName).doc(docId).update({memo: newMemo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    var visitId = String(r.areaId) + '_' + (r.addr||'').replace(/\s/g,'_') + '_' + (r.round||1);
+    await db.collection('visits').doc(visitId).set({memo: newMemo, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(function(){});
+    showToast('메모를 수정했습니다');
+    loadStatsList();
+  } catch(e) { showToast('오류가 발생했습니다'); }
+}
+
+async function deleteStatItem(colName, docId) {
+  try {
+    var doc = await db.collection(colName).doc(docId).get();
+    if(!doc.exists) { showToast('이미 삭제된 항목입니다'); return; }
+    var r = doc.data();
+    var clearMemo = confirm('방문 카드의 메모도 함께 삭제하시겠습니까?\n확인: 메모 삭제  /  취소: 상태만 초기화');
     await db.collection(colName).doc(docId).delete();
+    var visitId = String(r.areaId) + '_' + (r.addr||'').replace(/\s/g,'_') + '_' + (r.round||1);
+    var update = {status: 'none', updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+    if(clearMemo) update.memo = '';
+    await db.collection('visits').doc(visitId).set(update, {merge:true}).catch(function(){});
     showToast('삭제했습니다');
     loadStatsList();
-  } catch(e) {}
+  } catch(e) { showToast('오류가 발생했습니다'); }
 }
 
 async function loadStatsList() {
@@ -1212,7 +1227,8 @@ async function loadStatsList() {
           '<div style="font-size:13px;font-weight:600;color:#1a1040">' + (r.areaId||'') + '번 · ' + (r.areaName||'') + '</div>' +
           '<div style="font-size:12px;color:#888;margin-top:2px">' + (r.addr||'') + (r.memo ? ' · ' + r.memo : '') + (ago ? ' · ' + ago : '') + '</div>' +
         '</div>' +
-        '<span style="font-size:11px;background:' + bgMap[statsFilter] + ';color:' + colorMap[statsFilter] + ';padding:3px 10px;border-radius:999px;font-weight:600">' + labelMap[statsFilter] + '</span>' +
+        '<button onclick="editStatMemo(\'' + colMap[statsFilter] + '\',\'' + doc.id + '\')" style="background:#eef7ee;border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:#2c5f2e;cursor:pointer">수정</button>' +
+        '<span style="font-size:11px;background:' + bgMap[statsFilter] + ';color:' + colorMap[statsFilter] + ';padding:3px 10px;border-radius:999px;font-weight:600;margin-left:4px">' + labelMap[statsFilter] + '</span>' +
         '<button onclick="deleteStatItem(\'' + colMap[statsFilter] + '\',\'' + doc.id + '\')" style="background:#fff0f0;border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:#dc2626;cursor:pointer;margin-left:6px">삭제</button>';
       list.appendChild(div);
     });

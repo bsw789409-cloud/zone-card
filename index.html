@@ -1510,7 +1510,7 @@ async function checkAssignedWorkCompletion(progress) {
     if(!match) return;
     localStorage.setItem(doneKey, '1');
     var leaderName = doc.data().assignedLeaderName || '';
-    if(leaderName) rtdb.ref('notifications/' + leaderName).push({
+    if(leaderName && leaderName !== currentUser) rtdb.ref('notifications/' + leaderName).push({
       type: 'done',
       name: currentUser,
       areaNum: currentAreaId,
@@ -1724,7 +1724,7 @@ async function smartExit() {
         await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
       } else if(await hasOtherActiveUsersInArea(currentAreaId)) {
         showToast('\uAC19\uC740 \uAD6C\uC5ED\uC5D0 \uBD09\uC0AC\uC790\uAC00 \uB0A8\uC544 \uC788\uC5B4 \uC911\uB2E8 \uD45C\uC2DC \uC5C6\uC774 \uB098\uAC11\uB2C8\uB2E4');
-      } else {
+      } else if(p.pct > 0) {
         var areaForPause = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
         var totalRemaining = areaForPause && areaForPause.blocks
           ? areaForPause.blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(areaForPause, idx); }, 0)
@@ -2254,7 +2254,7 @@ function listenAssignmentEvents() {
     if(!ev || ev.type !== 'done') return;
     snap.ref.remove();
     var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
-    if(confirm(msg)) setLdrTab('assign');
+    if(confirm(msg)) { showScreen('leader'); setLdrTab('assign'); }
     loadTodaySignups();
   });
 }
@@ -2266,9 +2266,13 @@ function listenUserAssignmentEvents() {
     var ev = snap.val();
     if(!ev || ev.type !== 'assigned') return;
     snap.ref.remove();
-    var msg = (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다.\n구역 카드로 이동하시겠습니까?';
-    if(confirm(msg)) goToFieldFromCarResultDirect(ev.areaNum || '', ev.blockNum || '');
-    else openCarResult();
+    var areaText = (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다.';
+    if(currentRole === 'leader') {
+      if(confirm(areaText + '\n인도자 카드로 여시겠습니까?')) loadAndOpenField(ev.areaNum, true);
+    } else {
+      if(confirm(areaText + '\n구역 카드로 이동하시겠습니까?')) goToFieldFromCarResultDirect(ev.areaNum || '', ev.blockNum || '');
+      else openCarResult();
+    }
   });
 }
 
@@ -2330,6 +2334,7 @@ var carLightColors = ['#EEEDFE','#E1F5EE','#FAECE7','#E6F1FB','#FAEEDA','#f0f0f5
 var draggingCarPerson = null;
 var assignmentEventListening = false;
 var userAssignmentEventListening = false;
+var carResultUnsubscribe = null;
 
 function cloneCarGroup(g) {
   var arr = Array.from(g || []);
@@ -3516,9 +3521,10 @@ window.goToFieldFromCarResultDirect = function(areaNum, blockNum) {
   loadAndOpenField(area.id, false).then(function() {
     if(blockNum) {
       setTimeout(function() {
+        var firstBlock = String(blockNum).split(',')[0].trim();
         var btns = document.querySelectorAll('#blockTabs .block-tab-btn');
         for(var i=0; i<btns.length; i++) {
-          if(btns[i].textContent === blockNum + '블럭') { btns[i].click(); break; }
+          if(btns[i].textContent === firstBlock + '블럭') { btns[i].click(); break; }
         }
       }, 500);
     }
@@ -3552,7 +3558,7 @@ function formatCarResultHeaderLabel(g) {
   return area ? (area + '\uBC88' + (block ? ' (' + block + '\uBE14\uB7ED)' : '')) : '-';
 }
 
-async function openCarResult() {
+function openCarResult() {
   lockScroll();
   document.getElementById('carResultOverlay').style.display = 'block';
   document.getElementById('carResultSheet').style.display = 'block';
@@ -3561,8 +3567,8 @@ async function openCarResult() {
   var list = document.getElementById('carResultList');
   var viewerName = currentUser || localStorage.getItem('savedUserName') || '';
   list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uBD88\uB7EC\uC624\uB294 \uC911...</div>';
-  try {
-    var doc = await db.collection('carAssignments').doc(today).get();
+  if(carResultUnsubscribe) { carResultUnsubscribe(); carResultUnsubscribe = null; }
+  carResultUnsubscribe = db.collection('carAssignments').doc(today).onSnapshot(function(doc) {
     if(!doc.exists || !doc.data().groups || !doc.data().groups.length) {
       list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uC624\uB298 \uBC30\uC815\uB41C \uCC28\uB7C9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
       return;
@@ -3624,13 +3630,14 @@ async function openCarResult() {
       card.innerHTML = header + members;
       list.appendChild(card);
     });
-  } catch(e) {
+  }, function() {
     list.innerHTML = '<div style="text-align:center;color:#aaa;font-size:14px;padding:20px">\uBD88\uB7EC\uC62C \uC218 \uC5C6\uC2B5\uB2C8\uB2E4</div>';
-  }
+  });
 }
 
 function closeCarResult() {
   unlockScroll();
+  if(carResultUnsubscribe) { carResultUnsubscribe(); carResultUnsubscribe = null; }
   document.getElementById('carResultOverlay').style.display = 'none';
   document.getElementById('carResultSheet').style.display = 'none';
 }
