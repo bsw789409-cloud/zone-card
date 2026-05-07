@@ -212,15 +212,6 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
     <div class="chip" onclick="setStatsFilter('interest',this)">관심자</div>
     <div class="chip" onclick="setStatsFilter('vacant',this)">공실</div>
   </div>
-  <div class="filter-wrap" id="statsFaceFilter">
-    <div class="chip active" onclick="setStatsFaceFilter('전체',this)">전체</div>
-    <div class="chip" onclick="setStatsFaceFilter('흥덕면',this)">흥덕면</div>
-    <div class="chip" onclick="setStatsFaceFilter('줄포면',this)">줄포면</div>
-    <div class="chip" onclick="setStatsFaceFilter('보안면',this)">보안면</div>
-    <div class="chip" onclick="setStatsFaceFilter('진서면',this)">진서면</div>
-    <div class="chip" onclick="setStatsFaceFilter('주산면',this)">주산면</div>
-    <div class="chip" onclick="setStatsFaceFilter('상서면',this)">상서면</div>
-  </div>
   <div id="statsList">
     <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
   </div>
@@ -473,7 +464,6 @@ var areaFaceFilter = '전체';
 var areaSearch = '';
 var fixFilter = '미처리';
 var statsFilter = 'reject';
-var statsFaceFilter = '전체';
 var recordFaceFilter = '전체';
 var deleteTargetId = null;
 var editingAreaId = null;
@@ -1002,9 +992,13 @@ function renderCardEditor() {
           var addr = h.addr || h.num || '';
           var memo = h.note || h.memo || '';
           var _fullAddr = (sub.name ? sub.name + ' ' + addr : addr);
-          var fixInfo = editingFixMemos[_fullAddr] || editingFixMemos[addr];
+          var fixInfo = editingFixMemos[_fullAddr];
           if(fixInfo && usedFixDocIds[fixInfo.docId]) fixInfo = null;
-          if(fixInfo && fixInfo.docId) usedFixDocIds[fixInfo.docId] = true;
+          if(fixInfo) {
+            usedFixDocIds[fixInfo.docId] = true;
+          } else if(_fullAddr !== addr) {
+            fixInfo = editingFixMemos[addr] || null;
+          }
           html += '<div data-bi="' + bi + '" data-si="' + si + '" data-hi="' + hi + '" style="padding:8px;background:' + (fixInfo ? '#FFF7ED' : '#f5f5f7') + ';border-radius:8px;margin-bottom:6px;' + (fixInfo ? 'border:1px solid #e65100;' : '') + '">';
           html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center">';
           html += '<input value="' + escAttr(addr) + '" onchange="updateHouseAddr(' + bi + ',' + si + ',' + hi + ',this.value)" placeholder="\uC8FC\uC18C" style="min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-weight:700;background:white">';
@@ -1176,11 +1170,22 @@ function setStatsFilter(filter, el) {
   el.classList.add('active');
   loadStatsList();
 }
-function setStatsFaceFilter(face, el) {
-  statsFaceFilter = face;
-  document.querySelectorAll('#statsFaceFilter .chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  loadStatsList();
+function daysAgo(ts) {
+  if(!ts) return '';
+  var d = ts.toDate ? ts.toDate() : (ts.seconds ? new Date(ts.seconds * 1000) : null);
+  if(!d) return '';
+  var diff = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if(diff === 0) return '오늘';
+  return diff + '일 전';
+}
+
+async function deleteStatItem(colName, docId) {
+  if(!confirm('삭제하시겠습니까?')) return;
+  try {
+    await db.collection(colName).doc(docId).delete();
+    showToast('삭제했습니다');
+    loadStatsList();
+  } catch(e) {}
 }
 
 async function loadStatsList() {
@@ -1192,22 +1197,23 @@ async function loadStatsList() {
   var bgMap = {reject:'#fff0f0', interest:'#fffde7', vacant:'#f5f5f5'};
   try {
     var snap = await db.collection(colMap[statsFilter]).get();
-    var items = snap.docs.map(d => d.data());
-    if(statsFaceFilter !== '전체') items = items.filter(r => getAreaFace(r.areaId) === statsFaceFilter);
-    if(!items.length) {
+    if(!snap.size) {
       list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px;font-size:14px">항목이 없습니다</div>';
       return;
     }
     list.innerHTML = '';
-    items.forEach(r => {
+    snap.docs.forEach(function(doc) {
+      var r = doc.data();
+      var ago = daysAgo(r.updatedAt);
       var div = document.createElement('div');
       div.className = 'stat-list-item';
       div.innerHTML =
         '<div style="flex:1">' +
           '<div style="font-size:13px;font-weight:600;color:#1a1040">' + (r.areaId||'') + '번 · ' + (r.areaName||'') + '</div>' +
-          '<div style="font-size:12px;color:#888;margin-top:2px">' + (r.addr||'') + ' · ' + (r.memo||'메모 없음') + '</div>' +
+          '<div style="font-size:12px;color:#888;margin-top:2px">' + (r.addr||'') + (r.memo ? ' · ' + r.memo : '') + (ago ? ' · ' + ago : '') + '</div>' +
         '</div>' +
-        '<span style="font-size:11px;background:' + bgMap[statsFilter] + ';color:' + colorMap[statsFilter] + ';padding:3px 10px;border-radius:999px;font-weight:600">' + labelMap[statsFilter] + '</span>';
+        '<span style="font-size:11px;background:' + bgMap[statsFilter] + ';color:' + colorMap[statsFilter] + ';padding:3px 10px;border-radius:999px;font-weight:600">' + labelMap[statsFilter] + '</span>' +
+        '<button onclick="deleteStatItem(\'' + colMap[statsFilter] + '\',\'' + doc.id + '\')" style="background:#fff0f0;border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:#dc2626;cursor:pointer;margin-left:6px">삭제</button>';
       list.appendChild(div);
     });
   } catch(e) {}

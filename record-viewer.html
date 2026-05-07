@@ -167,25 +167,31 @@ function exportExcel(){
     var chunk=data.slice(start,start+5);
     var max=Math.max.apply(null,chunk.map(function(a){return Math.max(1,a.rounds.length)}));
     var rows=[];
-    rows.push(chunk.map(function(a){return (a.number||'')+' '+(a.name||'')}));
+    rows.push(chunk.map(function(a){
+      var parts=[a.number||''];
+      if(a.type) parts.push(a.type);
+      parts.push(a.name||'');
+      return parts.join(' ');
+    }));
     for(var r=0;r<max;r++){
+      rows.push(chunk.map(function(a){return (a.rounds[r]||{}).leader||''}));
       rows.push(chunk.map(function(a){
         var x=a.rounds[r]||{};
-        var leader=x.leader||'';
         var s=dateShort(x.startDate),e=dateShort(x.endDate);
-        if(!leader&&!s&&!e) return '';
-        return leader+(s?' / '+s+(e?'~'+e:''):'');
+        if(!s&&!e) return '';
+        return s+(e?'~'+e:'');
       }));
     }
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=chunk.map(function(){return {wch:22}});
+    ws['!cols']=chunk.map(function(){return {wch:18}});
     Object.keys(ws).forEach(function(addr){
       if(addr[0]==='!') return;
       var rowIdx=parseInt(addr.replace(/[A-Z]+/g,''))-1;
+      var isHeader=rowIdx===0;
       ws[addr].s={
         alignment:{horizontal:'center',vertical:'center',wrapText:true},
-        fill:{fgColor:{rgb:rowIdx===0?'C8DFC8':'EEF7EE'}},
-        font:rowIdx===0?{bold:true}:undefined,
+        fill:{fgColor:{rgb:isHeader?'C8DFC8':'EEF7EE'}},
+        font:isHeader?{bold:true}:undefined,
         border:{top:{style:'thin',color:{rgb:'A8C8A8'}},bottom:{style:'thin',color:{rgb:'A8C8A8'}},left:{style:'thin',color:{rgb:'A8C8A8'}},right:{style:'thin',color:{rgb:'A8C8A8'}}}
       };
     });
