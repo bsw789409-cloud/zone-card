@@ -653,6 +653,12 @@ window.onload = async function() {
   loadWeather();
   loadNoticeAndSchedule();
   loadTodayServiceArea();
+  if(saved) startPreLoginNotifListener(saved);
+  document.getElementById('nameInput').addEventListener('input', function() {
+    var typedName = this.value.trim();
+    loadTodayServiceArea();
+    startPreLoginNotifListener(typedName);
+  });
 
   // 페이지 닫거나 새로고침 시 위치 삭제
   window.addEventListener('beforeunload', function() {
@@ -705,6 +711,8 @@ async function doLogin() {
   currentUser = name;
   localStorage.setItem('savedUserName', name);
 
+  if(preLoginNotifOff) { preLoginNotifOff(); preLoginNotifOff = null; }
+  if(todayAreaUnsubscribe) { todayAreaUnsubscribe(); todayAreaUnsubscribe = null; }
   if(currentRole === 'leader') {
     showScreen('leader');
     document.getElementById('leaderNamePill').textContent = name;
@@ -1958,16 +1966,17 @@ function toggleMapFullscreen() {
   if(_kakaoMap) setTimeout(function(){ _kakaoMap.relayout(); }, 300);
 }
 
-async function loadTodayServiceArea() {
+function loadTodayServiceArea() {
+  if(todayAreaUnsubscribe) { todayAreaUnsubscribe(); todayAreaUnsubscribe = null; }
   var content = document.getElementById('todayAreaContent');
   if (!content) return;
-  var userName = localStorage.getItem('savedUserName') || '';
-  if (!userName) return;
+  var nameEl = document.getElementById('nameInput');
+  var userName = (nameEl ? nameEl.value.trim() : '') || localStorage.getItem('savedUserName') || '';
+  if (!userName) { content.innerHTML = ''; return; }
   var d = new Date();
   var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  try {
-    var doc = await db.collection('carAssignments').doc(today).get();
-    if (!doc.exists || !(doc.data().groups || []).length) return;
+  todayAreaUnsubscribe = db.collection('carAssignments').doc(today).onSnapshot(function(doc) {
+    if (!doc.exists || !(doc.data().groups || []).length) { content.innerHTML = ''; return; }
     var groups = doc.data().groups;
     var myGroup = null;
     for (var i = 0; i < groups.length; i++) {
@@ -1976,7 +1985,7 @@ async function loadTodayServiceArea() {
         break;
       }
     }
-    if (!myGroup) return;
+    if (!myGroup) { content.innerHTML = ''; return; }
     var g = myGroup.group;
     var areaNum = cleanCarResultValue(g.areaNum);
     var blockNum = cleanCarResultValue(g.blockNum);
@@ -1996,7 +2005,21 @@ async function loadTodayServiceArea() {
         '<button onclick="openKakaoNaviToParking(\'' + areaArg + '\',\'' + blockArg + '\')" style="flex:1;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 8px;color:white;font-size:12px;font-weight:600;cursor:pointer">🗺 카카오맵 열기</button>' +
         '<button onclick="goToFieldFromCarResultDirect(\'' + areaArg + '\',\'' + blockArg + '\')" style="flex:1;background:rgba(124,58,237,0.4);border:1px solid rgba(124,58,237,0.5);border-radius:10px;padding:10px 8px;color:white;font-size:12px;font-weight:600;cursor:pointer">📋 구역카드 바로 열기</button>' +
       '</div>';
-  } catch(e) {}
+  }, function() { content.innerHTML = ''; });
+}
+
+function startPreLoginNotifListener(userName) {
+  if(preLoginNotifOff) { preLoginNotifOff(); preLoginNotifOff = null; }
+  if(!userName || !rtdb) return;
+  var ref = rtdb.ref('notifications/' + userName);
+  var handler = ref.on('child_added', function(snap) {
+    var ev = snap.val();
+    if(!ev || ev.type !== 'assigned') return;
+    snap.ref.remove();
+    loadTodayServiceArea();
+    showToast((ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다');
+  });
+  preLoginNotifOff = function() { ref.off('child_added', handler); };
 }
 
 async function loadWeather() {
@@ -2335,6 +2358,9 @@ var draggingCarPerson = null;
 var assignmentEventListening = false;
 var userAssignmentEventListening = false;
 var carResultUnsubscribe = null;
+var manualFormState = {};
+var todayAreaUnsubscribe = null;
+var preLoginNotifOff = null;
 
 function cloneCarGroup(g) {
   var arr = Array.from(g || []);
@@ -2803,7 +2829,21 @@ function renderCarAssignment() {
     });
     if(!group.length) body += '<div style="min-height:32px;border:1px dashed #e5e7eb;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#c4c4c4;background:#fafafa">빈칸</div>';
     body += `<div onclick="openCarPickerForGroup(${gi})" style="border:1.5px dashed ${color};border-radius:999px;padding:6px 12px;font-size:13px;color:${color};cursor:pointer;text-align:center">+ 추가</div>`;
-    body += `<div style="display:flex;gap:6px;margin-top:6px"><input id="manualName_${gi}" type="text" placeholder="이름 직접 입력" style="flex:1;border:1px solid #d1d5db;border-radius:999px;padding:5px 12px;font-size:12px;outline:none;min-width:0" onkeydown="if(event.key==='Enter')addManualNameToCar(${gi})"><button onclick="addManualNameToCar(${gi})" style="background:${color};color:white;border:none;border-radius:999px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">확인</button></div>`;
+    var ms = manualFormState[gi] || {name:'', gender:'', car:null};
+    var gBroSt = ms.gender==='형제' ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
+    var gSisSt = ms.gender==='자매' ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
+    var cYesSt = ms.car===true  ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
+    var cNoSt  = ms.car===false ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
+    body += `<div style="border-top:1px solid #f0f0f0;margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:6px">
+      <input id="manualName_${gi}" type="text" placeholder="이름 직접 입력" value="${escAttr(ms.name)}" style="border:1px solid #d1d5db;border-radius:999px;padding:7px 12px;font-size:12px;outline:none;width:100%;box-sizing:border-box" onkeydown="if(event.key==='Enter')addManualNameToCar(${gi})" oninput="if(!manualFormState[${gi}])manualFormState[${gi}]={name:'',gender:'',car:null};manualFormState[${gi}].name=this.value"/>
+      <div style="display:flex;gap:5px">
+        <button onclick="setManualGender(${gi},'형제')" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${gBroSt}">👦 형제</button>
+        <button onclick="setManualGender(${gi},'자매')" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${gSisSt}">👧 자매</button>
+        <button onclick="setManualCar(${gi},true)"  style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${cYesSt}">🚗 차</button>
+        <button onclick="setManualCar(${gi},false)" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${cNoSt}">🚶</button>
+        <button onclick="addManualNameToCar(${gi})" style="background:${color};color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">확인</button>
+      </div>
+    </div>`;
     body += '</div>';
     card.innerHTML = header + body;
     carList.appendChild(card);
@@ -3410,14 +3450,29 @@ function addToCar(gi, btn) {
   closePickerSheet(); renderCarAssignment(); scheduleCarAssignmentSave();
 }
 
+function setManualGender(gi, val) {
+  var input = document.getElementById('manualName_' + gi);
+  if(!manualFormState[gi]) manualFormState[gi] = {name:'', gender:'', car:null};
+  if(input) manualFormState[gi].name = input.value;
+  manualFormState[gi].gender = val;
+  renderCarAssignment();
+}
+function setManualCar(gi, val) {
+  var input = document.getElementById('manualName_' + gi);
+  if(!manualFormState[gi]) manualFormState[gi] = {name:'', gender:'', car:null};
+  if(input) manualFormState[gi].name = input.value;
+  manualFormState[gi].car = val;
+  renderCarAssignment();
+}
 function addManualNameToCar(gi) {
   var input = document.getElementById('manualName_' + gi);
   if(!input) return;
   var name = input.value.trim();
   if(!name) return;
   if(!carGroups[gi]) carGroups[gi] = [];
-  carGroups[gi].push(normalizePerson({name: name, gender: ''}));
-  input.value = '';
+  var ms = manualFormState[gi] || {gender:'', car:null};
+  carGroups[gi].push(normalizePerson({name: name, gender: ms.gender || '', car: ms.car === true}));
+  delete manualFormState[gi];
   renderCarAssignment();
   scheduleCarAssignmentSave();
 }
