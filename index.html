@@ -1413,6 +1413,7 @@ function makeRow(h) {
   else if(st === 'vacant') bgClass = ' bg-vacant';
   row.className = 'house-row' + bgClass;
   row.onclick = function() {
+    var isPhoneNow = String(currentAreaType || '').indexOf('전화') >= 0;
     if(st === 'none') {
       lastLocalUpdateTime = Date.now();
       setSt(h,'visited');
@@ -1421,6 +1422,10 @@ function makeRow(h) {
       if(openSheetAreaId) renderCsGrid(openSheetAreaId);
       else renderFieldBlocks(currentAreaId);
       triggerSmartSave();
+      if(isPhoneNow && (h.note || '')) {
+        var telNum = (h.note || '').replace(/[^0-9+]/g, '');
+        if(telNum) window.open('tel:' + telNum);
+      }
     } else openDetail(h);
   };
   var adminNote = h.note || '';
@@ -4220,7 +4225,9 @@ window.openCardSheet = async function(aId) {
   try {
     var areaDoc = await db.collection('areas').doc(String(aId)).get();
     currentAreaData = areaDoc.exists ? (areaDoc.data().blocks || []) : [];
-    
+    assignHouseKeys(currentAreaData);
+    currentAreaType = areaDoc.exists ? (areaDoc.data().type || '') : '';
+
     // 방문 기록 로드 및 리스트 렌더링
     await loadVisitRecords(String(aId));
     initCsBlockTabs(area || {id: aId, blocks: currentAreaData});
@@ -4233,12 +4240,13 @@ window.openCardSheet = async function(aId) {
       snap.docs.forEach(function(d) {
         var r = d.data();
         if(PERSISTENT.includes(r.status) || r.round == currentRound) {
-          var prev = (statusData[String(aId)]||{})[r.addr];
+          var stKey = r.key || r.addr;
+          var prev = (statusData[String(aId)]||{})[stKey];
           if(prev !== r.status) {
             if(!statusData[String(aId)]) statusData[String(aId)] = {};
-            statusData[String(aId)][r.addr] = r.status;
+            statusData[String(aId)][stKey] = r.status;
             if(!memoData[String(aId)]) memoData[String(aId)] = {};
-            memoData[String(aId)][r.addr] = r.memo || '';
+            memoData[String(aId)][stKey] = r.memo || '';
             changed = true;
           }
         }
@@ -4251,6 +4259,8 @@ window.openCardSheet = async function(aId) {
       var data = doc.data() || {};
       currentRound = data.round || currentRound;
       currentAreaData = data.blocks || [];
+      assignHouseKeys(currentAreaData);
+      currentAreaType = data.type || currentAreaType;
       initCsBlockTabs({id: aId, blocks: currentAreaData});
       renderCsAssignTools(aId);
       renderCsGrid(aId);
@@ -5262,6 +5272,8 @@ function renderLiveUsersRealtime() {
       }
       parts.push('<div style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px">' +
         '<div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span><span style="font-size:14px;font-weight:800;color:white">' + escHtml(u.name || key) + '</span></div>' +
+        (u.areaId ? '<div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px">구역 ' + escHtml(String(u.areaId)) + '번</div>' : '') +
+        '<div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">' + age + '분 전</div>' +
       '</div>');
     });
     list.innerHTML = parts.length ? parts.join('') : '<div style="grid-column:1/-1;color:rgba(255,255,255,.45);text-align:center;padding:18px">현재 표시할 위치나 SOS가 없습니다</div>';

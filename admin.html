@@ -2316,28 +2316,47 @@ async function doResetAll() {
 async function doResetSelected() {
   var checked = Array.from(document.querySelectorAll('.reset-chk:checked')).map(c => c.value);
   if(!checked.length) { showToast('구역을 선택해 주세요'); return; }
-  if(!confirm(checked.length + '개 구역을 초기화하시겠습니까?')) return;
+  if(!confirm(checked.length + '개 구역을 초기화하시겠습니까?\n방문 기록이 모두 삭제됩니다.')) return;
   showLoader();
   try {
-    var batch = db.batch();
     for(var aId of checked) {
       var a = areas.find(x => String(x.id) === String(aId));
       if(!a) continue;
-      var currentRound = Number(a.round || 1);
+
+      // 완료된 마지막 회차 기록 보존 (endDate가 있는 가장 높은 회차)
       var histRef = db.collection('areaHistory').doc(String(aId));
       var histSnap = await histRef.get();
-      var history = histSnap.exists ? (histSnap.data().rounds || []) : [];
-      // 진행 중이던 회차는 기록에서 제거 (완료되지 않았으므로 보관하지 않음)
-      history = history.filter(function(h) { return Number(h.round) !== currentRound; });
-      batch.set(histRef, {rounds: history}, {merge: true});
-      batch.update(db.collection('areas').doc(String(aId)), {
-        round: 1,
+      var oldHistory = histSnap.exists ? (histSnap.data().rounds || []) : [];
+      var completedRounds = oldHistory.filter(function(h) { return h.endDate; });
+      completedRounds.sort(function(x,y){ return Number(y.round||0) - Number(x.round||0); });
+      var lastCompleted = completedRounds.length ? completedRounds[0] : null;
+
+      // 새 history: 마지막 완료 회차를 1회차로 저장
+      var newHistory = lastCompleted ? [{round:1, leader:lastCompleted.leader||'', startDate:lastCompleted.startDate||'', endDate:lastCompleted.endDate||''}] : [];
+      var newRound = lastCompleted ? 2 : 1;
+
+      // areaHistory 업데이트
+      await histRef.set({rounds: newHistory});
+
+      // 방문 기록 전체 삭제
+      var visitSnap = await db.collection('visits').where('areaId','==',String(aId)).get();
+      if(visitSnap.docs.length) {
+        var delBatch = db.batch();
+        visitSnap.docs.forEach(function(d){ delBatch.delete(d.ref); });
+        await delBatch.commit();
+      }
+
+      // 구역 필드 초기화
+      await db.collection('areas').doc(String(aId)).update({
+        round: newRound,
         leader: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
+        servicePaused: false,
+        progress: 0
       });
     }
-    await batch.commit();
+
     var snap = await db.collection('areas').orderBy('id').get();
     areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
     closeResetSheet();
