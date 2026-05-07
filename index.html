@@ -557,6 +557,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
 </div>
 
+<!-- 인도자 완료 알림 바텀시트 -->
+<div id="doneNotifOverlay" onclick="closeDoneNotif()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:50"></div>
+<div id="doneNotifSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51">
+  <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
+  <div style="font-size:13px;font-weight:600;color:#22c55e;margin-bottom:8px">✅ 봉사 완료 알림</div>
+  <div id="doneNotifInfo" style="margin-bottom:20px"></div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button onclick="handleDoneNotifAssign()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1040;color:white;font-size:15px;font-weight:700;cursor:pointer">🚗 다른 구역 배정하기</button>
+    <button onclick="closeDoneNotif()" style="width:100%;padding:12px;border-radius:12px;border:1px solid #eee;background:white;font-size:14px;color:#888;cursor:pointer">닫기</button>
+  </div>
+</div>
+
 <!-- 배정 알림 바텀시트 -->
 <div id="assignNotifOverlay" onclick="closeAssignNotif()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:50"></div>
 <div id="assignNotifSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51;max-height:85vh;overflow-y:auto">
@@ -1450,7 +1462,7 @@ function updateFieldProgress() {
   document.getElementById('fProgPct').textContent = p.pct+'%';
   document.getElementById('fProgFill').style.width = p.pct+'%';
   document.getElementById('fProgRound').textContent = currentRound+'회차';
-  checkAssignedWorkCompletion(p);
+  checkAssignedWorkCompletion();
 }
 
 function todayStr() {
@@ -1510,12 +1522,9 @@ async function syncAreaCompletionState(areaId, assignedLeaderName) {
   }
 }
 
-async function checkAssignedWorkCompletion(progress) {
-  if(!currentUser || !currentAreaId || !progress || progress.pct < 100) return;
-  var d = new Date();
-  var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-  var doneKey = 'assignmentDone_' + today + '_' + currentUser + '_' + currentAreaId + '_' + currentBlockIdx;
-  if(localStorage.getItem(doneKey)) return;
+async function checkAssignedWorkCompletion() {
+  if(!currentUser || !currentAreaId) return;
+  var today = todayStr();
   try {
     var doc = await db.collection('carAssignments').doc(today).get();
     if(!doc.exists) return;
@@ -1523,12 +1532,19 @@ async function checkAssignedWorkCompletion(progress) {
     (doc.data().groups || []).forEach(function(g) {
       if(match) return;
       var sameArea = String(g.areaNum || '') === String(currentAreaId);
-      var blockSpec = String(g.blockNum || '');
-      var blockOk = !blockSpec || currentBlockIdx === -1 || blockSpec.split(',').map(function(v){return v.trim();}).includes(String(currentBlockIdx + 1));
       var hasMe = (g.members || []).some(function(m){ return m.name === currentUser; });
-      if(sameArea && blockOk && hasMe) match = g;
+      if(sameArea && hasMe) match = g;
     });
     if(!match) return;
+    // 배정된 블럭 기준으로 진행률 계산
+    var blockSpec = String(match.blockNum || '').trim();
+    var assignedIndexes = blockSpec
+      ? blockSpec.split(',').map(function(v){ return Number(v.trim()) - 1; }).filter(function(n){ return Number.isFinite(n) && n >= 0; })
+      : null;
+    var p = calcProgressForBlockIndexes(assignedIndexes);
+    if(p.pct < 100) return;
+    var doneKey = 'assignmentDone_' + today + '_' + currentUser + '_' + currentAreaId + '_' + (blockSpec || 'all');
+    if(localStorage.getItem(doneKey)) return;
     localStorage.setItem(doneKey, '1');
     var leaderName = doc.data().assignedLeaderName || '';
     if(leaderName && leaderName !== currentUser) rtdb.ref('notifications/' + leaderName).push({
@@ -1755,6 +1771,15 @@ async function smartExit() {
         } else {
           await markAreaServicePaused(currentAreaId);
           showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uC790\uB3D9 \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
+        }
+      } else {
+        // \uC9C4\uD589\uB960 0% = \uC544\uBB34\uAC83\uB3C4 \uD558\uC9C0 \uC54A\uC74C \u2192 \uBBF8\uBC30\uC815 \uC0C1\uD0DC\uB85C \uCD08\uAE30\uD654
+        var areaToReset = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
+        if(areaToReset && (areaToReset.leader || areaToReset.startDate)) {
+          var resetUpdate = {leader:'', startDate:'', endDate:'', servicePaused:false, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+          await db.collection('areas').doc(String(currentAreaId)).set(resetUpdate, {merge:true});
+          Object.assign(areaToReset, resetUpdate);
+          await removeAreaHistoryRound(currentAreaId, areaToReset.round || currentRound || 1);
         }
       }
     }
@@ -2341,10 +2366,33 @@ function listenAssignmentEvents() {
     var ev = snap.val();
     if(!ev || ev.type !== 'done') return;
     snap.ref.remove();
-    var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
-    if(confirm(msg)) { showScreen('leader'); setLdrTab('assign'); }
+    showDoneNotifSheet(ev);
     loadTodaySignups();
   });
+}
+
+function showDoneNotifSheet(ev) {
+  var info =
+    '<div style="font-size:20px;font-weight:800;color:#1a1040;margin-bottom:6px">' +
+      escHtml(ev.name || '') + '님 완료' +
+    '</div>' +
+    '<div style="font-size:15px;color:#555">' +
+      (ev.carNum ? ev.carNum + '호차 · ' : '') +
+      (ev.areaNum || '') + '번 구역' +
+      (ev.blockNum ? ' · ' + ev.blockNum + '블럭' : '') +
+    '</div>';
+  document.getElementById('doneNotifInfo').innerHTML = info;
+  document.getElementById('doneNotifOverlay').style.display = 'block';
+  document.getElementById('doneNotifSheet').style.display = 'block';
+}
+function closeDoneNotif() {
+  document.getElementById('doneNotifOverlay').style.display = 'none';
+  document.getElementById('doneNotifSheet').style.display = 'none';
+}
+function handleDoneNotifAssign() {
+  closeDoneNotif();
+  showScreen('leader');
+  setLdrTab('assign');
 }
 
 function listenUserAssignmentEvents() {
