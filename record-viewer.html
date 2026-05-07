@@ -132,7 +132,7 @@ function renderSummary(){
   if(!data.length){wrap.innerHTML='<div class="empty">검색 결과가 없습니다</div>';return}
   wrap.innerHTML=data.map(function(a){
     var recent=getRecentCompleted(a);
-    return '<div class="record-card"><div class="record-head" onclick="openSheet('+a.number+')"><span class="num">'+a.number+'</span><div class="title"><div class="name">'+esc(a.name)+'</div><div class="meta">'+esc(a.type||'')+' · 기록 '+a.rounds.length+'회</div></div></div><div class="preview">'+roundTable(recent)+'</div></div>';
+    return '<div class="record-card"><div class="record-head" onclick="openSheet('+a.number+')"><span class="num">'+a.number+'</span><div class="title"><div class="name">'+esc(a.name)+'<span style="margin-left:6px;font-size:12px;color:#2c5f2e;font-weight:700;background:#eef7ee;border-radius:6px;padding:1px 6px">'+a.round+'회차</span></div><div class="meta">'+esc(a.type||'')+' · 기록 '+a.rounds.length+'회</div></div></div><div class="preview">'+roundTable(recent)+'</div></div>';
   }).join('');
 }
 function renderDetail(){
@@ -166,32 +166,28 @@ function exportExcel(){
   for(var start=0;start<data.length;start+=5){
     var chunk=data.slice(start,start+5);
     var max=Math.max.apply(null,chunk.map(function(a){return Math.max(1,a.rounds.length)}));
-    var rows=[[]];
-    chunk.forEach(function(a,idx){
-      var base=idx*2;
-      rows[0][base]=(a.number||'')+' '+(a.name||'');
-      rows[0][base+1]='';
-    });
+    var rows=[];
+    rows.push(chunk.map(function(a){return (a.number||'')+' '+(a.name||'')}));
     for(var r=0;r<max;r++){
-      var leaderRow=[];
-      var dateRow=[];
-      chunk.forEach(function(a,idx){
+      rows.push(chunk.map(function(a){
         var x=a.rounds[r]||{};
-        var base=idx*2;
-        leaderRow[base]=x.leader||'';
-        leaderRow[base+1]='';
-        dateRow[base]=dateShort(x.startDate);
-        dateRow[base+1]=dateShort(x.endDate);
-      });
-      rows.push(leaderRow);
-      rows.push(dateRow);
+        var leader=x.leader||'';
+        var s=dateShort(x.startDate),e=dateShort(x.endDate);
+        if(!leader&&!s&&!e) return '';
+        return leader+(s?' / '+s+(e?'~'+e:''):'');
+      }));
     }
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=chunk.flatMap(function(){return [{wch:14},{wch:14}]});
-    ws['!merges']=chunk.map(function(a,idx){var c=idx*2;return {s:{r:0,c:c},e:{r:0,c:c+1}}});
+    ws['!cols']=chunk.map(function(){return {wch:22}});
     Object.keys(ws).forEach(function(addr){
       if(addr[0]==='!') return;
-      ws[addr].s={alignment:{horizontal:'center',vertical:'center'}};
+      var rowIdx=parseInt(addr.replace(/[A-Z]+/g,''))-1;
+      ws[addr].s={
+        alignment:{horizontal:'center',vertical:'center',wrapText:true},
+        fill:{fgColor:{rgb:rowIdx===0?'C8DFC8':'EEF7EE'}},
+        font:rowIdx===0?{bold:true}:undefined,
+        border:{top:{style:'thin',color:{rgb:'A8C8A8'}},bottom:{style:'thin',color:{rgb:'A8C8A8'}},left:{style:'thin',color:{rgb:'A8C8A8'}},right:{style:'thin',color:{rgb:'A8C8A8'}}}
+      };
     });
     var name=String(chunk[0].number||'')+'~'+String(chunk[chunk.length-1].number||'');
     XLSX.utils.book_append_sheet(wb,ws,name.substring(0,31)||'records');

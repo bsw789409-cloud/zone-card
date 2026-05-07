@@ -1342,7 +1342,9 @@ function makeRow(h) {
       triggerSmartSave();
     } else openDetail(h);
   };
+  var adminNote = h.note || '';
   row.innerHTML = '<div style="flex:1;text-align:left;padding-left:4px">' +
+    (adminNote ? '<div style="font-size:10px;color:#6b7280;padding-bottom:1px">📌 '+adminNote+'</div>' : '') +
     '<div class="h-addr">'+h.addr+'</div>' +
     (memo ? '<div class="h-memo">'+memo+'</div>' : '') +
     '</div>' +
@@ -1719,8 +1721,16 @@ async function smartExit() {
       } else if(await hasOtherActiveUsersInArea(currentAreaId)) {
         showToast('\uAC19\uC740 \uAD6C\uC5ED\uC5D0 \uBD09\uC0AC\uC790\uAC00 \uB0A8\uC544 \uC788\uC5B4 \uC911\uB2E8 \uD45C\uC2DC \uC5C6\uC774 \uB098\uAC11\uB2C8\uB2E4');
       } else {
-        await markAreaServicePaused(currentAreaId);
-        showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uC790\uB3D9 \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
+        var areaForPause = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
+        var totalRemaining = areaForPause && areaForPause.blocks
+          ? areaForPause.blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(areaForPause, idx); }, 0)
+          : 1;
+        if(totalRemaining === 0) {
+          await syncAreaCompletionState(currentAreaId, await getAssignedLeaderNameForArea(currentAreaId));
+        } else {
+          await markAreaServicePaused(currentAreaId);
+          showToast('\uBD09\uC0AC \uC911\uB2E8\uC73C\uB85C \uC790\uB3D9 \uD45C\uC2DC\uD588\uC2B5\uB2C8\uB2E4');
+        }
       }
     }
   } catch(e) {}
@@ -2784,6 +2794,7 @@ function renderCarAssignment() {
     });
     if(!group.length) body += '<div style="min-height:32px;border:1px dashed #e5e7eb;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#c4c4c4;background:#fafafa">빈칸</div>';
     body += `<div onclick="openCarPickerForGroup(${gi})" style="border:1.5px dashed ${color};border-radius:999px;padding:6px 12px;font-size:13px;color:${color};cursor:pointer;text-align:center">+ 추가</div>`;
+    body += `<div style="display:flex;gap:6px;margin-top:6px"><input id="manualName_${gi}" type="text" placeholder="이름 직접 입력" style="flex:1;border:1px solid #d1d5db;border-radius:999px;padding:5px 12px;font-size:12px;outline:none;min-width:0" onkeydown="if(event.key==='Enter')addManualNameToCar(${gi})"><button onclick="addManualNameToCar(${gi})" style="background:${color};color:white;border:none;border-radius:999px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">확인</button></div>`;
     body += '</div>';
     card.innerHTML = header + body;
     carList.appendChild(card);
@@ -3390,6 +3401,17 @@ function addToCar(gi, btn) {
   closePickerSheet(); renderCarAssignment(); scheduleCarAssignmentSave();
 }
 
+function addManualNameToCar(gi) {
+  var input = document.getElementById('manualName_' + gi);
+  if(!input) return;
+  var name = input.value.trim();
+  if(!name) return;
+  if(!carGroups[gi]) carGroups[gi] = [];
+  carGroups[gi].push(normalizePerson({name: name, gender: ''}));
+  input.value = '';
+  renderCarAssignment();
+  scheduleCarAssignmentSave();
+}
 function addToCarByName(gi, el) {
   var name = el.getAttribute('data-name');
   var person = todaySignups.find(function(p){ return p.name === name; });
