@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <base target="_top">
@@ -408,6 +408,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     </div>
     <div class="tb-right">
       <span class="pill" id="leaderNamePill"></span>
+      <button onclick="openLiveMap()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 12px;cursor:pointer">현황확인</button>
       <button onclick="openAdminPw()" style="font-size:12px;color:white;background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:6px 12px;cursor:pointer">⚙ 관리자</button>
       <button class="exit-btn" onclick="goLogin()">나가기</button>
     </div>
@@ -419,7 +420,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 
   <!-- 차량 배정 탭 -->
   <div id="ldrAssignTab" style="flex:1;overflow-y:auto;padding:12px 16px;background:#f0f0f5;display:flex;flex-direction:column;gap:10px;">
-    
+
+    <!-- 전도인 추가 폼 -->
+    <div id="addPersonFormArea" style="background:white;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px"></div>
+
     <!-- 대기 중 -->
     <div style="background:#e8e8ee;border-radius:14px;padding:12px 14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -430,7 +434,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
         <div>
           <button onclick="autoAssignCars()" style="background:#7c3aed;border:none;border-radius:6px;padding:4px 10px;font-size:11px;color:white;cursor:pointer;font-weight:600;margin-right:6px">🤖 자동 배정</button>
           <button onclick="cancelCarAssignment()" style="background:none;border:1px solid rgba(124,58,237,0.35);border-radius:6px;padding:4px 8px;font-size:11px;color:#7c3aed;cursor:pointer;font-weight:600;margin-right:6px">&#xBC30;&#xC815; &#xCDE8;&#xC18C;</button>
-          <button onclick="resetTodaySignups()" style="background:none;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;color:#ef4444;cursor:pointer;font-weight:600">🔄 전체 초기화</button>
+          <button onclick="resetTodaySignups()" style="background:none;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;color:#ef4444;cursor:pointer;font-weight:600">봉사 종료</button>
         </div>
       </div>
       <div id="waitingList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
@@ -480,7 +484,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
   <div class="ldr-scroll" id="leaderList"></div>
   </div>
-  <button class="live-map-btn" onclick="openLiveMap()" title="실시간 위치 지도"></button>
 </div>
 
 <div class="sheet-overlay" id="liveMapOverlay" onclick="closeLiveMap()"></div>
@@ -682,6 +685,7 @@ var openSheetAreaId = null, leaderTab = 'all';
 var locationSharing = false, locationWatchId = null;
 var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null;
 var dirtyVisitKeys = {};
+var currentAreaType = '';
 var areaPickerFilterState = {region:'all', type:'all'};
 var carAssignmentSaveTimer = null;
 var lastLocalUpdateTime = 0;
@@ -779,6 +783,19 @@ async function doLogin() {
   }
 }
 
+function assignHouseKeys(blocks) {
+  (blocks || []).forEach(function(blk, bi) {
+    var topics = blk.subTopics || blk.subs || [];
+    if(topics.length) {
+      topics.forEach(function(sub, si) {
+        (sub.houses || []).forEach(function(h, hi) { h._key = bi + '_' + si + '_' + hi; });
+      });
+    } else {
+      (blk.houses || []).forEach(function(h, hi) { h._key = bi + '_0_' + hi; });
+    }
+  });
+}
+
 async function loadAndOpenField(aId, fromLeader) {
   showToast('데이터를 불러오는 중...');
   try {
@@ -786,6 +803,7 @@ async function loadAndOpenField(aId, fromLeader) {
     var area = areaDoc.exists ? {id: areaDoc.id, ...areaDoc.data()} : null;
     if(!area) { showToast('구역 데이터가 없습니다'); return; }
     currentAreaId = String(aId); currentRound = area.round || 1; currentAreaData = area.blocks || [];
+    assignHouseKeys(currentAreaData);
     if(area.servicePaused && !area.endDate) {
       var resumeUpdate = {servicePaused:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
       await db.collection('areas').doc(String(aId)).set(resumeUpdate, {merge:true});
@@ -798,6 +816,7 @@ async function loadAndOpenField(aId, fromLeader) {
 }
 
 function openFieldScreen(area, fromLeader) {
+  currentAreaType = area.type || '';
   document.getElementById('fieldAreaNum').textContent = '구역 ' + area.id;
   document.getElementById('fieldAreaName').textContent = (area.name || '') + ' · ' + (area.type || '');
   document.getElementById('fieldUserPill').textContent = currentUser;
@@ -825,8 +844,9 @@ async function loadVisitRecords(aId) {
       var r = d.data();
       var isPersistent = PERSISTENT.includes(r.status);
       if(isPersistent || r.round == currentRound) {
-        statusData[aId][r.addr] = r.status;
-        memoData[aId][r.addr] = r.memo || '';
+        var stKey = r.key || r.addr;
+        statusData[aId][stKey] = r.status;
+        memoData[aId][stKey] = r.memo || '';
       }
     });
     renderFieldBlocks(aId);
@@ -842,12 +862,13 @@ function startRealtimeSync() {
       snap.docs.forEach(d => {
         var r = d.data();
         if(PERSISTENT.includes(r.status) || r.round == currentRound) {
-          var prev = (statusData[currentAreaId]||{})[r.addr];
+          var stKey = r.key || r.addr;
+          var prev = (statusData[currentAreaId]||{})[stKey];
           if(prev !== r.status) {
             if(!statusData[currentAreaId]) statusData[currentAreaId] = {};
-            statusData[currentAreaId][r.addr] = r.status;
+            statusData[currentAreaId][stKey] = r.status;
             if(!memoData[currentAreaId]) memoData[currentAreaId] = {};
-            memoData[currentAreaId][r.addr] = r.memo || '';
+            memoData[currentAreaId][stKey] = r.memo || '';
             changed = true;
           }
         }
@@ -861,6 +882,7 @@ function startRealtimeSync() {
     if(!doc.exists) return;
     var data = doc.data() || {};
     var nextBlocks = data.blocks || [];
+    assignHouseKeys(nextBlocks);
     currentRound = data.round || currentRound;
     currentAreaData = nextBlocks;
     var idx = areas.findIndex(function(a) { return String(a.id) === String(currentAreaId); });
@@ -877,13 +899,13 @@ function startRealtimeSync() {
   });
 }
 
-function getSt(h) { return (statusData[currentAreaId]||{})[h.addr] || 'none'; }
-function setSt(h,st) { if(!statusData[currentAreaId]) statusData[currentAreaId]={}; statusData[currentAreaId][h.addr]=st; }
-function getMemo(h) { return (memoData[currentAreaId]||{})[h.addr] || ''; }
-function setMemo(h,m) { if(!memoData[currentAreaId]) memoData[currentAreaId]={}; memoData[currentAreaId][h.addr]=m; }
+function getSt(h) { return (statusData[currentAreaId]||{})[h._key || h.addr] || 'none'; }
+function setSt(h,st) { if(!statusData[currentAreaId]) statusData[currentAreaId]={}; statusData[currentAreaId][h._key || h.addr]=st; }
+function getMemo(h) { return (memoData[currentAreaId]||{})[h._key || h.addr] || ''; }
+function setMemo(h,m) { if(!memoData[currentAreaId]) memoData[currentAreaId]={}; memoData[currentAreaId][h._key || h.addr]=m; }
 
 function getStatusForArea(areaId, h) {
-  return ((statusData[String(areaId)] || {})[h.addr]) || h.status || h.st || 'none';
+  return ((statusData[String(areaId)] || {})[h._key || h.addr]) || h.status || h.st || 'none';
 }
 
 function getMemoForArea(areaId, h) {
@@ -1394,7 +1416,7 @@ function makeRow(h) {
     if(st === 'none') {
       lastLocalUpdateTime = Date.now();
       setSt(h,'visited');
-      dirtyVisitKeys[String(currentAreaId) + '|' + h.addr] = {areaId:String(currentAreaId), addr:h.addr};
+      dirtyVisitKeys[String(currentAreaId) + '|' + (h._key || h.addr)] = {areaId:String(currentAreaId), addr:h.addr, key:h._key};
       window._suppressBlockAnimation = true;
       if(openSheetAreaId) renderCsGrid(openSheetAreaId);
       else renderFieldBlocks(currentAreaId);
@@ -1402,10 +1424,22 @@ function makeRow(h) {
     } else openDetail(h);
   };
   var adminNote = h.note || '';
+  var isPhone = String(currentAreaType || '').indexOf('전화') >= 0;
+  var addrContent, memoContent, showAdminNote;
+  if(isPhone && adminNote) {
+    var telNum = adminNote.replace(/[^0-9+]/g, '');
+    addrContent = '<a href="tel:' + telNum + '" onclick="event.stopPropagation()" style="color:#7c3aed;text-decoration:none;font-weight:700">' + adminNote + '</a>';
+    memoContent = h.addr;
+    showAdminNote = false;
+  } else {
+    addrContent = h.addr;
+    memoContent = memo;
+    showAdminNote = !!adminNote;
+  }
   row.innerHTML = '<div style="flex:1;text-align:left;padding-left:4px">' +
-    (adminNote ? '<div style="font-size:10px;color:#6b7280;padding-bottom:1px">'+adminNote+'</div>' : '') +
-    '<div class="h-addr">'+h.addr+'</div>' +
-    (memo ? '<div class="h-memo">'+memo+'</div>' : '') +
+    (showAdminNote ? '<div style="font-size:10px;color:#6b7280;padding-bottom:1px">'+adminNote+'</div>' : '') +
+    '<div class="h-addr">'+addrContent+'</div>' +
+    (memoContent ? '<div class="h-memo">'+memoContent+'</div>' : '') +
     '</div>' +
     '<div class="h-status '+st+'">'+stLabel[st]+'</div>' +
     '<button class="h-more-btn">⋯</button>';
@@ -1724,20 +1758,21 @@ async function executeSave() {
   if(!currentAreaId) return;
   var areaId = String(currentAreaId);
   var dirty = Object.keys(dirtyVisitKeys).map(function(k){ return dirtyVisitKeys[k]; }).filter(function(item){ return item && item.areaId === areaId; });
-  var targets = dirty.length ? dirty.map(function(item){ return {addr:item.addr}; }) : [];
-  if(!targets.length) return;
+  if(!dirty.length) return;
   var batch = db.batch();
-  targets.forEach(function(h) {
-    var st = ((statusData[areaId] || {})[h.addr]) || 'none';
-    var memo = ((memoData[areaId] || {})[h.addr]) || '';
-    var ref = db.collection('visits').doc(areaId + '_' + h.addr.replace(/\s/g,'_') + '_' + currentRound);
-    batch.set(ref, {
-      areaId: areaId, round: currentRound, addr: h.addr, status: st, memo: memo, updatedBy: currentUser || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }, {merge: true});
+  dirty.forEach(function(item) {
+    var hKey = item.key || item.addr;
+    var st = ((statusData[areaId] || {})[hKey]) || 'none';
+    var memo = ((memoData[areaId] || {})[hKey]) || '';
+    var docId = areaId + '_' + (item.key || item.addr.replace(/\s/g,'_')) + '_' + currentRound;
+    var ref = db.collection('visits').doc(docId);
+    var payload = {areaId: areaId, round: currentRound, addr: item.addr, status: st, memo: memo, updatedBy: currentUser || '', updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+    if(item.key) payload.key = item.key;
+    batch.set(ref, payload, {merge: true});
   });
   try {
     await batch.commit();
-    dirty.forEach(function(item){ delete dirtyVisitKeys[item.areaId + '|' + item.addr]; });
+    dirty.forEach(function(item){ delete dirtyVisitKeys[item.areaId + '|' + (item.key || item.addr)]; });
     showToast('\uC800\uC7A5 \uC644\uB8CC \u2705');
   } catch(e) { showToast('\uC800\uC7A5 \uC2E4\uD328 \uD83D\uDE22'); }
 }
@@ -2352,7 +2387,7 @@ async function submitServiceSignup() {
 }
 
 async function resetTodaySignups() {
-  if (!confirm("오늘의 봉사 신청 및 차량 배정 내역을 모두 초기화하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)")) return;
+  if (!confirm("봉사를 종료하시겠습니까?\n전체 전도인이 초기화 됩니다")) return;
   var d = new Date(); var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   try {
     await db.collection('carAssignments').doc(today).delete();
@@ -2364,8 +2399,19 @@ async function resetTodaySignups() {
       await batch.commit();
     }
     todaySignups = []; carGroups = []; ensureCarSlots(1); renderCarAssignment();
-    showToast("✅ 모든 내역이 초기화되었습니다.");
-  } catch(e) { showToast("초기화 중 오류가 발생했습니다."); }
+    // 배정됐지만 0% 진행 구역은 미배정으로 초기화
+    var toReset = areas.filter(function(a) { return (a.leader || a.startDate) && !isAreaComplete(a); });
+    if(toReset.length) {
+      var areaBatch = db.batch();
+      toReset.forEach(function(a) {
+        var ref = db.collection('areas').doc(String(a.id));
+        areaBatch.set(ref, {leader:'', startDate:'', endDate:'', servicePaused:false, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
+        Object.assign(a, {leader:'', startDate:'', endDate:'', servicePaused:false});
+      });
+      await areaBatch.commit();
+    }
+    showToast("✅ 봉사가 종료되었습니다.");
+  } catch(e) { showToast("종료 중 오류가 발생했습니다."); }
 }
 
 function showInstallGuide() {
@@ -2388,7 +2434,7 @@ function setLdrTab(tab) {
     t1.style.display = 'none';
     t2.style.display = 'flex';
     t2.style.animation = 'slideFadeIn 0.25s cubic-bezier(0.25, 1, 0.5, 1) forwards';
-    renderLeader();
+    refreshAndRenderLeader();
   }
 
   document.getElementById('ldrTab1').style.background = isAssign ? '#7c3aed' : 'rgba(255,255,255,0.1)';
@@ -2431,6 +2477,10 @@ function closeDoneNotif() {
 }
 function handleDoneNotifAssign() {
   closeDoneNotif();
+  stopLocationSharing();
+  if(syncUnsubscribe) { syncUnsubscribe(); syncUnsubscribe = null; }
+  if(areaUnsubscribe) { areaUnsubscribe(); areaUnsubscribe = null; }
+  if(currentUser && rtdb) rtdb.ref('presence/' + currentUser).remove();
   showScreen('leader');
   setLdrTab('assign');
 }
@@ -2510,6 +2560,7 @@ var assignmentEventListening = false;
 var userAssignmentEventListening = false;
 var carResultUnsubscribe = null;
 var manualFormState = {};
+var carCollapsed = {};
 var todayAreaUnsubscribe = null;
 var preLoginNotifOff = null;
 var assignNotifData = null;
@@ -2866,6 +2917,23 @@ function toggleWaitingList() {
 function renderCarAssignment() {
   ensureCarSlots(1);
 
+  // 전도인 추가 폼
+  var ws = manualFormState['waiting'] || {name:'', gender:'', car:null};
+  var gBroSt = ws.gender==='형제' ? 'background:#7c3aed;color:white;border-color:#7c3aed' : 'background:white;color:#555;border-color:#ddd';
+  var gSisSt = ws.gender==='자매' ? 'background:#7c3aed;color:white;border-color:#7c3aed' : 'background:white;color:#555;border-color:#ddd';
+  var cYesSt = ws.car===true  ? 'background:#7c3aed;color:white;border-color:#7c3aed' : 'background:white;color:#555;border-color:#ddd';
+  var cNoSt  = ws.car===false ? 'background:#7c3aed;color:white;border-color:#7c3aed' : 'background:white;color:#555;border-color:#ddd';
+  var formEl = document.getElementById('addPersonFormArea');
+  if(formEl) formEl.innerHTML = '<div style="font-size:13px;font-weight:700;color:#333;margin-bottom:2px">전도인 추가</div>' +
+    '<input id="manualName_waiting" type="text" placeholder="이름 입력" value="' + escAttr(ws.name) + '" style="border:1px solid #d1d5db;border-radius:999px;padding:7px 12px;font-size:13px;outline:none;width:100%;box-sizing:border-box" onkeydown="if(event.key===\'Enter\')addManualToWaiting()" oninput="if(!manualFormState[\'waiting\'])manualFormState[\'waiting\']={name:\'\',gender:\'\',car:null};manualFormState[\'waiting\'].name=this.value"/>' +
+    '<div style="display:flex;gap:5px">' +
+    '<button onclick="setWaitingGender(\'형제\')" style="flex:1;padding:7px 2px;border-radius:8px;border:1.5px solid;font-size:13px;cursor:pointer;' + gBroSt + '">👦 형제</button>' +
+    '<button onclick="setWaitingGender(\'자매\')" style="flex:1;padding:7px 2px;border-radius:8px;border:1.5px solid;font-size:13px;cursor:pointer;' + gSisSt + '">👧 자매</button>' +
+    '<button onclick="setWaitingCar(true)"  style="flex:1;padding:7px 2px;border-radius:8px;border:1.5px solid;font-size:13px;cursor:pointer;' + cYesSt + '">🚗</button>' +
+    '<button onclick="setWaitingCar(false)" style="flex:1;padding:7px 2px;border-radius:8px;border:1.5px solid;font-size:13px;cursor:pointer;' + cNoSt + '">🚶</button>' +
+    '<button onclick="addManualToWaiting()" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer">추가</button>' +
+    '</div>';
+
   // 대기 명단 처리
   var assigned = carGroups.flat().map(p => p.name);
   var waiting = todaySignups.filter(p => !assigned.includes(p.name));
@@ -2963,51 +3031,38 @@ function renderCarAssignment() {
       draggingCarPerson = null;
     };
     
-    var header = `
-      <div style="background:${color};padding:10px 14px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:8px;min-width:0">
-          <span style="font-size:14px;font-weight:700;color:white">${gi+1}호차</span>
-          <span style="font-size:12px;color:rgba(255,255,255,0.85);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px">${getCarAreaLabel(group)}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <button onclick="openAreaPickerForCar(${gi})" style="background:rgba(255,255,255,0.22);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;font-weight:800;cursor:pointer">구역 선택</button>
-          <button onclick="removeCarGroup(${gi})" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;cursor:pointer">삭제</button>
-        </div>
-      </div>`;
+    var collapsed = !!carCollapsed[gi];
+    var header = '<div style="background:' + color + ';padding:10px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="toggleCarCollapse(' + gi + ')">' +
+      '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
+      '<span style="font-size:14px;font-weight:700;color:white">' + (gi+1) + '호차</span>' +
+      '<span style="font-size:12px;color:rgba(255,255,255,0.85);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:115px">' + getCarAreaLabel(group) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0" onclick="event.stopPropagation()">' +
+      '<button onclick="openAreaPickerForCar(' + gi + ')" style="background:rgba(255,255,255,0.22);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;font-weight:800;cursor:pointer">구역 선택</button>' +
+      '<button onclick="removeCarGroup(' + gi + ')" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:white;cursor:pointer">삭제</button>' +
+      '<span style="color:rgba(255,255,255,0.7);font-size:12px">' + (collapsed ? '▼' : '▲') + '</span>' +
+      '</div>' +
+      '</div>';
       
-    var body = '<div data-car-body="1" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
-    getPairGroups(group).forEach(function(pair) {
-      body += '<div class="pair-wrap" data-gi="' + gi + '" data-pair-id="' + escAttr(pair.key) + '" style="margin:0">';
-      body += '<button onclick="promptMovePair(' + gi + ',\'' + escAttr(pair.key) + '\')" style="border:none;border-radius:999px;background:rgba(124,58,237,.12);color:#7c3aed;padding:3px 7px;font-size:10px;font-weight:900;cursor:pointer;flex:0 0 auto">\uD300 \uC774\uB3D9</button>';
-      pair.members.forEach(function(p) {
-        var pi = group.indexOf(p);
-        var gIcon = p.gender === '자매' ? '\uD83D\uDC67' : (p.gender === '형제' ? '\uD83D\uDC66' : '');
-        body += `
-          <div class="car-person-chip" draggable="true" data-gi="${gi}" data-pi="${pi}" style="background:${lightColor};border-radius:9px;padding:5px 7px;font-size:11px;color:${color};display:flex;align-items:center;justify-content:space-between;gap:4px;font-weight:700;cursor:grab;touch-action:none;user-select:none;min-height:26px;min-width:0;flex:1 1 78px;max-width:calc(50% - 4px)">
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pi+1}. ${p.name}</span>
-            <span onclick="removeFromCar(${gi},${pi})" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">\u00D7</span>
-          </div>`;
+    var body = '';
+    if(!collapsed) {
+      body = '<div data-car-body="1" style="padding:10px 12px;display:flex;flex-direction:column;gap:8px">';
+      getPairGroups(group).forEach(function(pair) {
+        body += '<div class="pair-wrap" data-gi="' + gi + '" data-pair-id="' + escAttr(pair.key) + '" style="margin:0">';
+        body += '<button onclick="promptMovePair(' + gi + ',\'' + escAttr(pair.key) + '\')" style="border:none;border-radius:999px;background:rgba(124,58,237,.12);color:#7c3aed;padding:3px 7px;font-size:10px;font-weight:900;cursor:pointer;flex:0 0 auto">팀 이동</button>';
+        pair.members.forEach(function(p) {
+          var pi = group.indexOf(p);
+          body += '<div class="car-person-chip" draggable="true" data-gi="' + gi + '" data-pi="' + pi + '" style="background:' + lightColor + ';border-radius:9px;padding:5px 7px;font-size:11px;color:' + color + ';display:flex;align-items:center;justify-content:space-between;gap:4px;font-weight:700;cursor:grab;touch-action:none;user-select:none;min-height:26px;min-width:0;flex:1 1 78px;max-width:calc(50% - 4px)">' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (pi+1) + '. ' + p.name + '</span>' +
+            '<span onclick="removeFromCar(' + gi + ',' + pi + ')" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">×</span>' +
+            '</div>';
+        });
+        body += '</div>';
       });
+      if(!group.length) body += '<div style="min-height:32px;border:1px dashed #e5e7eb;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#c4c4c4;background:#fafafa">빈칸</div>';
+      body += '<div onclick="openCarPickerForGroup(' + gi + ')" style="border:1.5px dashed ' + color + ';border-radius:999px;padding:6px 12px;font-size:13px;color:' + color + ';cursor:pointer;text-align:center">+ 추가</div>';
       body += '</div>';
-    });
-    if(!group.length) body += '<div style="min-height:32px;border:1px dashed #e5e7eb;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#c4c4c4;background:#fafafa">빈칸</div>';
-    body += `<div onclick="openCarPickerForGroup(${gi})" style="border:1.5px dashed ${color};border-radius:999px;padding:6px 12px;font-size:13px;color:${color};cursor:pointer;text-align:center">+ 추가</div>`;
-    var ms = manualFormState[gi] || {name:'', gender:'', car:null};
-    var gBroSt = ms.gender==='형제' ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
-    var gSisSt = ms.gender==='자매' ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
-    var cYesSt = ms.car===true  ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
-    var cNoSt  = ms.car===false ? 'background:'+color+';color:white;border-color:'+color : 'background:white;color:#555;border-color:#ddd';
-    body += `<div style="border-top:1px solid #f0f0f0;margin-top:8px;padding-top:8px;display:flex;flex-direction:column;gap:6px">
-      <input id="manualName_${gi}" type="text" placeholder="이름 직접 입력" value="${escAttr(ms.name)}" style="border:1px solid #d1d5db;border-radius:999px;padding:7px 12px;font-size:12px;outline:none;width:100%;box-sizing:border-box" onkeydown="if(event.key==='Enter')addManualNameToCar(${gi})" oninput="if(!manualFormState[${gi}])manualFormState[${gi}]={name:'',gender:'',car:null};manualFormState[${gi}].name=this.value"/>
-      <div style="display:flex;gap:5px">
-        <button onclick="setManualGender(${gi},'형제')" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${gBroSt}">👦 형제</button>
-        <button onclick="setManualGender(${gi},'자매')" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${gSisSt}">👧 자매</button>
-        <button onclick="setManualCar(${gi},true)"  style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${cYesSt}">🚗 차</button>
-        <button onclick="setManualCar(${gi},false)" style="flex:1;padding:6px 2px;border-radius:8px;border:1.5px solid;font-size:12px;cursor:pointer;${cNoSt}">🚶</button>
-        <button onclick="addManualNameToCar(${gi})" style="background:${color};color:white;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">확인</button>
-      </div>
-    </div>`;
-    body += '</div>';
+    }
     card.innerHTML = header + body;
     carList.appendChild(card);
   });
@@ -3693,6 +3748,41 @@ function addManualNameToCar(gi) {
   renderCarAssignment();
   scheduleCarAssignmentSave();
 }
+function toggleCarCollapse(gi) {
+  carCollapsed[gi] = !carCollapsed[gi];
+  renderCarAssignment();
+}
+function setWaitingGender(val) {
+  var input = document.getElementById('manualName_waiting');
+  if(!manualFormState['waiting']) manualFormState['waiting'] = {name:'', gender:'', car:null};
+  if(input) manualFormState['waiting'].name = input.value;
+  manualFormState['waiting'].gender = val;
+  renderCarAssignment();
+}
+function setWaitingCar(val) {
+  var input = document.getElementById('manualName_waiting');
+  if(!manualFormState['waiting']) manualFormState['waiting'] = {name:'', gender:'', car:null};
+  if(input) manualFormState['waiting'].name = input.value;
+  manualFormState['waiting'].car = val;
+  renderCarAssignment();
+}
+async function addManualToWaiting() {
+  var input = document.getElementById('manualName_waiting');
+  if(!input) return;
+  var name = input.value.trim();
+  if(!name) return;
+  var ws = manualFormState['waiting'] || {gender:'', car:null};
+  var person = normalizePerson({name: name, gender: ws.gender || '', car: ws.car === true});
+  todaySignups.push(person);
+  delete manualFormState['waiting'];
+  try {
+    var d = new Date();
+    var today = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    var docRef = await db.collection('serviceSignups').add(Object.assign({}, person, {date: today, createdAt: firebase.firestore.FieldValue.serverTimestamp()}));
+    todaySignups[todaySignups.length-1].id = docRef.id;
+  } catch(e) {}
+  renderCarAssignment();
+}
 function addToCarByName(gi, el) {
   var name = el.getAttribute('data-name');
   var person = todaySignups.find(function(p){ return p.name === name; });
@@ -3957,6 +4047,14 @@ function isAreaComplete(a) {
 
 function isMoreRoundArea(a) {
   return Number((a && a.round) || 1) > 1;
+}
+
+async function refreshAndRenderLeader() {
+  try {
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+  } catch(e) {}
+  renderLeader();
 }
 
 function renderLeader() {
@@ -5163,9 +5261,7 @@ function renderLiveUsersRealtime() {
         return;
       }
       parts.push('<div style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px">' +
-        '<div style="display:flex;align-items:center;gap:7px;margin-bottom:6px"><span style="width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span><span style="font-size:14px;font-weight:800;color:white">' + escHtml(u.name || key) + '</span></div>' +
-        '<div style="font-size:12px;color:rgba(255,255,255,.55)">구역 ' + escHtml(u.areaId || '-') + '</div>' +
-        '<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:3px">' + age + '분 전</div>' +
+        '<div style="display:flex;align-items:center;gap:7px"><span style="width:11px;height:11px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.2)"></span><span style="font-size:14px;font-weight:800;color:white">' + escHtml(u.name || key) + '</span></div>' +
       '</div>');
     });
     list.innerHTML = parts.length ? parts.join('') : '<div style="grid-column:1/-1;color:rgba(255,255,255,.45);text-align:center;padding:18px">현재 표시할 위치나 SOS가 없습니다</div>';
