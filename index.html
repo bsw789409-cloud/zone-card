@@ -630,7 +630,7 @@ var areaStatusLoaded = {};
 var dSt = null, dHouseKey = null, dAreaId = null;
 var openSheetAreaId = null, leaderTab = 'all';
 var locationSharing = false, locationWatchId = null;
-var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null, csVisitUnsubscribe = null;
+var smartSaveTimer = null, syncUnsubscribe = null, areaUnsubscribe = null;
 var dirtyVisitKeys = {};
 var areaPickerFilterState = {region:'all', type:'all'};
 var carAssignmentSaveTimer = null;
@@ -779,7 +779,6 @@ function startRealtimeSync() {
   if(areaUnsubscribe) areaUnsubscribe();
   syncUnsubscribe = db.collection('visits').where('areaId','==',currentAreaId)
     .onSnapshot(snap => {
-      if(Date.now() - lastLocalUpdateTime < 5000) return;
       var changed = false;
       snap.docs.forEach(d => {
         var r = d.data();
@@ -1136,16 +1135,11 @@ function setPickerSheetContent(html) {
   if(!sheet) { showPickerSheet(html); return; }
   var content = document.getElementById('carPickerContent');
   if(content) content.innerHTML = html || '';
-  else sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 12px"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><button onclick="pickerSheetBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB4A4\uB85C</button><button onclick="closePickerSheet()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB2EB\uAE30</button></div><div id="carPickerContent">' + (html || '') + '</div>';
+  else sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
 }
 
 function areaPickerBack() {
   if(areaPickerContext) renderAreaPickerList(areaPickerContext.gi);
-}
-
-function pickerSheetBack() {
-  if(document.getElementById('areaPickerFullCard') && areaPickerContext) areaPickerBack();
-  else closePickerSheet();
 }
 
 function toggleAreaPickerBlock(btn, gi, areaId, blockNum) {
@@ -1260,15 +1254,8 @@ function renderAreaPickerList(gi) {
     '<button onclick="assignAreaBlockToCarIndex(' + gi + ',&quot;&quot;,&quot;&quot;)" style="border:none;border-radius:999px;background:#f3f4f6;color:#666;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uBE44\uC6B0\uAE30</button></div>' +
     '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px">' + regions.map(function(r){ return renderPickerFilterButton('region', r, regionLabels[r]); }).join('') + '</div>' +
     '<div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px">' + types.map(function(t){ return renderPickerFilterButton('type', t.v, t.l); }).join('') + '</div>';
-  var visibleAreas = sorted.slice(0, 40);
-  var unloadedAreas = visibleAreas.filter(function(a){ return !areaStatusLoaded[String(a.id)]; });
-  if(unloadedAreas.length) {
-    setPickerSheetContent('<div style="padding:24px;text-align:center;color:#aaa;font-size:13px">\uB0A8\uC740 \uAC00\uAD6C\uB97C \uD655\uC778\uD558\uB294 \uC911...</div>');
-    Promise.all(unloadedAreas.map(function(a){ return ensureAreaStatusLoaded(a.id); })).then(function(){ renderAreaPickerList(gi); }).catch(function(){ renderAreaPickerList(gi); });
-    return;
-  }
   var count = 0;
-  visibleAreas.forEach(function(a) {
+  sorted.slice(0, 40).forEach(function(a) {
     var blocks = a.blocks || [];
     var total = blocks.reduce(function(sum, b, idx){ return sum + countBlockRemaining(a, idx); }, 0);
     if(total <= 0) return;
@@ -2247,10 +2234,9 @@ function listenAssignmentEvents() {
     var ev = snap.val();
     if(!ev || Date.now() - ev.timestamp > 15000) return;
     if(ev.type === 'done') {
-      var msg = (ev.carNum ? ev.carNum + '\uD638\uCC28 ' : '') + (ev.areaNum || '') + '\uBC88 \uAD6C\uC5ED' + (ev.blockNum ? ' ' + ev.blockNum + '\uBE14\uB7ED' : '') + ' \uC644\uB8CC';
-      showToast(msg);
+      var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
+      if(confirm(msg)) setLdrTab('assign');
       loadTodaySignups();
-      renderLeader();
     }
   });
 }
@@ -2660,17 +2646,7 @@ async function loadTodaySignups() {
   } catch(e) {}
 }
 
-function getAreaPct(area) {
-  if(!area || !area.blocks) return 0;
-  var areaId = String(area.id || '');
-  if(!areaStatusLoaded[areaId]) return area.progress || 0;
-  var all = [];
-  (area.blocks || []).forEach(function(block){ all = all.concat(getBlockHouses(block)); });
-  var target = all.filter(function(h){ return !EXCLUDED_FROM_TARGET.includes(getStatusForArea(areaId, h)); });
-  if(!target.length) return all.length ? 100 : 0;
-  var done = target.filter(function(h){ return DONE_STATUSES.includes(getStatusForArea(areaId, h)); }).length;
-  return Math.round(done / target.length * 100);
-}
+function getAreaPct(area) { return area.progress || 0; }
 
 // ═══════════════════════════════════
 // 차량 배정 화면 렌더링 (정렬 및 연결 수정본)
@@ -3387,7 +3363,7 @@ function showPickerSheet(html) {
   var sheet = document.createElement('div');
   sheet.id = 'carPickerSheet';
   sheet.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:61;max-height:78vh;min-height:220px;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,.18)';
-  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 12px"></div><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><button onclick="pickerSheetBack()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB4A4\uB85C</button><button onclick="closePickerSheet()" style="border:none;border-radius:999px;background:#f3f4f6;color:#555;padding:8px 12px;font-size:12px;font-weight:800;cursor:pointer">\uB2EB\uAE30</button></div><div id="carPickerContent">' + (html || '') + '</div>';
+  sheet.innerHTML = '<div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div><div id="carPickerContent">' + (html || '') + '</div>';
   document.body.appendChild(overlay);
   document.body.appendChild(sheet);
 }
@@ -3698,14 +3674,7 @@ function renderLeader() {
     });
   }
 
-  var visibleLeaderAreas = filtered.slice(0, 80);
-  var unloadedLeaderAreas = visibleLeaderAreas.filter(function(a){ return !areaStatusLoaded[String(a.id)]; });
   var list = document.getElementById('leaderList'); list.innerHTML = '';
-  if(unloadedLeaderAreas.length) {
-    list.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:13px">\uC9C4\uD589\uB960\uC744 \uD655\uC778\uD558\uB294 \uC911...</div>';
-    Promise.all(unloadedLeaderAreas.map(function(a){ return ensureAreaStatusLoaded(a.id); })).then(function(){ renderLeader(); }).catch(function(){ renderLeader(); });
-    return;
-  }
   filtered.forEach(a => {
     var pct = getAreaPct(a);
     var complete = isAreaComplete(a);
@@ -3847,28 +3816,28 @@ window.openCardSheet = async function(aId) {
     
     // 방문 기록 로드 및 리스트 렌더링
     await loadVisitRecords(String(aId));
-    if(csVisitUnsubscribe) { csVisitUnsubscribe(); csVisitUnsubscribe = null; }
-    csVisitUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
+    initCsBlockTabs(area || {id: aId, blocks: currentAreaData});
+    renderCsAssignTools(aId);
+    renderCsGrid(aId);
+    if(syncUnsubscribe) syncUnsubscribe();
+    syncUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
       if(!openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
       var changed = false;
-      if(!statusData[String(aId)]) statusData[String(aId)] = {};
-      if(!memoData[String(aId)]) memoData[String(aId)] = {};
-      snap.docChanges().forEach(function(change) {
-        var r = change.doc.data() || {};
-        if(!(PERSISTENT.includes(r.status) || Number(r.round) === Number(currentRound))) return;
-        var prev = statusData[String(aId)][r.addr];
-        var prevMemo = memoData[String(aId)][r.addr];
-        if(prev !== r.status || prevMemo !== (r.memo || '')) {
-          statusData[String(aId)][r.addr] = r.status;
-          memoData[String(aId)][r.addr] = r.memo || '';
-          changed = true;
+      snap.docs.forEach(function(d) {
+        var r = d.data();
+        if(PERSISTENT.includes(r.status) || r.round == currentRound) {
+          var prev = (statusData[String(aId)]||{})[r.addr];
+          if(prev !== r.status) {
+            if(!statusData[String(aId)]) statusData[String(aId)] = {};
+            statusData[String(aId)][r.addr] = r.status;
+            if(!memoData[String(aId)]) memoData[String(aId)] = {};
+            memoData[String(aId)][r.addr] = r.memo || '';
+            changed = true;
+          }
         }
       });
       if(changed) renderCsGrid(aId);
     });
-    initCsBlockTabs(area || {id: aId, blocks: currentAreaData});
-    renderCsAssignTools(aId);
-    renderCsGrid(aId);
     if(areaUnsubscribe) areaUnsubscribe();
     areaUnsubscribe = db.collection('areas').doc(String(aId)).onSnapshot(function(doc) {
       if(!doc.exists || !openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
@@ -3889,8 +3858,8 @@ window.openCardSheet = async function(aId) {
 // 1. 구역 카드 시트 닫기 함수
 function closeCardSheet() {
   unlockScroll();
+  if(syncUnsubscribe) { syncUnsubscribe(); syncUnsubscribe = null; }
   if(areaUnsubscribe && currentRole === 'leader') { areaUnsubscribe(); areaUnsubscribe = null; }
-  if(csVisitUnsubscribe) { csVisitUnsubscribe(); csVisitUnsubscribe = null; }
   var sheet = document.getElementById('cardSheet');
   var overlay = document.getElementById('sheetOverlay');
   if (sheet) sheet.classList.remove('open');
