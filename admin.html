@@ -981,7 +981,7 @@ function renderCardEditor() {
       body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
     }
-    var html = '';
+    var html = '', usedFixDocIds = {};
     editingBlocks.forEach(function(blk, bi) {
       html += '<div style="border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px;background:white">';
       html += '<div style="background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
@@ -1001,7 +1001,10 @@ function renderCardEditor() {
         houses.forEach(function(h, hi) {
           var addr = h.addr || h.num || '';
           var memo = h.note || h.memo || '';
-          var fixInfo = editingFixMemos[addr];
+          var _fullAddr = (sub.name ? sub.name + ' ' + addr : addr);
+          var fixInfo = editingFixMemos[_fullAddr] || editingFixMemos[addr];
+          if(fixInfo && usedFixDocIds[fixInfo.docId]) fixInfo = null;
+          if(fixInfo && fixInfo.docId) usedFixDocIds[fixInfo.docId] = true;
           html += '<div data-bi="' + bi + '" data-si="' + si + '" data-hi="' + hi + '" style="padding:8px;background:' + (fixInfo ? '#FFF7ED' : '#f5f5f7') + ';border-radius:8px;margin-bottom:6px;' + (fixInfo ? 'border:1px solid #e65100;' : '') + '">';
           html += '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center">';
           html += '<input value="' + escAttr(addr) + '" onchange="updateHouseAddr(' + bi + ',' + si + ',' + hi + ',this.value)" placeholder="\uC8FC\uC18C" style="min-width:0;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-weight:700;background:white">';
@@ -1152,7 +1155,7 @@ async function resolveFixRequest(docId) {
         if(!vSnap.empty) {
           var batch = db.batch();
           vSnap.docs.forEach(function(d) {
-            batch.update(d.ref, { status:'visited', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            batch.update(d.ref, { status:'visited', memo:'', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
           });
           await batch.commit();
         }

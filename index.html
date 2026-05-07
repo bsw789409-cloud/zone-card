@@ -1344,7 +1344,7 @@ function makeRow(h) {
   };
   var adminNote = h.note || '';
   row.innerHTML = '<div style="flex:1;text-align:left;padding-left:4px">' +
-    (adminNote ? '<div style="font-size:10px;color:#6b7280;padding-bottom:1px">📌 '+adminNote+'</div>' : '') +
+    (adminNote ? '<div style="font-size:10px;color:#6b7280;padding-bottom:1px">'+adminNote+'</div>' : '') +
     '<div class="h-addr">'+h.addr+'</div>' +
     (memo ? '<div class="h-memo">'+memo+'</div>' : '') +
     '</div>' +
@@ -1392,7 +1392,7 @@ function renderBlocksInto(container, aId, activeBlockIdx, slideDir) {
         var subDiv = document.createElement('div');
         if(sub.name) subDiv.innerHTML = '<div class="sub-hdr">'+sub.name+'</div>';
         var list = document.createElement('div'); list.className = 'house-list';
-        (sub.houses||[]).forEach(h => list.appendChild(makeRow(h)));
+        (sub.houses||[]).forEach(h => { if(sub.name) h._sub = sub.name; list.appendChild(makeRow(h)); });
         subDiv.appendChild(list); sec.appendChild(subDiv);
       });
     } else {
@@ -1608,8 +1608,12 @@ function saveDetail() {
 
   // 상태별 컬렉션 즉시 저장
   var docId = String(dAreaId) + '_' + (dHouseKey.addr||'').replace(/\s/g,'_') + '_' + currentRound;
-  if(st === 'fix') saveFixRequest(dHouseKey.addr, memo, dAreaId);
-  else db.collection('fixRequests').where('areaId','==',String(dAreaId)).where('addr','==',dHouseKey.addr).get().then(function(snap){ snap.docs.forEach(function(d){ d.ref.delete(); }); });
+  var _fixAddr = (dHouseKey._sub ? dHouseKey._sub + ' ' : '') + (dHouseKey.addr || '');
+  if(st === 'fix') saveFixRequest(_fixAddr, memo, dAreaId);
+  else {
+    var _delAddrs = (_fixAddr !== dHouseKey.addr) ? [_fixAddr, dHouseKey.addr] : [dHouseKey.addr];
+    _delAddrs.forEach(function(a){ db.collection('fixRequests').where('areaId','==',String(dAreaId)).where('addr','==',a).get().then(function(snap){ snap.docs.forEach(function(d){ d.ref.delete(); }); }); });
+  }
 
   if(st === 'reject') saveStatusRecord('rejects', dHouseKey.addr, memo, dAreaId);
   else db.collection('rejects').doc(docId).delete().catch(function(){});
