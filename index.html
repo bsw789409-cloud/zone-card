@@ -979,7 +979,11 @@ async function persistCarAssignment(options) {
     if(leaderName && !(area && area.leader)) update.leader = leaderName;
     return db.collection('areas').doc(String(aId)).set(update, {merge:true}).then(function(){ if(area) Object.assign(area, update); });
   }));
-  if(options.notify) result.forEach(function(g){ rtdb.ref('assignmentEvents').push({type:'assigned', carNum:g.carNum, areaNum:g.areaNum || '', blockNum:g.blockNum || '', members:(g.members || []).map(function(m){ return m.name; }), timestamp:Date.now()}); });
+  if(options.notify) result.forEach(function(g){
+    (g.members || []).forEach(function(m){
+      if(m.name) rtdb.ref('notifications/' + m.name).push({type:'assigned', carNum:g.carNum, areaNum:g.areaNum || '', blockNum:g.blockNum || '', timestamp:Date.now()});
+    });
+  });
   return result;
 }
 function scheduleCarAssignmentSave() {
@@ -1503,7 +1507,8 @@ async function checkAssignedWorkCompletion(progress) {
     });
     if(!match) return;
     localStorage.setItem(doneKey, '1');
-    rtdb.ref('assignmentEvents').push({
+    var leaderName = doc.data().assignedLeaderName || '';
+    if(leaderName) rtdb.ref('notifications/' + leaderName).push({
       type: 'done',
       name: currentUser,
       areaNum: currentAreaId,
@@ -1511,7 +1516,7 @@ async function checkAssignedWorkCompletion(progress) {
       carNum: match.carNum || '',
       timestamp: Date.now()
     });
-    updateAreaCompletionIfAllDone(currentAreaId, doc.data().assignedLeaderName || '');
+    updateAreaCompletionIfAllDone(currentAreaId, leaderName);
     showToast('인도자에게 완료 알림을 보냈습니다');
   } catch(e) {}
 }
@@ -2230,24 +2235,23 @@ function setLdrTab(tab) {
 function listenAssignmentEvents() {
   if(assignmentEventListening || !rtdb || currentRole !== 'leader') return;
   assignmentEventListening = true;
-  rtdb.ref('assignmentEvents').orderByChild('timestamp').limitToLast(1).on('child_added', function(snap) {
+  rtdb.ref('notifications/' + currentUser).on('child_added', function(snap) {
     var ev = snap.val();
-    if(!ev || Date.now() - ev.timestamp > 15000) return;
-    if(ev.type === 'done') {
-      var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
-      if(confirm(msg)) setLdrTab('assign');
-      loadTodaySignups();
-    }
+    if(!ev || ev.type !== 'done') return;
+    snap.ref.remove();
+    var msg = (ev.carNum ? ev.carNum + '호차 ' : '') + (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + ' 완료했습니다.\n다른 구역을 배정하시겠습니까?';
+    if(confirm(msg)) setLdrTab('assign');
+    loadTodaySignups();
   });
 }
 
 function listenUserAssignmentEvents() {
   if(userAssignmentEventListening || !rtdb || !currentUser) return;
   userAssignmentEventListening = true;
-  rtdb.ref('assignmentEvents').orderByChild('timestamp').limitToLast(1).on('child_added', function(snap) {
+  rtdb.ref('notifications/' + currentUser).on('child_added', function(snap) {
     var ev = snap.val();
-    if(!ev || ev.type !== 'assigned' || Date.now() - ev.timestamp > 15000) return;
-    if((ev.members || []).indexOf(currentUser) < 0) return;
+    if(!ev || ev.type !== 'assigned') return;
+    snap.ref.remove();
     var msg = (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다.\n구역 카드로 이동하시겠습니까?';
     if(confirm(msg)) goToFieldFromCarResultDirect(ev.areaNum || '', ev.blockNum || '');
     else openCarResult();
