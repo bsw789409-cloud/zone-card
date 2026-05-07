@@ -557,6 +557,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
 </div>
 
+<!-- 배정 알림 바텀시트 -->
+<div id="assignNotifOverlay" onclick="closeAssignNotif()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:50"></div>
+<div id="assignNotifSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51;max-height:85vh;overflow-y:auto">
+  <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
+  <div style="font-size:13px;font-weight:600;color:#7c3aed;margin-bottom:6px">📬 구역이 배정되었습니다</div>
+  <div id="assignNotifAreaInfo" style="margin-bottom:20px"></div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button id="assignNotifGoBtn" onclick="handleAssignNotifGo()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#1a1040;color:white;font-size:15px;font-weight:700;cursor:pointer">📋 구역 카드로 이동</button>
+    <button id="assignNotifNaviBtn" onclick="handleAssignNotifNavi()" style="width:100%;padding:14px;border-radius:12px;border:none;background:#FEE500;color:#1a1040;font-size:15px;font-weight:700;cursor:pointer">🗺 카카오 네비 열기</button>
+    <button onclick="closeAssignNotif()" style="width:100%;padding:12px;border-radius:12px;border:1px solid #eee;background:white;font-size:14px;color:#888;cursor:pointer">닫기</button>
+  </div>
+</div>
+
 <!-- 게시판 뷰 시트 -->
 <div id="schedulePhotoOverlay" onclick="closeSchedule()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:50"></div>
 <div id="schedulePhotoSheet" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:51;max-height:90vh;overflow-y:auto">
@@ -2011,15 +2024,67 @@ function loadTodayServiceArea() {
 function startPreLoginNotifListener(userName) {
   if(preLoginNotifOff) { preLoginNotifOff(); preLoginNotifOff = null; }
   if(!userName || !rtdb) return;
+  preLoginNotifName = userName;
   var ref = rtdb.ref('notifications/' + userName);
   var handler = ref.on('child_added', function(snap) {
     var ev = snap.val();
     if(!ev || ev.type !== 'assigned') return;
     snap.ref.remove();
     loadTodayServiceArea();
-    showToast((ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다');
+    showAssignNotifSheet(ev, userName);
   });
   preLoginNotifOff = function() { ref.off('child_added', handler); };
+}
+
+function showAssignNotifSheet(ev, preLoginName) {
+  var areaNum = ev.areaNum || '';
+  var blockNum = ev.blockNum || '';
+  var carNum = ev.carNum || '';
+  assignNotifData = {areaNum: areaNum, blockNum: blockNum, carNum: carNum, preLoginName: preLoginName || ''};
+
+  var area = areas.find(function(a){ return String(a.id) === String(areaNum) || Number(a.id) === Number(areaNum); });
+  var areaName = area ? area.name : '';
+  var areaType = area ? (area.type || '') : '';
+
+  var infoHtml =
+    '<div style="font-size:28px;font-weight:800;color:#1a1040;margin-bottom:4px">' +
+      areaNum + '번 구역' + (blockNum ? ' <span style="font-size:18px;color:#7c3aed">' + blockNum + '블럭</span>' : '') +
+    '</div>' +
+    (areaName ? '<div style="font-size:14px;color:#555;margin-bottom:2px">' + escHtml(areaType ? areaType + ' · ' + areaName : areaName) + '</div>' : '') +
+    (carNum ? '<div style="font-size:13px;color:#888;margin-top:4px">' + carNum + '호차</div>' : '');
+  document.getElementById('assignNotifAreaInfo').innerHTML = infoHtml;
+
+  document.getElementById('assignNotifOverlay').style.display = 'block';
+  document.getElementById('assignNotifSheet').style.display = 'block';
+}
+
+function closeAssignNotif() {
+  document.getElementById('assignNotifOverlay').style.display = 'none';
+  document.getElementById('assignNotifSheet').style.display = 'none';
+  assignNotifData = null;
+}
+
+function handleAssignNotifGo() {
+  if(!assignNotifData) return;
+  var areaNum = assignNotifData.areaNum;
+  var blockNum = assignNotifData.blockNum;
+  closeAssignNotif();
+  if(currentUser) {
+    // 로그인 상태: 바로 카드 열기
+    goToFieldFromCarResultDirect(areaNum, blockNum);
+  } else {
+    // 로그인 전: 이름과 구역 번호 채우고 로그인
+    var nameEl = document.getElementById('nameInput');
+    var areaEl = document.getElementById('areaInput');
+    if(nameEl && assignNotifData.preLoginName) nameEl.value = assignNotifData.preLoginName;
+    if(areaEl) areaEl.value = areaNum;
+    doLogin();
+  }
+}
+
+function handleAssignNotifNavi() {
+  if(!assignNotifData) return;
+  openKakaoNaviToParking(assignNotifData.areaNum, assignNotifData.blockNum);
 }
 
 async function loadWeather() {
@@ -2289,12 +2354,10 @@ function listenUserAssignmentEvents() {
     var ev = snap.val();
     if(!ev || ev.type !== 'assigned') return;
     snap.ref.remove();
-    var areaText = (ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '이 배정되었습니다.';
     if(currentRole === 'leader') {
-      if(confirm(areaText + '\n인도자 카드로 여시겠습니까?')) loadAndOpenField(ev.areaNum, true);
+      if(confirm((ev.areaNum || '') + '번 구역' + (ev.blockNum ? ' ' + ev.blockNum + '블럭' : '') + '\n인도자 카드로 여시겠습니까?')) loadAndOpenField(ev.areaNum, true);
     } else {
-      if(confirm(areaText + '\n구역 카드로 이동하시겠습니까?')) goToFieldFromCarResultDirect(ev.areaNum || '', ev.blockNum || '');
-      else openCarResult();
+      showAssignNotifSheet(ev, currentUser);
     }
   });
 }
@@ -2361,6 +2424,8 @@ var carResultUnsubscribe = null;
 var manualFormState = {};
 var todayAreaUnsubscribe = null;
 var preLoginNotifOff = null;
+var assignNotifData = null; // {areaNum, blockNum, carNum, preLoginName}
+var preLoginNotifName = '';
 
 function cloneCarGroup(g) {
   var arr = Array.from(g || []);
