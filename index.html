@@ -68,7 +68,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 .map-ph{color:rgba(255,255,255,0.2);font-size:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
 
 .field-scroll{flex:1;overflow-y:auto;padding-bottom:80px;background:#f0f0f5}
-#fieldBlocks,#csGrid,#cardSheet .cs-body,#csMapArea{touch-action:pan-y}
+#fieldBlocks,
+#csGrid,
+#cardSheet .cs-body {
+  touch-action: pan-y;
+}
+
+#csMapArea,
+#mapWrap,
+.map-wrap {
+  touch-action: auto;
+}
+
+/* 전도인 카드 지도/주소 비율 조절 바 크기 축소 */
+#mapResizeBar,
+.map-resize-bar,
+.resize-bar,
+.resize-handle,
+.drag-handle,
+.divider-handle,
+.splitter,
+.splitter-bar {
+  height: 8px !important;
+  min-height: 8px !important;
+  max-height: 8px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  touch-action: none;
+}
+
+/* 조절 바 안의 가운데 손잡이 표시도 작게 */
+#mapResizeBar::before,
+.map-resize-bar::before,
+.resize-bar::before,
+.resize-handle::before,
+.drag-handle::before,
+.divider-handle::before,
+.splitter::before,
+.splitter-bar::before {
+  width: 42px !important;
+  height: 4px !important;
+  border-radius: 999px !important;
+}
 #field{height:100dvh;max-height:100dvh;overflow:hidden}
 #field .field-scroll{min-height:0;overscroll-behavior:contain}
 #mapWrap{max-height:58dvh}
