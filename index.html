@@ -330,7 +330,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
         <button class="role-tab" id="tabLeader" onclick="setRole('leader')">인도자</button>
       </div>
       <input class="inp" id="nameInput" type="text" placeholder="이름을 입력해 주세요" />
-      <input class="inp" id="areaInput" type="number" placeholder="구역 번호를 입력해 주세요" />
+      <input class="inp" id="areaInput" type="tel" inputmode="numeric" pattern="[0-9]*" placeholder="구역 번호를 입력해 주세요" />
       <button class="start-btn" onclick="doLogin()">시작하기</button>
     </div>
   </div>
@@ -815,9 +815,24 @@ async function doLogin() {
     loadTodaySignups();
   } else {
     listenUserAssignmentEvents();
-    var areaNum = parseInt(document.getElementById('areaInput').value);
-    var area = areas.find(a => Number(a.id) === areaNum || a.id == areaNum);
-    if(!area) { showToast('구역 번호를 확인해 주세요!'); return; }
+    var areaInputEl = document.getElementById('areaInput');
+    var areaNumText = areaInputEl ? String(areaInputEl.value || '').trim().replace(/[^\d]/g, '') : '';
+    if(!areaNumText) { showToast('\uad6c\uc5ed \ubc88\ud638\ub97c \uc785\ub825\ud574 \uc8fc\uc138\uc694'); return; }
+    var areaNum = Number(areaNumText);
+    var area = areas.find(function(a) {
+      return String(a.id).trim() === areaNumText || Number(a.id) === areaNum;
+    });
+    if(!area) {
+      try {
+        var docSnap = await db.collection('areas').doc(areaNumText).get();
+        if(docSnap.exists) {
+          area = {id: docSnap.id, ...docSnap.data()};
+          areas.push(area);
+        }
+      } catch(e) {}
+    }
+    if(!area) { showToast('\uad6c\uc5ed \ubc88\ud638\ub97c \ud655\uc778\ud574 \uc8fc\uc138\uc694'); return; }
+    localStorage.setItem('savedAreaNum', areaNumText);
     currentAreaId = String(area.id);
     currentRound = area.round || 1;
     await loadAndOpenField(currentAreaId);
