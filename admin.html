@@ -2858,7 +2858,22 @@ function confirmAreaPending(){
   if(!addr){showToast('주소를 입력해 주세요');return;}
   var b=areaEditorData.blocks[areaEditorBlockIdx],r=b.subTopics[areaEditorRoadIdx];
   if(areaEditorPending.editing){
-    var h=r.houses[areaEditorPending.hi];h.addr=addr;
+    var h=r.houses[areaEditorPending.hi];
+    var oldAddr=String(h.addr||'').trim();
+    h.addr=addr;
+    if(oldAddr!==addr && areaEditorGeocoder){
+      areaEditorGeocoder.addressSearch(addr,function(result,status){
+        if(status===kakao.maps.services.Status.OK&&result&&result[0]){
+          h.lat=Number(result[0].y); h.lng=Number(result[0].x);
+        }else{
+          h.lat=null; h.lng=null;
+        }
+        areaEditorPending=null;
+        renderAreaEditor();
+        showToast(status===kakao.maps.services.Status.OK?'주소와 핀 위치를 함께 변경했습니다':'주소는 변경됐지만 지도 위치를 찾지 못했습니다');
+      });
+      return;
+    }
     if(Number.isFinite(Number(areaEditorPending.lat))) h.lat=areaEditorPending.lat;
     if(Number.isFinite(Number(areaEditorPending.lng))) h.lng=areaEditorPending.lng;
   }else{
