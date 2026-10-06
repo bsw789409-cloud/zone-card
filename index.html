@@ -844,12 +844,59 @@ function assignHouseKeys(blocks) {
     var topics = blk.subTopics || blk.subs || [];
     if(topics.length) {
       topics.forEach(function(sub, si) {
-        (sub.houses || []).forEach(function(h, hi) { h._key = bi + '_' + si + '_' + hi; });
+        (sub.houses || []).forEach(function(h, hi) {
+          // 새 데이터는 영구 houseId를 사용한다. 기존 데이터는 기존 위치키를 유지한다.
+          h._key = h.houseId || (bi + '_' + si + '_' + hi);
+        });
       });
     } else {
-      (blk.houses || []).forEach(function(h, hi) { h._key = bi + '_0_' + hi; });
+      (blk.houses || []).forEach(function(h, hi) {
+        h._key = h.houseId || (bi + '_0_' + hi);
+      });
     }
   });
+}
+function findHouseByLegacyKey(areaId, key) {
+  var m = String(key || '').match(/^(\d+)_(\d+)_(\d+)$/);
+  if(!m) return null;
+  var blocks = currentAreaId === String(areaId)
+    ? currentAreaData
+    : ((areas.find(function(a){return String(a.id)===String(areaId)})||{}).blocks || []);
+  var bi=Number(m[1]), si=Number(m[2]), hi=Number(m[3]);
+  var b=(blocks||[])[bi];
+  if(!b) return null;
+  var topics=b.subTopics||b.subs||[];
+  if(topics.length) return ((topics[si]||{}).houses||[])[hi] || null;
+  return (b.houses||[])[hi] || null;
+}
+function resolveVisitHouse(areaId, record) {
+  if(!record) return null;
+  if(record.key) {
+    var direct=findHouseByKey(areaId,record.key);
+    if(direct) return direct;
+    var legacy=findHouseByLegacyKey(areaId,record.key);
+    if(legacy) return legacy;
+  }
+  return findHouseByAddr(areaId,record.addr);
+}
+function findHouseByKey(areaId, key) {
+  if(!key) return null;
+  var blocks = currentAreaId === String(areaId)
+    ? currentAreaData
+    : ((areas.find(function(a){return String(a.id)===String(areaId)})||{}).blocks || []);
+  for(var bi=0;bi<(blocks||[]).length;bi++){
+    var topics=blocks[bi].subTopics||blocks[bi].subs||[];
+    if(topics.length){
+      for(var si=0;si<topics.length;si++){
+        var houses=topics[si].houses||[];
+        for(var hi=0;hi<houses.length;hi++) if(String(houses[hi]._key||'')===String(key)) return houses[hi];
+      }
+    }else{
+      var flat=blocks[bi].houses||[];
+      for(var fi=0;fi<flat.length;fi++) if(String(flat[fi]._key||'')===String(key)) return flat[fi];
+    }
+  }
+  return null;
 }
 
 async function loadAndOpenField(aId, fromLeader) {
@@ -900,8 +947,8 @@ async function loadVisitRecords(aId) {
       var r = d.data();
       var isPersistent = PERSISTENT.includes(r.status);
       if(isPersistent || r.round == currentRound) {
-        var matchedHouse = r.key ? null : findHouseByAddr(aId, r.addr);
-        var stKey = r.key || (matchedHouse && matchedHouse._key) || r.addr;
+        var matchedHouse = resolveVisitHouse(aId, r);
+        var stKey = (matchedHouse && matchedHouse._key) || r.key || r.addr;
         statusData[aId][stKey] = r.status;
         memoData[aId][stKey] = r.memo || '';
         if(!r.key && stKey !== r.addr) {
@@ -923,8 +970,8 @@ function startRealtimeSync() {
       snap.docs.forEach(d => {
         var r = d.data();
         if(PERSISTENT.includes(r.status) || r.round == currentRound) {
-          var matchedHouse = r.key ? null : findHouseByAddr(currentAreaId, r.addr);
-          var stKey = r.key || (matchedHouse && matchedHouse._key) || r.addr;
+          var matchedHouse = resolveVisitHouse(currentAreaId, r);
+          var stKey = (matchedHouse && matchedHouse._key) || r.key || r.addr;
           var prev = (statusData[currentAreaId]||{})[stKey];
           if(prev !== r.status) {
             if(!statusData[currentAreaId]) statusData[currentAreaId] = {};
@@ -1028,8 +1075,8 @@ async function ensureAreaStatusLoaded(areaId) {
     snap.docs.forEach(function(d) {
       var r = d.data() || {};
       if(PERSISTENT.includes(r.status) || Number(r.round) === Number(round)) {
-        var matchedHouse = r.key ? null : findHouseByAddr(areaId, r.addr);
-        var stKey = r.key || (matchedHouse && matchedHouse._key) || r.addr;
+        var matchedHouse = resolveVisitHouse(areaId, r);
+        var stKey = (matchedHouse && matchedHouse._key) || r.key || r.addr;
         statusData[areaId][stKey] = r.status;
         memoData[areaId][stKey] = r.memo || '';
         if(!r.key && stKey !== r.addr) {
