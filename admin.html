@@ -2636,7 +2636,9 @@ function renderAreaEditor(){
         if(areaEditorRoadIdx>=roads.length) areaEditorRoadIdx=0;
         var r=roads[areaEditorRoadIdx];
         html+='<div class="area-stage"><div class="area-stage-title">⑦ 주소 · 지도</div>';
-        html+='<button class="btn-full '+(areaEditorPickMode==='address'?'btn-purple':'btn-outline')+'" onclick="startAreaAddressPick()" style="margin-bottom:8px">'+(areaEditorPickMode==='address'?'지도에서 주소 선택 중…':'🗺 지도에서 주소 추가')+'</button>';
+        html+='<div style="display:flex;gap:6px;margin-bottom:8px">';
+html+='<button class="btn-full '+(areaEditorPickMode==='address'?'btn-purple':'btn-outline')+'" onclick="startAreaAddressPick()" style="flex:1">'+(areaEditorPickMode==='address'?'지도에서 주소 선택 중…':'🗺 지도에서 주소 추가')+'</button>';
+html+='<button class="btn-full btn-outline" onclick="startManualAreaAddress()" style="flex:1">✍ 주소 직접 입력</button></div>';
         html+='<div class="area-mini-note">지도를 누르면 현재 선택된 도로명에 주소가 추가됩니다. 추가 전 주소를 수정할 수 있습니다.</div>';
         if(areaEditorPending){
           html+='<div class="area-pending"><div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px">'+(areaEditorPending.editing?'주소 수정':'추가할 주소')+'</div>';
@@ -2782,7 +2784,9 @@ function areaEditorMapClicked(latlng){
     areaEditorGeocoder.coord2Address(lng,lat,function(result,status){
       var addr='';
       if(status===kakao.maps.services.Status.OK&&result&&result[0]){
-        addr=(result[0].road_address&&result[0].road_address.address_name)||(result[0].address&&result[0].address.address_name)||'';
+        addr=(result[0].road_address&&result[0].road_address.road_name&&result[0].road_address.main_building_no
+  ? result[0].road_address.road_name+' '+result[0].road_address.main_building_no+(result[0].road_address.sub_building_no?'-'+result[0].road_address.sub_building_no:'')
+  : (result[0].address&&result[0].address.address_name)||'');
       }
       var b=areaEditorData.blocks[areaEditorBlockIdx];
       b.parking=addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6));
@@ -2794,12 +2798,21 @@ function areaEditorMapClicked(latlng){
       var addr='';
       if(status===kakao.maps.services.Status.OK&&result&&result[0]){
         var r=result[0];
-        addr=(r.road_address&&r.road_address.address_name)|| (r.address&&r.address.address_name)||'';
+        addr=(r.road_address&&r.road_address.road_name&&r.road_address.main_building_no
+  ? r.road_address.road_name+' '+r.road_address.main_building_no+(r.road_address.sub_building_no?'-'+r.road_address.sub_building_no:'')
+  : (r.address&&r.address.address_name)||'');
       }
       areaEditorPending={addr:addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6)),lat:lat,lng:lng,editing:false};
       areaEditorPickMode='';renderAreaEditor();
     });
   }
+}
+
+function startManualAreaAddress(){
+  areaEditorPending={addr:'',lat:null,lng:null,editing:false,manual:true};
+  areaEditorPickMode='';
+  renderAreaEditor();
+  setTimeout(function(){var el=document.getElementById('areaPendingAddr');if(el)el.focus()},60);
 }
 
 function confirmAreaPending(){
@@ -2809,11 +2822,17 @@ function confirmAreaPending(){
   if(!addr){showToast('주소를 입력해 주세요');return;}
   var b=areaEditorData.blocks[areaEditorBlockIdx],r=b.subTopics[areaEditorRoadIdx];
   if(areaEditorPending.editing){
-    var h=r.houses[areaEditorPending.hi];h.addr=addr;h.lat=areaEditorPending.lat;h.lng=areaEditorPending.lng;
+    var h=r.houses[areaEditorPending.hi];h.addr=addr;
+    if(Number.isFinite(Number(areaEditorPending.lat))) h.lat=areaEditorPending.lat;
+    if(Number.isFinite(Number(areaEditorPending.lng))) h.lng=areaEditorPending.lng;
   }else{
-    r.houses.push({addr:addr,lat:areaEditorPending.lat,lng:areaEditorPending.lng,note:''});
+    r.houses.push({addr:addr,lat:Number.isFinite(Number(areaEditorPending.lat))?areaEditorPending.lat:null,lng:Number.isFinite(Number(areaEditorPending.lng))?areaEditorPending.lng:null,note:''});
   }
-  areaEditorPending=null;renderAreaEditor();showToast(areaEditorPending?'':'주소가 저장됐습니다');
+  var wasManual=!!areaEditorPending.manual;
+  areaEditorPending=null;
+  renderAreaEditor();
+  if(!wasManual) startAreaAddressPick();
+  else showToast('주소가 저장됐습니다. 다음 주소도 바로 입력할 수 있습니다.');
 }
 
 function cancelAreaPending(){areaEditorPending=null;renderAreaEditor();}
