@@ -945,9 +945,9 @@ function startRealtimeSync() {
     if(idx >= 0) areas[idx] = Object.assign({}, areas[idx], data, {id: currentAreaId});
     var title = document.getElementById('fieldAreaName');
     if(title) title.textContent = (data.name || '') + ' · ' + (data.type || '');
-    initBlockTabs({id: currentAreaId, blocks: currentAreaData});
+    initBlockTabs({id: currentAreaId, blocks: currentAreaData}, true);
     if(openSheetAreaId) {
-      initCsBlockTabs({id: currentAreaId, blocks: currentAreaData});
+      initCsBlockTabs({id: currentAreaId, blocks: currentAreaData}, true);
       renderCsGrid(currentAreaId);
     } else {
       renderFieldBlocks(currentAreaId);
@@ -1997,11 +1997,12 @@ function attachFieldSwipe() {
   }, {passive:true});
 }
 
-function initBlockTabs(area) {
+function initBlockTabs(area, preserveState) {
   var blocks = area.blocks || [];
   var tabsEl = document.getElementById('blockTabs');
   var areaId = Number(area.id);
-  currentBlockIdx = -1;
+  var previousIdx = currentBlockIdx;
+  currentBlockIdx = preserveState && Number.isInteger(previousIdx) && previousIdx >= -1 && previousIdx < blocks.length ? previousIdx : -1;
   attachFieldSwipe();
 
   if(blocks.length <= 1) {
@@ -2010,7 +2011,7 @@ function initBlockTabs(area) {
     tabsEl.style.display = 'flex';
     tabsEl.innerHTML = '';
     var allBtn = document.createElement('button');
-    allBtn.className = 'block-tab-btn active';
+    allBtn.className = 'block-tab-btn' + (currentBlockIdx === -1 ? ' active' : '');
     allBtn.dataset.blockIdx = '-1';
     allBtn.textContent = '전체';
     allBtn.onclick = function() {
@@ -2020,7 +2021,7 @@ function initBlockTabs(area) {
 
     blocks.forEach(function(blk, i) {
       var btn = document.createElement('button');
-      btn.className = 'block-tab-btn';
+      btn.className = 'block-tab-btn' + (currentBlockIdx === i ? ' active' : '');
       btn.dataset.blockIdx = String(i);
       btn.textContent = (i+1) + '블럭';
       btn.onclick = function() {
@@ -2029,7 +2030,7 @@ function initBlockTabs(area) {
       tabsEl.appendChild(btn);
     });
   }
-  updateMapForBlock(blocks[0], areaId);
+  if(!preserveState) updateMapForBlock(blocks[currentBlockIdx >= 0 ? currentBlockIdx : 0], areaId);
 }
 
 var _kakaoMap = null;
@@ -4286,7 +4287,7 @@ window.openCardSheet = async function(aId) {
 
     // 방문 기록 로드 및 리스트 렌더링
     await loadVisitRecords(String(aId));
-    initCsBlockTabs(area || {id: aId, blocks: currentAreaData});
+    initCsBlockTabs(area || {id: aId, blocks: currentAreaData}, false);
     renderCsAssignTools(aId);
     renderCsGrid(aId);
     if(syncUnsubscribe) syncUnsubscribe();
@@ -4317,7 +4318,7 @@ window.openCardSheet = async function(aId) {
       currentAreaData = data.blocks || [];
       assignHouseKeys(currentAreaData);
       currentAreaType = data.type || currentAreaType;
-      initCsBlockTabs({id: aId, blocks: currentAreaData});
+      initCsBlockTabs({id: aId, blocks: currentAreaData}, true);
       renderCsAssignTools(aId);
       renderCsGrid(aId);
     });
@@ -4407,11 +4408,12 @@ function attachCsSwipe() {
   });
 }
 
-function initCsBlockTabs(area) {
+function initCsBlockTabs(area, preserveState) {
   var blocks = area.blocks || currentAreaData;
   var tabsEl = document.getElementById('csBlockTabs');
   var areaId = Number(area.id);
-  window._csBlockIdx = -1;
+  var previousIdx = window._csBlockIdx;
+  window._csBlockIdx = preserveState && Number.isInteger(previousIdx) && previousIdx >= -1 && previousIdx < blocks.length ? previousIdx : -1;
   attachCsSwipe();
 
   if (!tabsEl) return;
@@ -4424,7 +4426,7 @@ function initCsBlockTabs(area) {
     
     // 전체 버튼
     var allBtn = document.createElement('button');
-    allBtn.className = 'block-tab-btn active';
+    allBtn.className = 'block-tab-btn' + (window._csBlockIdx === -1 ? ' active' : '');
     allBtn.dataset.blockIdx = '-1';
     allBtn.textContent = '전체';
     allBtn.onclick = function() {
@@ -4435,7 +4437,7 @@ function initCsBlockTabs(area) {
     // 블럭별 버튼
     blocks.forEach(function(blk, i) {
       var btn = document.createElement('button');
-      btn.className = 'block-tab-btn';
+      btn.className = 'block-tab-btn' + (window._csBlockIdx === i ? ' active' : '');
       btn.dataset.blockIdx = String(i);
       btn.textContent = (i+1) + '블럭';
       btn.onclick = function() {
@@ -4444,7 +4446,7 @@ function initCsBlockTabs(area) {
       tabsEl.appendChild(btn);
     });
   }
-  updateCsMap(blocks[0], areaId);
+  if(!preserveState) updateCsMap(blocks[window._csBlockIdx >= 0 ? window._csBlockIdx : 0], areaId);
 }
 
 // 3. 알림 메시지(토스트) 출력 함수
