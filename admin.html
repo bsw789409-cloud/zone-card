@@ -2526,6 +2526,7 @@ function nextAreaId(){
 function openAddArea(){
   areaEditorMode='create';
   areaEditorBlockIdx=0; areaEditorRoadIdx=0; areaEditorPickMode=''; areaEditorPending=null;
+  areaEditorViewCenter=null; areaEditorViewLevel=null;
   areaEditorId=nextAreaId();
   areaEditorData={
     id:areaEditorId,name:'',type:'주택',round:1,leader:'',startDate:'',endDate:'',
@@ -2539,6 +2540,7 @@ function openEditCard(aId){
   if(!a){showToast('구역 정보를 찾을 수 없습니다');return;}
   areaEditorMode='edit';
   areaEditorBlockIdx=0; areaEditorRoadIdx=0; areaEditorPickMode=''; areaEditorPending=null;
+  areaEditorViewCenter=null; areaEditorViewLevel=null;
   areaEditorId=String(aId);
   areaEditorData=areaEditorClone(a);
   areaEditorData.id=String(a.id);
@@ -2697,6 +2699,10 @@ function areaEditorHouseNumber(ri,hi){
 function selectAreaEditorBlock(i){
   if(!areaEditorData.blocks[i]) return;
   areaEditorBlockIdx=i; areaEditorRoadIdx=0; areaEditorPending=null; areaEditorPickMode='';
+  // 블럭을 바꿀 때는 이전 블럭의 지도 위치를 이어받지 않고
+  // 새로 선택한 블럭의 주차 위치를 기준으로 지도를 다시 연다.
+  areaEditorViewCenter=null;
+  areaEditorViewLevel=null;
   renderAreaEditor();
 }
 
@@ -2756,17 +2762,26 @@ function makeAreaPin(lat,lng,n,color){
 
 function renderAreaEditorPins(){
   clearAreaEditorOverlays();
-  if(!areaEditorMap||!areaEditorData.blocks[areaEditorBlockIdx])return;
-  var b=areaEditorData.blocks[areaEditorBlockIdx],roads=b.subTopics||[],n=0,color=AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length];
-  roads.forEach(function(r){(r.houses||[]).forEach(function(h){
-    if(Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){
-      n++;
-      var o=makeAreaPin(Number(h.lat),Number(h.lng),n,color);o.setMap(areaEditorMap);areaEditorOverlays.push(o);
+  if(!areaEditorMap)return;
+  // 지도에는 모든 블럭의 주소 핀을 함께 표시한다.
+  // 각 블럭은 독립적으로 1,2,3... 번호를 매기고 블럭별 색상을 사용한다.
+  (areaEditorData.blocks||[]).forEach(function(block,bi){
+    var roads=block&&block.subTopics||[],n=0;
+    var color=AREA_PIN_COLORS[bi%AREA_PIN_COLORS.length];
+    roads.forEach(function(r){(r.houses||[]).forEach(function(h){
+      if(Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){
+        n++;
+        var o=makeAreaPin(Number(h.lat),Number(h.lng),n,color);
+        o.setMap(areaEditorMap);
+        areaEditorOverlays.push(o);
+      }
+    })});
+    if(Number.isFinite(Number(block.parkingLat))&&Number.isFinite(Number(block.parkingLng))){
+      var p=makeAreaPin(Number(block.parkingLat),Number(block.parkingLng),'P','#111827');
+      p.setMap(areaEditorMap);
+      areaEditorOverlays.push(p);
     }
-  })});
-  if(Number.isFinite(Number(b.parkingLat))&&Number.isFinite(Number(b.parkingLng))){
-    var p=makeAreaPin(Number(b.parkingLat),Number(b.parkingLng),'P','#111827');p.setMap(areaEditorMap);areaEditorOverlays.push(p);
-  }
+  });
 }
 
 function initAreaEditorMap(){
