@@ -4342,13 +4342,18 @@ window.openCardSheet = async function(aId) {
       snap.docs.forEach(function(d) {
         var r = d.data();
         if(PERSISTENT.includes(r.status) || r.round == currentRound) {
-          var stKey = r.key || r.addr;
+          var matchedHouse = r.key ? null : findHouseByAddr(aId, r.addr);
+          var stKey = r.key || (matchedHouse && matchedHouse._key) || r.addr;
           var prev = (statusData[String(aId)]||{})[stKey];
           if(prev !== r.status) {
             if(!statusData[String(aId)]) statusData[String(aId)] = {};
             statusData[String(aId)][stKey] = r.status;
             if(!memoData[String(aId)]) memoData[String(aId)] = {};
             memoData[String(aId)][stKey] = r.memo || '';
+            if(!r.key && stKey !== r.addr) {
+              statusData[String(aId)][r.addr] = r.status;
+              memoData[String(aId)][r.addr] = r.memo || '';
+            }
             changed = true;
           }
         }
@@ -4573,22 +4578,20 @@ function updateCsMap(blk, areaId) {
   var mapDiv = document.getElementById('csKakaoMap');
   var parkBtn = document.getElementById('csParkingBtn');
 
-  if(parking) {
+  if(parking || (blk && Number.isFinite(Number(blk.parkingLat)) && Number.isFinite(Number(blk.parkingLng)))) {
     var region = (areaId >= 1 && areaId <= 32) ? '전북 고창군 ' : '전북 부안군 ';
     window._csParkingAddr = parking;
     window._csParkingAreaId = areaId;
     if(ph) ph.style.display = 'none';
     if(mapDiv) mapDiv.style.display = 'block';
     if(parkBtn) parkBtn.style.display = 'block';
-    getGeocoder().addressSearch(region + parking, function(result, status) {
-      var coords;
-      if(status === kakao.maps.services.Status.OK) {
-        coords = new kakao.maps.LatLng(result[0].y, result[0].x);
-      } else {
-        coords = (areaId >= 1 && areaId <= 32)
-          ? new kakao.maps.LatLng(35.5487, 126.7216)
-          : new kakao.maps.LatLng(35.5050, 126.7280);
-      }
+
+    var directCoords = null;
+    if(blk && Number.isFinite(Number(blk.parkingLat)) && Number.isFinite(Number(blk.parkingLng))) {
+      directCoords = new kakao.maps.LatLng(Number(blk.parkingLat), Number(blk.parkingLng));
+    }
+
+    function applyMap(coords) {
       if(!_csKakaoMap) {
         _csKakaoMap = new kakao.maps.Map(mapDiv, {center: coords, level: 3});
         _csKakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
@@ -4602,7 +4605,23 @@ function updateCsMap(blk, areaId) {
       window._csKakaoMarkerOverlay = makePMarker(coords, _csKakaoMap);
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
-    });
+    }
+
+    if(directCoords) {
+      applyMap(directCoords);
+    } else {
+      getGeocoder().addressSearch(region + parking, function(result, status) {
+        var coords;
+        if(status === kakao.maps.services.Status.OK) {
+          coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+        } else {
+          coords = (areaId >= 1 && areaId <= 32)
+            ? new kakao.maps.LatLng(35.5487, 126.7216)
+            : new kakao.maps.LatLng(35.5050, 126.7280);
+        }
+        applyMap(coords);
+      });
+    }
   } else {
     window._csParkingAddr = '';
     if(parkBtn) parkBtn.style.display = 'none';
