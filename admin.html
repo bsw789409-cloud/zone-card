@@ -2683,7 +2683,8 @@ function renderAreaEditorAddressGroups(){
       html+='<div class="area-address-row" data-ari="'+ri+'" data-ahi="'+hi+'">';
       html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
       html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
-      html+='<button class="area-address-edit" onclick="editAreaHouse('+ri+','+hi+')">✎</button></div>';
+      html+='<button class="area-address-edit" onclick="editAreaHouse('+ri+','+hi+')">✎</button>';
+      html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button></div>';
     });
     html+='</div>';
   });
@@ -2876,6 +2877,19 @@ function editAreaHouse(ri,hi){
   areaEditorRoadIdx=ri;
   areaEditorPending={addr:h.addr||'',lat:Number(h.lat),lng:Number(h.lng),editing:true,ri:ri,hi:hi};
   renderAreaEditor();
+}
+function deleteAreaHouse(ri,hi){
+  var b=areaEditorData.blocks[areaEditorBlockIdx];
+  var r=b && b.subTopics && b.subTopics[ri];
+  if(!r || !r.houses || !r.houses[hi]) return;
+  var addr=r.houses[hi].addr || '';
+  if(!confirm((addr ? addr + '\\n\\n' : '') + '이 주소를 삭제할까요?')) return;
+  r.houses.splice(hi,1);
+  areaEditorPending=null;
+  areaEditorPickMode='address';
+  areaEditorRoadIdx=ri;
+  renderAreaEditor();
+  setAreaEditorModeBadge('주소 선택 중 — 지도를 눌러 주세요');
 }
 
 function searchAreaEditorMap(){
