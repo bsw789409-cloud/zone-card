@@ -801,27 +801,80 @@ async function doDeleteArea(type) {
   if(!deleteTargetId) return;
   if(!confirm('정말 삭제하시겠습니까?')) return;
   showLoader();
+  var deletedId = String(deleteTargetId);
+
   try {
-    if(type === 'all') {
-      // 방문기록도 삭제
-      var visitSnap = await db.collection('visits').where('areaId','==',String(deleteTargetId)).get();
-      var batch = db.batch();
-      visitSnap.docs.forEach(d => batch.delete(d.ref));
-      batch.delete(db.collection('areas').doc(String(deleteTargetId)));
-      await batch.commit();
-    } else if(type === 'infoOnly') {
-      await db.collection('areas').doc(String(deleteTargetId)).delete();
-    } else if(type === 'merge') {
+    if(type === 'merge') {
       showToast('병합 기능은 준비 중입니다');
-      hideLoader();
       closeDeleteArea();
       return;
     }
-    areas = areas.filter(a => String(a.id) !== String(deleteTargetId));
+
+    // 삭제 대상에 연결된 방문 기록을 먼저 삭제
+    if(type === 'all') {
+      var visitSnap = await db.collection('visits').where('areaId','==',deletedId).get();
+      if(visitSnap.docs.length) {
+        var visitBatch = db.batch();
+        visitSnap.docs.forEach(function(d){ visitBatch.delete(d.ref); });
+        await visitBatch.commit();
+      }
+    }
+
+    // 구역 삭제
+    await db.collection('areas').doc(deletedId).delete();
+
+    // 삭제된 번호 뒤의 구역들을 한 칸씩 앞으로 당겨
+    // 1,2,3,5,6 → 1,2,3,4,5 처럼 번호가 다시 연속되게 만든다.
+    var remaining = areas
+      .filter(function(a){ return String(a.id) !== deletedId; })
+      .sort(function(a,b){ return Number(a.id) - Number(b.id); });
+
+    var areaIdMap = {};
+    var shiftBatch = db.batch();
+    var shiftCount = 0;
+
+    remaining.forEach(function(a) {
+      var oldId = String(a.id);
+      var n = Number(oldId);
+      if(!Number.isFinite(n) || n <= Number(deletedId)) return;
+
+      var newId = String(n - 1);
+      areaIdMap[oldId] = newId;
+
+      var data = Object.assign({}, a, {id:newId});
+      delete data.docId;
+      shiftBatch.set(db.collection('areas').doc(newId), data);
+      shiftBatch.delete(db.collection('areas').doc(oldId));
+      shiftCount++;
+    });
+
+    if(shiftCount) await shiftBatch.commit();
+
+    // visits / 수정요청 / 거절 / 관심 / 공실 기록도 새 구역 번호로 연결
+    if(Object.keys(areaIdMap).length) {
+      await remapAreaLinkedCollections(areaIdMap);
+
+      // remapAreaLinkedCollections는 기존 history도 새 번호로 복사하므로
+      // 이전 번호의 history 문서는 정리한다.
+      var historyBatch = db.batch();
+      Object.keys(areaIdMap).forEach(function(oldId) {
+        historyBatch.delete(db.collection('areaHistory').doc(oldId));
+      });
+      await historyBatch.commit();
+    }
+
+    // 서버 기준으로 다시 읽어 화면/번호를 확실하게 동기화
+    var snap = await db.collection('areas').orderBy('id').get();
+    areas = snap.docs.map(function(d) {
+      return Object.assign({docId:d.id}, d.data());
+    });
+
     closeDeleteArea();
     renderAreaList();
-    showToast('✅ 삭제됐습니다');
-  } catch(e) { showToast('오류: ' + e.message); }
+    showToast('✅ 삭제됐습니다. 뒤 구역 번호를 자동으로 정렬했습니다');
+  } catch(e) {
+    showToast('오류: ' + e.message);
+  }
   hideLoader();
 }
 
