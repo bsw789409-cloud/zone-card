@@ -2818,8 +2818,12 @@ function areaEditorMapClicked(latlng){
   ? r.road_address.road_name+' '+r.road_address.main_building_no+(r.road_address.sub_building_no?'-'+r.road_address.sub_building_no:'')
   : (r.address&&r.address.address_name)||'');
       }
-      areaEditorPending={addr:addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6)),lat:lat,lng:lng,editing:false};
-      areaEditorPickMode='';renderAreaEditor();
+      var b=areaEditorData.blocks[areaEditorBlockIdx],r=b.subTopics[areaEditorRoadIdx];
+      r.houses.push({addr:addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6)),lat:lat,lng:lng,note:''});
+      areaEditorPending=null;
+      areaEditorPickMode='address';
+      renderAreaEditor();
+      setAreaEditorModeBadge('주소 선택 중 — 지도를 눌러 주세요');
     });
   }
 }
