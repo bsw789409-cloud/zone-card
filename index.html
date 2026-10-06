@@ -4332,9 +4332,25 @@ window.openCardSheet = async function(aId) {
 
     // 방문 기록 로드 및 리스트 렌더링
     await loadVisitRecords(String(aId));
-    initCsBlockTabs(area || {id: aId, blocks: currentAreaData}, false);
+    // Firestore에서 방금 읽은 currentAreaData를 카드 지도/블럭 탭의 유일한 데이터 소스로 사용한다.
+    // 전역 areas 캐시에 남아 있는 오래된 blocks를 사용하면 402번을 열어도 1번 지도처럼 보일 수 있다.
+    var liveCardArea = {
+      id: aId,
+      name: areaDoc.exists ? (areaDoc.data().name || (area ? area.name : '')) : (area ? area.name : ''),
+      blocks: currentAreaData,
+      type: currentAreaType,
+      round: currentRound
+    };
+    initCsBlockTabs(liveCardArea, false);
     renderCsAssignTools(aId);
     renderCsGrid(aId);
+    setTimeout(function(){
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId) && _csKakaoMap){
+        _csKakaoMap.relayout();
+        var b = (currentAreaData || [])[window._csBlockIdx >= 0 ? window._csBlockIdx : 0];
+        if(b) renderCsAddressPins(b, Number(aId), _csKakaoMap);
+      }
+    }, 300);
     if(syncUnsubscribe) syncUnsubscribe();
     syncUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
       if(!openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
@@ -4500,7 +4516,11 @@ function initCsBlockTabs(area, preserveState) {
       tabsEl.appendChild(btn);
     });
   }
-  if(!preserveState) updateCsMap(blocks[window._csBlockIdx >= 0 ? window._csBlockIdx : 0], areaId);
+  if(!preserveState) {
+    // 이 함수로 전달된 blocks가 현재 Firestore 문서의 blocks다.
+    // 캐시된 areas 객체를 다시 참조하지 않는다.
+    updateCsMap(blocks[window._csBlockIdx >= 0 ? window._csBlockIdx : 0], areaId);
+  }
 }
 
 // 3. 알림 메시지(토스트) 출력 함수
@@ -4657,6 +4677,11 @@ function updateCsMap(blk, areaId) {
         _csKakaoMap.setLevel(3);
         _csKakaoMap.relayout();
       }
+      // 카드 시트가 애니메이션으로 열린 직후에는 지도 크기가 0으로 계산될 수 있으므로
+      // 한 프레임 뒤 다시 relayout하여 402번 같은 새 카드도 정확한 위치를 표시한다.
+      setTimeout(function(){
+        if(_csKakaoMap) _csKakaoMap.relayout();
+      }, 80);
       if(_csKakaoMarker) { _csKakaoMarker.setMap(null); _csKakaoMarker = null; }
       if(window._csKakaoMarkerOverlay) { window._csKakaoMarkerOverlay.setMap(null); }
       window._csKakaoMarkerOverlay = makePMarker(coords, _csKakaoMap);
