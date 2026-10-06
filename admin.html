@@ -2523,6 +2523,7 @@ function nextAreaId(){
 
 function openAddArea(){
   areaEditorMode='create';
+  areaEditorBlockIdx=0; areaEditorRoadIdx=0; areaEditorPickMode=''; areaEditorPending=null;
   areaEditorId=nextAreaId();
   areaEditorData={
     id:areaEditorId,name:'',type:'주택',round:1,leader:'',startDate:'',endDate:'',
@@ -2535,6 +2536,7 @@ function openEditCard(aId){
   var a=areas.find(function(x){return String(x.id)===String(aId)});
   if(!a){showToast('구역 정보를 찾을 수 없습니다');return;}
   areaEditorMode='edit';
+  areaEditorBlockIdx=0; areaEditorRoadIdx=0; areaEditorPickMode=''; areaEditorPending=null;
   areaEditorId=String(aId);
   areaEditorData=areaEditorClone(a);
   areaEditorData.id=String(a.id);
@@ -2561,9 +2563,16 @@ function closeAreaEditor(){
 }
 
 function areaEditorNameChanged(){
-  areaEditorData.name=String(document.getElementById('areaEditorName').value||'').trim();
-  renderAreaEditor();
-  setTimeout(function(){ if(areaEditorMap) areaEditorMap.relayout(); },80);
+  var el=document.getElementById('areaEditorName');
+  areaEditorData.name=String(el&&el.value||'').trim();
+  if(areaEditorData.name && !document.getElementById('areaEditorMap')){
+    var pos=el.selectionStart||el.value.length;
+    renderAreaEditor();
+    setTimeout(function(){
+      var next=document.getElementById('areaEditorName');
+      if(next){next.focus();try{next.setSelectionRange(pos,pos)}catch(e){}}
+    },60);
+  }
 }
 
 function areaEditorIdChanged(){
@@ -2572,6 +2581,7 @@ function areaEditorIdChanged(){
 
 function renderAreaEditor(){
   var body=document.getElementById('areaEditorBody');
+  if(areaEditorMap){clearAreaEditorOverlays();areaEditorMap=null;}
   var idFilled=String(areaEditorData.id||'').trim()!=='';
   var nameFilled=String(areaEditorData.name||'').trim()!=='';
   var blocks=areaEditorData.blocks||[];
