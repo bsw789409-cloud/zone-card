@@ -2511,7 +2511,11 @@ function normalizeAreaEditorBlocks(raw){
     b.subTopics.forEach(function(r){
       r.houses = r.houses.map(function(h){
         h = h && typeof h === 'object' ? h : {addr:String(h||'')};
-        return Object.assign({},h,{addr:String(h.addr||h.num||'')});
+        var house = Object.assign({},h,{addr:String(h.addr||h.num||'')});
+        // 주소 순서가 바뀌거나 주소 자체가 수정돼도 방문기록이 같은 집을 계속 가리키도록
+        // 영구 houseId를 유지한다. 기존 데이터에는 없으므로 저장할 때 새로 부여한다.
+        if(!house.houseId) house.houseId = 'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
+        return house;
       });
     });
     return b;
@@ -2837,7 +2841,7 @@ function areaEditorMapClicked(latlng){
   : (r.address&&r.address.address_name)||'');
       }
       var b=areaEditorData.blocks[areaEditorBlockIdx],r=b.subTopics[areaEditorRoadIdx];
-      r.houses.push({addr:addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6)),lat:lat,lng:lng,note:''});
+      r.houses.push({houseId:'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10),addr:addr||('위치 '+lat.toFixed(6)+', '+lng.toFixed(6)),lat:lat,lng:lng,note:''});
       areaEditorPending=null;
       areaEditorPickMode='address';
       renderAreaEditor();
@@ -2879,7 +2883,7 @@ function confirmAreaPending(){
     if(Number.isFinite(Number(areaEditorPending.lat))) h.lat=areaEditorPending.lat;
     if(Number.isFinite(Number(areaEditorPending.lng))) h.lng=areaEditorPending.lng;
   }else{
-    r.houses.push({addr:addr,lat:Number.isFinite(Number(areaEditorPending.lat))?areaEditorPending.lat:null,lng:Number.isFinite(Number(areaEditorPending.lng))?areaEditorPending.lng:null,note:''});
+    r.houses.push({houseId:'h_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10),addr:addr,lat:Number.isFinite(Number(areaEditorPending.lat))?areaEditorPending.lat:null,lng:Number.isFinite(Number(areaEditorPending.lng))?areaEditorPending.lng:null,note:''});
   }
   var wasManual=!!areaEditorPending.manual;
   areaEditorPending=null;
