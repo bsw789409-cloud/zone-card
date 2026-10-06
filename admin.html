@@ -2782,6 +2782,12 @@ function initAreaEditorMap(){
   }
   var level=Number.isFinite(Number(areaEditorViewLevel))?Number(areaEditorViewLevel):5;
   areaEditorMap=new kakao.maps.Map(div,{center:center,level:level});
+  // 구역 편집은 건물/길을 정확히 확인해야 하므로 위성(하이브리드) 지도를 기본으로 사용한다.
+  if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID){
+    areaEditorMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+  }else if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.SKYVIEW){
+    areaEditorMap.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
+  }
   kakao.maps.event.addListener(areaEditorMap,'click',function(mouseEvent){areaEditorMapClicked(mouseEvent.latLng);});
   renderAreaEditorPins();
   setTimeout(function(){if(areaEditorMap)areaEditorMap.relayout()},80);
@@ -2857,16 +2863,51 @@ function searchAreaEditorMap(){
   var q=String((document.getElementById('areaMapSearchInput')||{}).value||'').trim();
   if(!q){showToast('검색어를 입력해 주세요');return;}
   if(!areaEditorPlaces||!areaEditorMap)return;
-  areaEditorPlaces.keywordSearch(q,function(data,status){
-    var box=document.getElementById('areaSearchResults');if(!box)return;
-    if(status!==kakao.maps.services.Status.OK||!data.length){
-      box.innerHTML='<div class="area-search-result">검색 결과가 없습니다</div>';box.classList.add('open');return;
+  var box=document.getElementById('areaSearchResults');
+  if(!box)return;
+  box.innerHTML='<div class="area-search-result">검색 중…</div>';
+  box.classList.add('open');
+
+  function showResults(data){
+    if(!data||!data.length){
+      box.innerHTML='<div class="area-search-result">검색 결과가 없습니다</div>';
+      return;
     }
-    box.innerHTML=data.slice(0,7).map(function(p,i){
-      return '<div class="area-search-result" onclick="selectAreaSearchResult('+i+')"><b>'+escHtml(p.place_name)+'</b><span>'+escHtml(p.road_address_name||p.address_name||'')+'</span></div>';
+    data=data.slice(0,10);
+    box.innerHTML=data.map(function(p,i){
+      return '<div class="area-search-result" onclick="selectAreaSearchResult('+i+')"><b>'+escHtml(p.place_name||p.address_name||'')+'</b><span>'+escHtml(p.road_address_name||p.address_name||'')+'</span></div>';
     }).join('');
-    box._results=data.slice(0,7);box.classList.add('open');
-  });
+    box._results=data;
+  }
+
+  // 장소 검색만 쓰면 마을명/도로명/지번 검색에서 누락될 수 있으므로
+  // 주소 검색을 먼저 시도하고, 결과가 없으면 장소 검색으로 보완한다.
+  if(areaEditorGeocoder){
+    areaEditorGeocoder.addressSearch(q,function(data,status){
+      if(status===kakao.maps.services.Status.OK&&data&&data.length){
+        showResults(data.map(function(p){
+          return {
+            place_name:p.address_name||p.road_address||q,
+            address_name:p.address_name||p.road_address||'',
+            road_address_name:p.road_address||'',
+            x:p.x,y:p.y
+          };
+        }));
+        return;
+      }
+      areaEditorPlaces.keywordSearch(q,function(placeData,placeStatus){
+        if(placeStatus===kakao.maps.services.Status.OK&&placeData&&placeData.length){
+          showResults(placeData);
+        }else{
+          box.innerHTML='<div class="area-search-result">검색 결과가 없습니다</div>';
+        }
+      });
+    });
+  }else{
+    areaEditorPlaces.keywordSearch(q,function(data,status){
+      showResults(status===kakao.maps.services.Status.OK?data:[]);
+    });
+  }
 }
 
 function selectAreaSearchResult(i){
