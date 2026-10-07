@@ -1002,7 +1002,15 @@ function startRealtimeSync() {
           }
         }
       });
-      if(changed) refreshUnifiedAreaView();
+      if(changed) {
+        if(openSheetAreaId) {
+          renderCsGrid(openSheetAreaId);
+          refreshCurrentMapPinsPreserveViewport();
+        } else {
+          renderFieldBlocks(currentAreaId);
+          refreshCurrentMapPinsPreserveViewport();
+        }
+      }
     });
   areaUnsubscribe = db.collection('areas').doc(String(currentAreaId)).onSnapshot(function(doc) {
     if(!doc.exists) return;
@@ -1027,23 +1035,50 @@ function startRealtimeSync() {
 
 function getHouseStatusKey(h) { return h && (h._key || h.addr); }
 function getSt(h) { return (statusData[currentAreaId]||{})[getHouseStatusKey(h)] || 'none'; }
+function refreshCurrentMapPinsPreserveViewport() {
+  var map = openSheetAreaId ? _csKakaoMap : _kakaoMap;
+  var mapDiv = document.getElementById(openSheetAreaId ? 'csKakaoMap' : 'kakaoMap');
+  if(!map || !mapDiv) return;
+
+  var center = map.getCenter ? map.getCenter() : null;
+  var level = map.getLevel ? map.getLevel() : null;
+
+  clearCsAddressPins();
+  var aId=Number(currentAreaId);
+  if(openSheetAreaId) {
+    var idx=Number.isInteger(window._csBlockIdx) ? window._csBlockIdx : -1;
+    if(idx === -1) {
+      (currentAreaData || []).forEach(function(b,i){
+        renderCsAddressPins(b,aId,map,i,false);
+      });
+    } else if((currentAreaData || [])[idx]) {
+      renderCsAddressPins((currentAreaData || [])[idx],aId,map,idx);
+    }
+    scheduleCsMapRelayout();
+  } else {
+    if(Number.isInteger(currentBlockIdx) && currentBlockIdx >= 0 && (currentAreaData || [])[currentBlockIdx]) {
+      renderCsAddressPins((currentAreaData || [])[currentBlockIdx],aId,map,currentBlockIdx);
+    } else {
+      (currentAreaData || []).forEach(function(b,i){
+        renderCsAddressPins(b,aId,map,i,false);
+      });
+    }
+    scheduleFieldMapRelayout();
+  }
+
+  if(center) map.setCenter(center);
+  if(Number.isFinite(Number(level))) map.setLevel(Number(level));
+}
+
 function refreshUnifiedAreaView() {
   var aId=String(currentAreaId || '');
   if(!aId) return;
   if(openSheetAreaId) {
     renderCsGrid(openSheetAreaId);
-    var idx=Number.isInteger(window._csBlockIdx) ? window._csBlockIdx : -1;
-    if(idx === -1) updateCsMapAll(currentAreaData || [], Number(aId));
-    else if((currentAreaData || [])[idx]) updateCsMap((currentAreaData || [])[idx], Number(aId));
-    scheduleCsMapRelayout();
+    refreshCurrentMapPinsPreserveViewport();
   } else {
     renderFieldBlocks(aId);
-    if(Number.isInteger(currentBlockIdx) && currentBlockIdx >= 0 && (currentAreaData || [])[currentBlockIdx]) {
-      updateMapForBlock((currentAreaData || [])[currentBlockIdx], Number(aId));
-    } else {
-      updateMapForAllBlocks(currentAreaData || [], Number(aId));
-    }
-    scheduleFieldMapRelayout();
+    refreshCurrentMapPinsPreserveViewport();
   }
 }
 
@@ -5040,20 +5075,7 @@ function updateCsMap(blk, areaId) {
       if(window._csKakaoMarkerOverlay) { window._csKakaoMarkerOverlay.setMap(null); }
       window._csKakaoMarkerOverlay = makePMarker(coords, _csKakaoMap);
       renderCsAddressPins(blk, areaId, _csKakaoMap, currentAreaData.indexOf(blk));
-      setTimeout(function(){
-        if(!_csKakaoMap) return;
-        _csKakaoMap.relayout();
-        _csKakaoMap.setCenter(coords);
-        _csKakaoMap.setLevel(3);
-        renderCsAddressPins(blk, areaId, _csKakaoMap, currentAreaData.indexOf(blk));
-      },180);
-      setTimeout(function(){
-        if(!_csKakaoMap) return;
-        _csKakaoMap.relayout();
-        _csKakaoMap.setCenter(coords);
-        _csKakaoMap.setLevel(3);
-        renderCsAddressPins(blk, areaId, _csKakaoMap, currentAreaData.indexOf(blk));
-      },650);
+      scheduleCsMapRelayout();
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
     }
@@ -5090,7 +5112,7 @@ function updateCsMap(blk, areaId) {
       _csKakaoMap.relayout();
     }
     renderCsAddressPins(blk, areaId, _csKakaoMap);
-    setTimeout(function(){ renderCsAddressPins(blk, areaId, _csKakaoMap); },120);
+    scheduleCsMapRelayout();
     ensureLocationOverlaysMap(_csKakaoMap);
     refreshMyLocation();
   }
