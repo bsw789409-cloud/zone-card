@@ -1025,7 +1025,12 @@ function startRealtimeSync() {
 
 function getHouseStatusKey(h) { return h && (h._key || h.addr); }
 function getSt(h) { return (statusData[currentAreaId]||{})[getHouseStatusKey(h)] || 'none'; }
-function setSt(h,st) { if(!statusData[currentAreaId]) statusData[currentAreaId]={}; statusData[currentAreaId][getHouseStatusKey(h)]=st; }
+function setSt(h,st) {
+  if(!statusData[currentAreaId]) statusData[currentAreaId]={};
+  statusData[currentAreaId][getHouseStatusKey(h)]=st;
+  if(openSheetAreaId) renderCsGrid(openSheetAreaId);
+  else if(currentAreaId) renderFieldBlocks(currentAreaId);
+}
 function findHouseByAddr(areaId, addr) {
   if(!addr) return null;
   var blocks = currentAreaId === String(areaId) ? currentAreaData : ((areas.find(function(a){return String(a.id)===String(areaId)})||{}).blocks || []);
@@ -4785,7 +4790,6 @@ function scheduleAreaCoordAutofill(areaId){
   if(_coordAutofillTimers[key]) clearTimeout(_coordAutofillTimers[key]);
   _coordAutofillTimers[key] = setTimeout(function(){
     delete _coordAutofillTimers[key];
-    // 다른 구역으로 이동한 뒤에는 당시 배열을 현재 배열로 오인해서 저장하지 않는다.
     if(String(currentAreaId || '') !== key) return;
     if(!Array.isArray(currentAreaData)) return;
     db.collection('areas').doc(key).update({
@@ -4795,9 +4799,27 @@ function scheduleAreaCoordAutofill(areaId){
     });
   }, 1500);
 }
+function persistHouseCoordsInCurrentArea(areaId, house, lat, lng){
+  var key=String(areaId||'');
+  if(!house || String(currentAreaId||'')!==key) return false;
+  var target=null, houseId=String(house.houseId||''), legacyKey=String(house._key||''), addr=String(house.addr||house.address||'').trim();
+  outer: for(var bi=0;bi<(currentAreaData||[]).length;bi++){
+    var hs=getBlockHouses(currentAreaData[bi])||[];
+    for(var hi=0;hi<hs.length;hi++){
+      var c=hs[hi];
+      if((houseId&&String(c.houseId||'')===houseId)||(legacyKey&&String(c._key||'')===legacyKey)||(!houseId&&!legacyKey&&addr&&String(c.addr||c.address||'').trim()===addr)){target=c;break outer;}
+    }
+  }
+  if(!target || getHouseCoord(target)) return false;
+  target.lat=Number(lat); target.lng=Number(lng); scheduleAreaCoordAutofill(key); return true;
+}
 
 function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
-  if(clearFirst !== false) clearCsAddressPins();
+  if(clearFirst !== false) {
+    clearCsAddressPins();
+    window._csPinRenderSeq=(window._csPinRenderSeq||0)+1;
+  }
+  var renderSeq=window._csPinRenderSeq||0;
   if(!blk || !map) return;
 
   var items=[], n=0;
@@ -4828,15 +4850,13 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
 
     function putPin(y,x,fromSearch){
       y=Number(y); x=Number(x);
-      if(!Number.isFinite(y)||!Number.isFinite(x) || pinPlaced) return;
+      if(!Number.isFinite(y)||!Number.isFinite(x)||pinPlaced||renderSeq!==(window._csPinRenderSeq||0)) return;
       pinPlaced=true;
       var o=makeCsNumberPin(y,x,label,visited,CS_BLOCK_COLORS[(Number(blockIndex)||0)%CS_BLOCK_COLORS.length]);
       o.setMap(map);
       _csAddressOverlays.push(o);
       if(fromSearch && h && !getHouseCoord(h)){
-        h.lat=y;
-        h.lng=x;
-        scheduleAreaCoordAutofill(areaId);
+        persistHouseCoordsInCurrentArea(areaId,h,y,x);
       }
     }
 
@@ -4854,14 +4874,14 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북 고창군 ' : '전북 부안군 ';
     var candidates=[];
     if(roadName && rawAddr.indexOf(roadName)===-1) candidates.push(roadName+' '+rawAddr);
+    if(region && areaName) candidates.push(region+areaName+(roadName?' '+roadName:'')+' '+rawAddr);
+    if(region && roadName) candidates.push(region+roadName+' '+rawAddr);
+    if(region) candidates.push(region+rawAddr);
     candidates.push(rawAddr);
-    if(region) {
-      candidates.push(region+(roadName && rawAddr.indexOf(roadName)===-1 ? roadName+' '+rawAddr : rawAddr));
-      if(roadName && areaName) candidates.push(region+areaName+' '+roadName+' '+rawAddr);
-    }
+    candidates=candidates.filter(function(q,i,a){return q&&a.indexOf(q)===i;});
 
     function tryAddress(idx){
-      if(pinPlaced || idx>=candidates.length) return;
+      if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)||idx>=candidates.length) return;
       var q=candidates[idx];
       getGeocoder().addressSearch(q,function(result,status){
         if(pinPlaced) return;
@@ -4874,7 +4894,7 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     }
 
     function tryKeyword(idx){
-      if(pinPlaced || idx>=candidates.length || !kakao.maps.services.Places) return;
+      if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)||idx>=candidates.length||!kakao.maps.services.Places) return;
       var q=candidates[idx];
       new kakao.maps.services.Places().keywordSearch(q,function(result,status){
         if(pinPlaced) return;
