@@ -562,8 +562,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <div id="csMapArea" style="width:100%;height:220px;background:#0f0a30;position:relative;flex-shrink:0">
       <div id="csKakaoMap" style="width:100%;height:100%"></div>
       <div id="csMapPh" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.2);font-size:14px">지도 준비 중</div>
-      <div id="csMapResizeHandle" style="position:absolute;left:0;right:0;bottom:0;height:20px;background:rgba(26,16,64,0.88);display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:10;user-select:none;touch-action:none">
-        <div style="width:38px;height:4px;border-radius:999px;background:rgba(255,255,255,0.35)"></div>
+      <div id="csMapResizeHandle" style="position:absolute;left:0;right:0;bottom:0;height:7px;background:rgba(26,16,64,0.55);display:flex;align-items:center;justify-content:center;cursor:ns-resize;z-index:10;user-select:none;touch-action:none">
+        <div style="width:28px;height:3px;border-radius:999px;background:rgba(255,255,255,0.45)"></div>
       </div>
     </div>
     <div id="csAssignTools" style="display:none;background:white;border-bottom:1px solid #eee;padding:10px 16px;gap:8px;flex-shrink:0"></div>
@@ -4475,7 +4475,10 @@ function setCsBlock(idx, dir) {
   renderCsGrid(openSheetAreaId || currentAreaId);
   setTimeout(function(){
     var b=(currentAreaData||[])[idx >= 0 ? idx : 0];
-    if(b && _csKakaoMap) renderCsAddressPins(b, Number(openSheetAreaId || currentAreaId), _csKakaoMap);
+    if(b && _csKakaoMap) {
+      renderCsAddressPins(b, Number(openSheetAreaId || currentAreaId), _csKakaoMap);
+      setTimeout(function(){ if(_csKakaoMap) renderCsAddressPins(b, Number(openSheetAreaId || currentAreaId), _csKakaoMap); },450);
+    }
   },180);
 }
 
@@ -4654,7 +4657,7 @@ function makeCsNumberPin(lat,lng,label,visited){
   el.style.cssText='width:28px;height:28px;border-radius:50%;background:'+(visited?'#16a34a':'#2563eb')+';border:3px solid white;box-shadow:0 2px 7px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:white;font-size:'+(visited?'15px':'12px')+';font-weight:900;';
   el.textContent=label;
   return new kakao.maps.CustomOverlay({
-    position:new kakao.maps.LatLng(lat,lng),content:el,yAnchor:.5,xAnchor:.5,zIndex:visited?21:20
+    position:new kakao.maps.LatLng(lat,lng),content:el,yAnchor:.5,xAnchor:.5,zIndex:visited?101:100
   });
 }
 
@@ -4734,6 +4737,7 @@ function updateCsMap(blk, areaId) {
       window._csKakaoMarkerOverlay = makePMarker(coords, _csKakaoMap);
       renderCsAddressPins(blk, areaId, _csKakaoMap);
       setTimeout(function(){ renderCsAddressPins(blk, areaId, _csKakaoMap); },120);
+      setTimeout(function(){ renderCsAddressPins(blk, areaId, _csKakaoMap); },450);
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
     }
