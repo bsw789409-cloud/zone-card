@@ -2159,14 +2159,9 @@ function updateMapForBlock(blk, areaId) {
   var mapDiv = document.getElementById('kakaoMap');
   var parkBtn = document.getElementById('parkingBtn');
 
-  // 주차 위치 없으면 다른 블럭에서 찾기
-  if(!parking) {
-    var blocks = currentAreaData || [];
-    for(var i = 0; i < blocks.length; i++) {
-      if(blocks[i].parking) { parking = blocks[i].parking; break; }
-    }
-  }
-
+  // 현재 블럭의 주차 위치만 사용한다.
+  // 다른 블럭의 주차 위치를 가져오면 2번/3번 블럭을 볼 때
+  // 1번 블럭의 P가 잘못 표시될 수 있다.
   if(parking) {
     var region = (areaId >= 1 && areaId <= 32) ? '전북 고창군 ' : '전북 부안군 ';
     window._currentParkingAddr = parking;
