@@ -4661,6 +4661,31 @@ function makeCsNumberPin(lat,lng,label,visited){
   });
 }
 
+function fitCsAddressPins(map, blk){
+  if(!map || !blk) return;
+  var points=[];
+  function addPoint(h){
+    if(!h) return;
+    var lat=Number(h.lat != null ? h.lat : (h.latitude != null ? h.latitude : h.y));
+    var lng=Number(h.lng != null ? h.lng : (h.longitude != null ? h.longitude : h.x));
+    if(Number.isFinite(lat)&&Number.isFinite(lng)) points.push(new kakao.maps.LatLng(lat,lng));
+  }
+  var topics=Array.isArray(blk.subTopics)?blk.subTopics:(Array.isArray(blk.subs)?blk.subs:[]);
+  if(topics.length){
+    topics.forEach(function(r){ (r&&Array.isArray(r.houses)?r.houses:[]).forEach(addPoint); });
+  }else if(Array.isArray(blk.houses)){
+    blk.houses.forEach(addPoint);
+  }
+  if(points.length===1){
+    map.setCenter(points[0]);
+    map.setLevel(4);
+  }else if(points.length>1){
+    var bounds=new kakao.maps.LatLngBounds();
+    points.forEach(function(p){bounds.extend(p);});
+    map.setBounds(bounds);
+  }
+}
+
 function renderCsAddressPins(blk, areaId, map){
   clearCsAddressPins();
   if(!blk || !map) return;
@@ -4788,8 +4813,16 @@ function updateCsMap(blk, areaId) {
       if(window._csKakaoMarkerOverlay) { window._csKakaoMarkerOverlay.setMap(null); }
       window._csKakaoMarkerOverlay = makePMarker(coords, _csKakaoMap);
       renderCsAddressPins(blk, areaId, _csKakaoMap);
-      setTimeout(function(){ renderCsAddressPins(blk, areaId, _csKakaoMap); },120);
-      setTimeout(function(){ renderCsAddressPins(blk, areaId, _csKakaoMap); },450);
+      setTimeout(function(){
+        if(!_csKakaoMap) return;
+        renderCsAddressPins(blk, areaId, _csKakaoMap);
+        fitCsAddressPins(_csKakaoMap, blk);
+      },180);
+      setTimeout(function(){
+        if(!_csKakaoMap) return;
+        renderCsAddressPins(blk, areaId, _csKakaoMap);
+        fitCsAddressPins(_csKakaoMap, blk);
+      },650);
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
     }
