@@ -1699,6 +1699,7 @@ async function markAreaServicePaused(areaId) {
     startDate: area.startDate || todayStr(),
     endDate: '',
     leader: '',
+    assignedLeaderName: '',
     servicePaused: true,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
@@ -2004,7 +2005,7 @@ async function smartExit() {
         // \uC9C4\uD589\uB960 0% = \uC544\uBB34\uAC83\uB3C4 \uD558\uC9C0 \uC54A\uC74C \u2192 \uBBF8\uBC30\uC815 \uC0C1\uD0DC\uB85C \uCD08\uAE30\uD654
         var areaToReset = areas.find(function(a){ return String(a.id) === String(currentAreaId); });
         if(areaToReset && (areaToReset.leader || areaToReset.startDate)) {
-          var resetUpdate = {leader:'', startDate:'', endDate:'', servicePaused:false, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+          var resetUpdate = {leader:'', assignedLeaderName:'', startDate:'', endDate:'', servicePaused:false, updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
           await db.collection('areas').doc(String(currentAreaId)).set(resetUpdate, {merge:true});
           Object.assign(areaToReset, resetUpdate);
           await removeAreaHistoryRound(currentAreaId, areaToReset.round || currentRound || 1);
@@ -2182,11 +2183,12 @@ function updateMapForAllBlocks(blocks, areaId) {
     _kakaoMap.relayout(); _kakaoMap.setCenter(center); _kakaoMap.setLevel(5);
   }
   clearCsAddressPins();
-  (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i);});
+  (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i,false);});
   setTimeout(function(){
     if(!_kakaoMap)return;
     _kakaoMap.relayout();
-    (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i);});
+    clearCsAddressPins();
+    (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i,false);});
   },250);
 }
 
@@ -4763,13 +4765,30 @@ function getParkingCoord(blk){
   return readCoordPair(blk.parkingLocation) || readCoordPair(blk.parkingCoords) || readCoordPair(blk.parkingPoint);
 }
 
-function renderCsAddressPins(blk, areaId, map, blockIndex){
-  clearCsAddressPins();
+// 옛날 구역의 주소를 처음 검색했을 때 찾은 좌표를 Firestore에 자동 저장한다.
+// 여러 집의 검색 결과가 거의 동시에 돌아오므로 1.5초 동안 모아서 한 번만 저장한다.
+var _coordAutofillTimers = {};
+function scheduleAreaCoordAutofill(areaId){
+  var key = String(areaId || '');
+  if(!key) return;
+  if(_coordAutofillTimers[key]) clearTimeout(_coordAutofillTimers[key]);
+  _coordAutofillTimers[key] = setTimeout(function(){
+    delete _coordAutofillTimers[key];
+    // 다른 구역으로 이동한 뒤에는 당시 배열을 현재 배열로 오인해서 저장하지 않는다.
+    if(String(currentAreaId || '') !== key) return;
+    if(!Array.isArray(currentAreaData)) return;
+    db.collection('areas').doc(key).update({
+      blocks: currentAreaData
+    }).catch(function(e){
+      console.warn('좌표 자동 저장 실패', key, e);
+    });
+  }, 1500);
+}
+
+function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
+  if(clearFirst !== false) clearCsAddressPins();
   if(!blk || !map) return;
 
-  // 도로명(subTopics)과 집 주소를 함께 유지한다.
-  // 예전 데이터는 집에는 번지만 있고 도로명이 부모에 들어있는 경우가 있어
-  // 주소 검색 시 "도로명 + 번지"를 사용한다.
   var items=[], n=0;
   var topics=Array.isArray(blk.subTopics)?blk.subTopics:(Array.isArray(blk.subs)?blk.subs:[]);
   if(topics.length){
@@ -4794,18 +4813,25 @@ function renderCsAddressPins(blk, areaId, map, blockIndex){
     var st=getStatusForArea(areaId,h);
     var visited=st && st!=='none';
     var label=visited?'✓':String(num);
+    var pinPlaced=false;
 
-    function putPin(y,x){
+    function putPin(y,x,fromSearch){
       y=Number(y); x=Number(x);
-      if(!Number.isFinite(y)||!Number.isFinite(x)) return;
+      if(!Number.isFinite(y)||!Number.isFinite(x) || pinPlaced) return;
+      pinPlaced=true;
       var o=makeCsNumberPin(y,x,label,visited,CS_BLOCK_COLORS[(Number(blockIndex)||0)%CS_BLOCK_COLORS.length]);
       o.setMap(map);
       _csAddressOverlays.push(o);
+      if(fromSearch && h && !getHouseCoord(h)){
+        h.lat=y;
+        h.lng=x;
+        scheduleAreaCoordAutofill(areaId);
+      }
     }
 
     var hc=getHouseCoord(h);
     if(hc){
-      putPin(hc.lat,hc.lng);
+      putPin(hc.lat,hc.lng,false);
       return;
     }
 
@@ -4824,11 +4850,12 @@ function renderCsAddressPins(blk, areaId, map, blockIndex){
     }
 
     function tryAddress(idx){
-      if(idx>=candidates.length) return;
+      if(pinPlaced || idx>=candidates.length) return;
       var q=candidates[idx];
       getGeocoder().addressSearch(q,function(result,status){
+        if(pinPlaced) return;
         if(status===kakao.maps.services.Status.OK && result && result[0]){
-          putPin(result[0].y,result[0].x);
+          putPin(result[0].y,result[0].x,true);
         }else{
           tryAddress(idx+1);
         }
@@ -4836,11 +4863,12 @@ function renderCsAddressPins(blk, areaId, map, blockIndex){
     }
 
     function tryKeyword(idx){
-      if(idx>=candidates.length || !kakao.maps.services.Places) return;
+      if(pinPlaced || idx>=candidates.length || !kakao.maps.services.Places) return;
       var q=candidates[idx];
       new kakao.maps.services.Places().keywordSearch(q,function(result,status){
+        if(pinPlaced) return;
         if(status===kakao.maps.services.Status.OK && result && result[0]){
-          putPin(result[0].y,result[0].x);
+          putPin(result[0].y,result[0].x,true);
         }else{
           tryKeyword(idx+1);
         }
@@ -4848,7 +4876,6 @@ function renderCsAddressPins(blk, areaId, map, blockIndex){
     }
 
     tryAddress(0);
-    // 주소 지오코더가 못 찾는 구주소/짧은 주소도 장소검색으로 한 번 더 시도한다.
     setTimeout(function(){ tryKeyword(0); },80);
   });
 }
@@ -4889,12 +4916,13 @@ function updateCsMapAll(blocks, areaId) {
   }
 
   (blocks||[]).forEach(function(b,i){
-    renderCsAddressPins(b,areaId,_csKakaoMap,i);
+    renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
   });
   setTimeout(function(){
     if(!_csKakaoMap) return;
     _csKakaoMap.relayout();
-    (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i); });
+    clearCsAddressPins();
+    (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i,false); });
   },250);
 }
 
@@ -4941,14 +4969,14 @@ function updateCsMap(blk, areaId) {
         _csKakaoMap.relayout();
         _csKakaoMap.setCenter(coords);
         _csKakaoMap.setLevel(3);
-        renderCsAddressPins(blk, areaId, _csKakaoMap);
+        renderCsAddressPins(blk, areaId, _csKakaoMap, currentAreaData.indexOf(blk));
       },180);
       setTimeout(function(){
         if(!_csKakaoMap) return;
         _csKakaoMap.relayout();
         _csKakaoMap.setCenter(coords);
         _csKakaoMap.setLevel(3);
-        renderCsAddressPins(blk, areaId, _csKakaoMap);
+        renderCsAddressPins(blk, areaId, _csKakaoMap, currentAreaData.indexOf(blk));
       },650);
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
