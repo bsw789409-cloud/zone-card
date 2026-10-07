@@ -4665,35 +4665,33 @@ function renderCsAddressPins(blk, areaId, map){
   clearCsAddressPins();
   if(!blk || !map) return;
 
-  // 블록 데이터가 예전 형식(subTopics) / 새 형식(houses) 어느 쪽이어도 핀을 만든다.
-  var items=[],n=0;
-  var houses=[];
-  if(typeof getBlockHouses==='function'){
-    houses=getBlockHouses(blk) || [];
-  }else{
-    var roads=Array.isArray(blk.subTopics)?blk.subTopics:[];
-    roads.forEach(function(r){
-      if(r && Array.isArray(r.houses)) houses=houses.concat(r.houses);
+  // 도로명(subTopics)과 집 주소를 함께 유지한다.
+  // 예전 데이터는 집에는 번지만 있고 도로명이 부모에 들어있는 경우가 있어
+  // 주소 검색 시 "도로명 + 번지"를 사용한다.
+  var items=[], n=0;
+  var topics=Array.isArray(blk.subTopics)?blk.subTopics:(Array.isArray(blk.subs)?blk.subs:[]);
+  if(topics.length){
+    topics.forEach(function(road){
+      var roadName=String((road&& (road.name||road.title)) || '').trim();
+      (road&&Array.isArray(road.houses)?road.houses:[]).forEach(function(h){
+        if(!h) return;
+        n++;
+        items.push({h:h,n:n,roadName:roadName});
+      });
     });
-    if(!houses.length && Array.isArray(blk.houses)) houses=blk.houses;
+  }else if(Array.isArray(blk.houses)){
+    blk.houses.forEach(function(h){
+      if(!h) return;
+      n++;
+      items.push({h:h,n:n,roadName:''});
+    });
   }
-  if(!Array.isArray(houses) || !houses.length) return;
-
-  houses.forEach(function(h){
-    if(!h) return;
-    n++;
-    items.push({h:h,n:n});
-  });
 
   items.forEach(function(item){
-    var h=item.h,n=item.n;
+    var h=item.h, num=item.n, roadName=item.roadName;
     var st=getStatusForArea(areaId,h);
     var visited=st && st!=='none';
-    var label=visited?'✓':String(n);
-
-    // 저장된 좌표 필드가 조금씩 달라도 모두 인식한다.
-    var lat=Number(h.lat != null ? h.lat : (h.latitude != null ? h.latitude : h.y));
-    var lng=Number(h.lng != null ? h.lng : (h.longitude != null ? h.longitude : h.x));
+    var label=visited?'✓':String(num);
 
     function putPin(y,x){
       y=Number(y); x=Number(x);
@@ -4703,31 +4701,54 @@ function renderCsAddressPins(blk, areaId, map){
       _csAddressOverlays.push(o);
     }
 
+    var lat=Number(h.lat != null ? h.lat : (h.latitude != null ? h.latitude : h.y));
+    var lng=Number(h.lng != null ? h.lng : (h.longitude != null ? h.longitude : h.x));
     if(Number.isFinite(lat)&&Number.isFinite(lng)){
       putPin(lat,lng);
       return;
     }
 
-    // 좌표가 없는 기존 주소도 다시 지오코딩한다.
-    var address=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
-    if(!address || !window.kakao || !kakao.maps || !kakao.maps.services) return;
+    var rawAddr=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
+    if(!rawAddr || !window.kakao || !kakao.maps || !kakao.maps.services) return;
 
-    getGeocoder().addressSearch(address,function(result,status){
-      if(status===kakao.maps.services.Status.OK && result && result[0]){
-        putPin(result[0].y,result[0].x);
-        return;
-      }
+    var area=areas.find(function(a){return String(a.id)===String(areaId);});
+    var areaName=area ? String(area.name||'') : '';
+    var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북 고창군 ' : '전북 부안군 ';
+    var candidates=[];
+    if(roadName && rawAddr.indexOf(roadName)===-1) candidates.push(roadName+' '+rawAddr);
+    candidates.push(rawAddr);
+    if(region) {
+      candidates.push(region+(roadName && rawAddr.indexOf(roadName)===-1 ? roadName+' '+rawAddr : rawAddr));
+      if(roadName && areaName) candidates.push(region+areaName+' '+roadName+' '+rawAddr);
+    }
 
-      // 짧은 주소가 검색되지 않는 경우 현재 구역 이름을 붙여 한 번 더 검색한다.
-      var area=areas.find(function(a){ return String(a.id)===String(areaId); });
-      var areaName=area ? String(area.name || area.address || '') : '';
-      var retry=areaName && address.indexOf(areaName)===-1 ? (areaName+' '+address) : '';
-      if(retry){
-        getGeocoder().addressSearch(retry,function(r2,s2){
-          if(s2===kakao.maps.services.Status.OK && r2 && r2[0]) putPin(r2[0].y,r2[0].x);
-        });
-      }
-    });
+    function tryAddress(idx){
+      if(idx>=candidates.length) return;
+      var q=candidates[idx];
+      getGeocoder().addressSearch(q,function(result,status){
+        if(status===kakao.maps.services.Status.OK && result && result[0]){
+          putPin(result[0].y,result[0].x);
+        }else{
+          tryAddress(idx+1);
+        }
+      });
+    }
+
+    function tryKeyword(idx){
+      if(idx>=candidates.length || !kakao.maps.services.Places) return;
+      var q=candidates[idx];
+      new kakao.maps.services.Places().keywordSearch(q,function(result,status){
+        if(status===kakao.maps.services.Status.OK && result && result[0]){
+          putPin(result[0].y,result[0].x);
+        }else{
+          tryKeyword(idx+1);
+        }
+      });
+    }
+
+    tryAddress(0);
+    // 주소 지오코더가 못 찾는 구주소/짧은 주소도 장소검색으로 한 번 더 시도한다.
+    setTimeout(function(){ tryKeyword(0); },80);
   });
 }
 function updateCsMap(blk, areaId) {
