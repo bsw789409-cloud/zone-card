@@ -923,7 +923,9 @@ async function loadAndOpenField(aId, fromLeader) {
       var localArea = areas.find(function(x){ return String(x.id) === String(aId); });
       if(localArea) Object.assign(localArea, resumeUpdate);
     }
-    openFieldScreen(area, fromLeader);
+    // 전도인과 인도자 모두 동일한 구역 카드/지도/방문상태 화면을 사용한다.
+    // 역할에 따라 배정 도구만 isLeaderCardSheet()에서 자동으로 숨김/표시한다.
+    await window.openCardSheet(String(aId));
   } catch(e) { showToast('오류가 발생했습니다'); }
 }
 
