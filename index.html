@@ -4391,13 +4391,26 @@ window.openCardSheet = async function(aId) {
     initCsBlockTabs(liveCardArea, false);
     renderCsAssignTools(aId);
     renderCsGrid(aId);
+    // 카드 시트가 완전히 열린 뒤 다시 지도 크기/주차 중심을 확정한다.
+    // 지도 애니메이션 중 계산된 중심이 남는 문제를 막는다.
     setTimeout(function(){
-      if(openSheetAreaId && String(openSheetAreaId) === String(aId) && _csKakaoMap){
-        _csKakaoMap.relayout();
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)){
         var b = (currentAreaData || [])[window._csBlockIdx >= 0 ? window._csBlockIdx : 0];
-        if(b) renderCsAddressPins(b, Number(aId), _csKakaoMap);
+        if(b){
+          updateCsMap(b, Number(aId));
+          if(_csKakaoMap) _csKakaoMap.relayout();
+        }
       }
-    }, 300);
+    }, 350);
+    setTimeout(function(){
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)){
+        var b2 = (currentAreaData || [])[window._csBlockIdx >= 0 ? window._csBlockIdx : 0];
+        if(b2){
+          updateCsMap(b2, Number(aId));
+          if(_csKakaoMap) _csKakaoMap.relayout();
+        }
+      }
+    }, 900);
     if(syncUnsubscribe) syncUnsubscribe();
     syncUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
       if(!openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
@@ -4815,13 +4828,17 @@ function updateCsMap(blk, areaId) {
       renderCsAddressPins(blk, areaId, _csKakaoMap);
       setTimeout(function(){
         if(!_csKakaoMap) return;
+        _csKakaoMap.relayout();
+        _csKakaoMap.setCenter(coords);
+        _csKakaoMap.setLevel(3);
         renderCsAddressPins(blk, areaId, _csKakaoMap);
-        fitCsAddressPins(_csKakaoMap, blk);
       },180);
       setTimeout(function(){
         if(!_csKakaoMap) return;
+        _csKakaoMap.relayout();
+        _csKakaoMap.setCenter(coords);
+        _csKakaoMap.setLevel(3);
         renderCsAddressPins(blk, areaId, _csKakaoMap);
-        fitCsAddressPins(_csKakaoMap, blk);
       },650);
       ensureLocationOverlaysMap(_csKakaoMap);
       refreshMyLocation();
