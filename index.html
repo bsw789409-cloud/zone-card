@@ -930,13 +930,7 @@ function openFieldScreen(area, fromLeader) {
   // 먼저 전도인 화면을 표시한 뒤 지도/블럭을 초기화한다.
   showScreen('field');
   initBlockTabs(area);
-  setTimeout(function(){
-    if(_kakaoMap){
-      _kakaoMap.relayout();
-      if(currentBlockIdx === -1) updateMapForAllBlocks(currentAreaData, Number(currentAreaId));
-      else updateMapForBlock(currentAreaData[currentBlockIdx], Number(currentAreaId));
-    }
-  }, 120);
+  scheduleFieldMapRelayout();
   setTimeout(function() { startLocationSharing(); }, 800);
   loadVisitRecords(currentAreaId);
 
@@ -2149,6 +2143,19 @@ function initBlockTabs(area, preserveState) {
 var _kakaoMap = null;
 var _kakaoMarker = null;
 var _kakaoMarkerOverlay = null;
+var _fieldMapRelayoutTimers = [];
+
+function scheduleFieldMapRelayout() {
+  _fieldMapRelayoutTimers.forEach(function(t){ clearTimeout(t); });
+  _fieldMapRelayoutTimers = [];
+  [0, 80, 180, 350, 700, 1200].forEach(function(ms){
+    _fieldMapRelayoutTimers.push(setTimeout(function(){
+      var mapDiv=document.getElementById('kakaoMap');
+      if(mapDiv) mapDiv.style.display='block';
+      if(_kakaoMap) _kakaoMap.relayout();
+    }, ms));
+  });
+}
 
 function makePMarker(coords, map) {
   var content = '<div style="' +
@@ -2198,6 +2205,7 @@ function updateMapForAllBlocks(blocks, areaId) {
   }else{
     _kakaoMap.relayout(); _kakaoMap.setCenter(center); _kakaoMap.setLevel(5);
   }
+  scheduleFieldMapRelayout();
   clearCsAddressPins();
   (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i,false);});
   setTimeout(function(){
@@ -2266,6 +2274,7 @@ function updateMapForBlock(blk, areaId) {
       _kakaoMap.setLevel(7);
       _kakaoMap.relayout();
     }
+    scheduleFieldMapRelayout();
     clearCsAddressPins();
     renderCsAddressPins(blk, areaId, _kakaoMap, currentAreaData.indexOf(blk));
     ensureLocationOverlaysMap(_kakaoMap);
@@ -4546,13 +4555,7 @@ function setCsBlock(idx, dir) {
   if(idx === -1) updateCsMapAll(blocks, Number(openSheetAreaId || currentAreaId));
   else updateCsMap(blocks[idx], Number(openSheetAreaId || currentAreaId));
   renderCsGrid(openSheetAreaId || currentAreaId);
-  setTimeout(function(){
-    var b=(currentAreaData||[])[idx >= 0 ? idx : 0];
-    if(b && _csKakaoMap) {
-      renderCsAddressPins(b, Number(openSheetAreaId || currentAreaId), _csKakaoMap, blocks.indexOf(b));
-      setTimeout(function(){ if(_csKakaoMap) renderCsAddressPins(b, Number(openSheetAreaId || currentAreaId), _csKakaoMap); },450);
-    }
-  },180);
+  scheduleCsMapRelayout();
 }
 
 function attachCsSwipe() {
@@ -4910,6 +4913,16 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     setTimeout(function(){ tryKeyword(0); },80);
   });
 }
+function scheduleCsMapRelayout() {
+  [0, 80, 180, 350, 700, 1200].forEach(function(ms){
+    setTimeout(function(){
+      var mapDiv=document.getElementById('csKakaoMap');
+      if(mapDiv) mapDiv.style.display='block';
+      if(_csKakaoMap) _csKakaoMap.relayout();
+    }, ms);
+  });
+}
+
 function updateCsMapAll(blocks, areaId) {
   var ph = document.getElementById('csMapPh');
   var mapDiv = document.getElementById('csKakaoMap');
@@ -4949,12 +4962,12 @@ function updateCsMapAll(blocks, areaId) {
   (blocks||[]).forEach(function(b,i){
     renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
   });
+  scheduleCsMapRelayout();
   setTimeout(function(){
     if(!_csKakaoMap) return;
-    _csKakaoMap.relayout();
     clearCsAddressPins();
     (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i,false); });
-  },250);
+  },700);
 }
 
 function updateCsMap(blk, areaId) {
