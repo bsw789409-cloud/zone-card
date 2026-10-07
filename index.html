@@ -78,6 +78,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 #mapWrap,
 .map-wrap {
   touch-action: auto;
+  overflow: hidden;
+}
+#kakaoMap,
+#csKakaoMap {
+  width:100% !important;
+  height:100% !important;
+  min-width:1px;
+  min-height:1px;
+  display:block;
 }
 
 /* 전도인 카드 지도/주소 비율 조절 바 크기 축소 */
@@ -991,10 +1000,7 @@ function startRealtimeSync() {
           }
         }
       });
-      if(changed) {
-        if(openSheetAreaId) renderCsGrid(openSheetAreaId);
-        else renderFieldBlocks(currentAreaId);
-      }
+      if(changed) refreshUnifiedAreaView();
     });
   areaUnsubscribe = db.collection('areas').doc(String(currentAreaId)).onSnapshot(function(doc) {
     if(!doc.exists) return;
@@ -1010,20 +1016,39 @@ function startRealtimeSync() {
     initBlockTabs({id: currentAreaId, blocks: currentAreaData}, true);
     if(openSheetAreaId) {
       initCsBlockTabs({id: currentAreaId, blocks: currentAreaData}, true);
-      renderCsGrid(currentAreaId);
+      refreshUnifiedAreaView();
     } else {
-      renderFieldBlocks(currentAreaId);
+      refreshUnifiedAreaView();
     }
   });
 }
 
 function getHouseStatusKey(h) { return h && (h._key || h.addr); }
 function getSt(h) { return (statusData[currentAreaId]||{})[getHouseStatusKey(h)] || 'none'; }
+function refreshUnifiedAreaView() {
+  var aId=String(currentAreaId || '');
+  if(!aId) return;
+  if(openSheetAreaId) {
+    renderCsGrid(openSheetAreaId);
+    var idx=Number.isInteger(window._csBlockIdx) ? window._csBlockIdx : -1;
+    if(idx === -1) updateCsMapAll(currentAreaData || [], Number(aId));
+    else if((currentAreaData || [])[idx]) updateCsMap((currentAreaData || [])[idx], Number(aId));
+    scheduleCsMapRelayout();
+  } else {
+    renderFieldBlocks(aId);
+    if(Number.isInteger(currentBlockIdx) && currentBlockIdx >= 0 && (currentAreaData || [])[currentBlockIdx]) {
+      updateMapForBlock((currentAreaData || [])[currentBlockIdx], Number(aId));
+    } else {
+      updateMapForAllBlocks(currentAreaData || [], Number(aId));
+    }
+    scheduleFieldMapRelayout();
+  }
+}
+
 function setSt(h,st) {
   if(!statusData[currentAreaId]) statusData[currentAreaId]={};
   statusData[currentAreaId][getHouseStatusKey(h)]=st;
-  if(openSheetAreaId) renderCsGrid(openSheetAreaId);
-  else if(currentAreaId) renderFieldBlocks(currentAreaId);
+  refreshUnifiedAreaView();
 }
 function findHouseByAddr(areaId, addr) {
   if(!addr) return null;
@@ -2145,14 +2170,42 @@ var _kakaoMarker = null;
 var _kakaoMarkerOverlay = null;
 var _fieldMapRelayoutTimers = [];
 
+function getMapSize(mapDiv) {
+  if(!mapDiv) return {width:0,height:0};
+  var r=mapDiv.getBoundingClientRect();
+  return {width:r.width || 0,height:r.height || 0};
+}
+
+function whenMapContainerReady(mapDiv, callback, tries) {
+  tries = Number.isFinite(tries) ? tries : 60;
+  if(!mapDiv) return;
+  mapDiv.style.display='block';
+  var size=getMapSize(mapDiv);
+  if(size.width > 20 && size.height > 20) {
+    callback();
+    return;
+  }
+  if(tries <= 0) return;
+  requestAnimationFrame(function(){
+    whenMapContainerReady(mapDiv, callback, tries - 1);
+  });
+}
+
+function relayoutMapWhenReady(map, mapDiv) {
+  if(!map || !mapDiv) return;
+  whenMapContainerReady(mapDiv, function(){
+    try { map.relayout(); } catch(e) {}
+  });
+}
+
 function scheduleFieldMapRelayout() {
   _fieldMapRelayoutTimers.forEach(function(t){ clearTimeout(t); });
   _fieldMapRelayoutTimers = [];
-  [0, 80, 180, 350, 700, 1200].forEach(function(ms){
+  [0, 50, 120, 250, 500, 900, 1500].forEach(function(ms){
     _fieldMapRelayoutTimers.push(setTimeout(function(){
       var mapDiv=document.getElementById('kakaoMap');
-      if(mapDiv) mapDiv.style.display='block';
-      if(_kakaoMap) _kakaoMap.relayout();
+      if(!mapDiv || !_kakaoMap) return;
+      relayoutMapWhenReady(_kakaoMap,mapDiv);
     }, ms));
   });
 }
@@ -2180,12 +2233,28 @@ function getGeocoder() {
   return _geocoder;
 }
 
+function ensureFieldMap(center, level) {
+  var mapDiv=document.getElementById('kakaoMap');
+  if(!mapDiv) return false;
+  mapDiv.style.display='block';
+  if(!_kakaoMap) {
+    _kakaoMap=new kakao.maps.Map(mapDiv,{center:center,level:level});
+    _kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+  } else {
+    _kakaoMap.setCenter(center);
+    _kakaoMap.setLevel(level);
+  }
+  relayoutMapWhenReady(_kakaoMap,mapDiv);
+  return true;
+}
+
 function updateMapForAllBlocks(blocks, areaId) {
   var mapPh=document.getElementById('mapPh');
   var mapDiv=document.getElementById('kakaoMap');
   var parkBtn=document.getElementById('parkingBtn');
+  if(!mapDiv) return;
   if(mapPh) mapPh.style.display='none';
-  if(mapDiv) mapDiv.style.display='block';
+  mapDiv.style.display='block';
   if(parkBtn) parkBtn.style.display='none';
   if(_kakaoMarkerOverlay){ _kakaoMarkerOverlay.setMap(null); _kakaoMarkerOverlay=null; }
 
@@ -2199,21 +2268,62 @@ function updateMapForAllBlocks(blocks, areaId) {
     });
   });
   if(!center) center=new kakao.maps.LatLng(35.5050,126.7280);
-  if(!_kakaoMap){
-    _kakaoMap=new kakao.maps.Map(mapDiv,{center:center,level:5});
-    _kakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
-  }else{
-    _kakaoMap.relayout(); _kakaoMap.setCenter(center); _kakaoMap.setLevel(5);
-  }
-  scheduleFieldMapRelayout();
+
+  ensureFieldMap(center,5);
   clearCsAddressPins();
   (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i,false);});
-  setTimeout(function(){
-    if(!_kakaoMap)return;
-    _kakaoMap.relayout();
+  scheduleFieldMapRelayout();
+}
+
+function updateMapForBlock(blk, areaId) {
+  if(!blk) return;
+  var parking = blk.parking || '';
+  var mapPh = document.getElementById('mapPh');
+  var mapDiv = document.getElementById('kakaoMap');
+  var parkBtn = document.getElementById('parkingBtn');
+  if(!mapDiv) return;
+
+  if(parking) {
+    var region = (areaId >= 1 && areaId <= 32) ? '전북 고창군 ' : '전북 부안군 ';
+    window._currentParkingAddr = parking;
+    window._currentAreaId = areaId;
+    if(mapPh) mapPh.style.display = 'none';
+    mapDiv.style.display = 'block';
+    if(parkBtn) parkBtn.style.display = 'block';
+    getGeocoder().addressSearch(region + parking, function(result, status) {
+      var coords;
+      if(status === kakao.maps.services.Status.OK) {
+        coords = new kakao.maps.LatLng(result[0].y, result[0].x);
+      } else {
+        coords = (areaId >= 1 && areaId <= 32)
+          ? new kakao.maps.LatLng(35.5487, 126.7216)
+          : new kakao.maps.LatLng(35.5050, 126.7280);
+      }
+      ensureFieldMap(coords,3);
+      if(_kakaoMarker) { _kakaoMarker.setMap(null); _kakaoMarker = null; }
+      if(_kakaoMarkerOverlay) { _kakaoMarkerOverlay.setMap(null); _kakaoMarkerOverlay = null; }
+      _kakaoMarkerOverlay = makePMarker(coords, _kakaoMap);
+      clearCsAddressPins();
+      renderCsAddressPins(blk, areaId, _kakaoMap, currentAreaData.indexOf(blk));
+      ensureLocationOverlaysMap(_kakaoMap);
+      refreshMyLocation();
+      scheduleFieldMapRelayout();
+    });
+  } else {
+    window._currentParkingAddr = '';
+    if(parkBtn) parkBtn.style.display = 'none';
+    if(mapPh) mapPh.style.display = 'none';
+    mapDiv.style.display = 'block';
+    var center = (areaId >= 1 && areaId <= 32)
+      ? new kakao.maps.LatLng(35.5487,126.7216)
+      : new kakao.maps.LatLng(35.5050,126.7280);
+    ensureFieldMap(center,7);
     clearCsAddressPins();
-    (blocks||[]).forEach(function(b,i){renderCsAddressPins(b,areaId,_kakaoMap,i,false);});
-  },250);
+    renderCsAddressPins(blk,areaId,_kakaoMap,currentAreaData.indexOf(blk));
+    ensureLocationOverlaysMap(_kakaoMap);
+    refreshMyLocation();
+    scheduleFieldMapRelayout();
+  }
 }
 
 function updateMapForBlock(blk, areaId) {
@@ -4455,30 +4565,15 @@ window.openCardSheet = async function(aId) {
     initCsBlockTabs(liveCardArea, false);
     renderCsAssignTools(aId);
     renderCsGrid(aId);
-    // 카드 시트가 완전히 열린 뒤 다시 지도 크기/주차 중심을 확정한다.
-    // 지도 애니메이션 중 계산된 중심이 남는 문제를 막는다.
+    // 카드 시트 애니메이션이 끝난 뒤에도 동일한 공통 지도 엔진으로 갱신한다.
+    // 지도 컨테이너가 실제 크기를 가진 순간에만 relayout한다.
+    scheduleCsMapRelayout();
     setTimeout(function(){
-      if(openSheetAreaId && String(openSheetAreaId) === String(aId)){
-        if(window._csBlockIdx === -1){
-          updateCsMapAll(currentAreaData || [], Number(aId));
-        }else{
-          var b = (currentAreaData || [])[window._csBlockIdx];
-          if(b) updateCsMap(b, Number(aId));
-        }
-        if(_csKakaoMap) _csKakaoMap.relayout();
-      }
-    }, 350);
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) refreshUnifiedAreaView();
+    }, 400);
     setTimeout(function(){
-      if(openSheetAreaId && String(openSheetAreaId) === String(aId)){
-        if(window._csBlockIdx === -1){
-          updateCsMapAll(currentAreaData || [], Number(aId));
-        }else{
-          var b2 = (currentAreaData || [])[window._csBlockIdx];
-          if(b2) updateCsMap(b2, Number(aId));
-        }
-        if(_csKakaoMap) _csKakaoMap.relayout();
-      }
-    }, 900);
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) refreshUnifiedAreaView();
+    }, 1000);
     if(syncUnsubscribe) syncUnsubscribe();
     syncUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
       if(!openSheetAreaId || String(openSheetAreaId) !== String(aId)) return;
@@ -4914,11 +5009,11 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
   });
 }
 function scheduleCsMapRelayout() {
-  [0, 80, 180, 350, 700, 1200].forEach(function(ms){
+  [0, 50, 120, 250, 500, 900, 1500].forEach(function(ms){
     setTimeout(function(){
       var mapDiv=document.getElementById('csKakaoMap');
-      if(mapDiv) mapDiv.style.display='block';
-      if(_csKakaoMap) _csKakaoMap.relayout();
+      if(!mapDiv || !_csKakaoMap) return;
+      relayoutMapWhenReady(_csKakaoMap,mapDiv);
     }, ms);
   });
 }
@@ -4965,9 +5060,10 @@ function updateCsMapAll(blocks, areaId) {
   scheduleCsMapRelayout();
   setTimeout(function(){
     if(!_csKakaoMap) return;
+    relayoutMapWhenReady(_csKakaoMap,mapDiv);
     clearCsAddressPins();
     (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i,false); });
-  },700);
+  },900);
 }
 
 function updateCsMap(blk, areaId) {
