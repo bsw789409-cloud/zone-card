@@ -925,7 +925,18 @@ function openFieldScreen(area, fromLeader) {
   document.getElementById('fieldUserPill').textContent = currentUser;
   document.getElementById('fieldBackBtn').style.display = fromLeader ? 'block' : 'none';
 
+  // Kakao 지도는 부모 화면이 display:none인 상태에서 생성하면
+  // 실제 크기를 0으로 계산해 빈 지도로 남을 수 있다.
+  // 먼저 전도인 화면을 표시한 뒤 지도/블럭을 초기화한다.
+  showScreen('field');
   initBlockTabs(area);
+  setTimeout(function(){
+    if(_kakaoMap){
+      _kakaoMap.relayout();
+      if(currentBlockIdx === -1) updateMapForAllBlocks(currentAreaData, Number(currentAreaId));
+      else updateMapForBlock(currentAreaData[currentBlockIdx], Number(currentAreaId));
+    }
+  }, 120);
   setTimeout(function() { startLocationSharing(); }, 800);
   loadVisitRecords(currentAreaId);
 
