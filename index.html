@@ -4679,9 +4679,8 @@ function fitCsAddressPins(map, blk){
   var points=[];
   function addPoint(h){
     if(!h) return;
-    var lat=Number(h.lat != null ? h.lat : (h.latitude != null ? h.latitude : h.y));
-    var lng=Number(h.lng != null ? h.lng : (h.longitude != null ? h.longitude : h.x));
-    if(Number.isFinite(lat)&&Number.isFinite(lng)) points.push(new kakao.maps.LatLng(lat,lng));
+    var hc=getHouseCoord(h);
+    if(hc) points.push(new kakao.maps.LatLng(hc.lat,hc.lng));
   }
   var topics=Array.isArray(blk.subTopics)?blk.subTopics:(Array.isArray(blk.subs)?blk.subs:[]);
   if(topics.length){
@@ -4697,6 +4696,28 @@ function fitCsAddressPins(map, blk){
     points.forEach(function(p){bounds.extend(p);});
     map.setBounds(bounds);
   }
+}
+
+function readCoordPair(obj){
+  if(!obj || typeof obj!=='object') return null;
+  var lat=obj.lat!=null?obj.lat:(obj.latitude!=null?obj.latitude:(obj.y!=null?obj.y:null));
+  var lng=obj.lng!=null?obj.lng:(obj.longitude!=null?obj.longitude:(obj.x!=null?obj.x:null));
+  if(lat==null && obj.coords) return readCoordPair(obj.coords);
+  if(lat==null && obj.coordinate) return readCoordPair(obj.coordinate);
+  if(lat==null && obj.location) return readCoordPair(obj.location);
+  lat=Number(lat); lng=Number(lng);
+  return Number.isFinite(lat)&&Number.isFinite(lng)?{lat:lat,lng:lng}:null;
+}
+
+function getHouseCoord(h){
+  return readCoordPair(h) || readCoordPair(h&&h.coords) || readCoordPair(h&&h.location);
+}
+
+function getParkingCoord(blk){
+  if(!blk) return null;
+  var p=readCoordPair({lat:blk.parkingLat,lng:blk.parkingLng});
+  if(p) return p;
+  return readCoordPair(blk.parkingLocation) || readCoordPair(blk.parkingCoords) || readCoordPair(blk.parkingPoint);
 }
 
 function renderCsAddressPins(blk, areaId, map){
@@ -4739,10 +4760,9 @@ function renderCsAddressPins(blk, areaId, map){
       _csAddressOverlays.push(o);
     }
 
-    var lat=Number(h.lat != null ? h.lat : (h.latitude != null ? h.latitude : h.y));
-    var lng=Number(h.lng != null ? h.lng : (h.longitude != null ? h.longitude : h.x));
-    if(Number.isFinite(lat)&&Number.isFinite(lng)){
-      putPin(lat,lng);
+    var hc=getHouseCoord(h);
+    if(hc){
+      putPin(hc.lat,hc.lng);
       return;
     }
 
@@ -4804,8 +4824,9 @@ function updateCsMap(blk, areaId) {
     if(parkBtn) parkBtn.style.display = 'block';
 
     var directCoords = null;
-    if(blk && Number.isFinite(Number(blk.parkingLat)) && Number.isFinite(Number(blk.parkingLng))) {
-      directCoords = new kakao.maps.LatLng(Number(blk.parkingLat), Number(blk.parkingLng));
+    var parkingCoord=getParkingCoord(blk);
+    if(parkingCoord) {
+      directCoords = new kakao.maps.LatLng(parkingCoord.lat, parkingCoord.lng);
     }
 
     function applyMap(coords) {
