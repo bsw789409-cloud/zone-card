@@ -6,7 +6,7 @@
 <title>봉사 날짜 기록</title>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;background:#f0f4f0;color:#1a1a1a;min-height:100vh;overflow-x:hidden}
@@ -159,46 +159,148 @@ function closeSheet(){
   document.getElementById('sheetOverlay').style.display='none';
   document.getElementById('bottomSheet').style.display='none';
 }
-function exportExcel(){
-  var data=getFiltered(),today=new Date().toISOString().slice(0,10);
-  data.forEach(function(a){a.rounds=cleanRounds(a.rounds)});
-  var wb=XLSX.utils.book_new();
-  for(var start=0;start<data.length;start+=5){
-    var chunk=data.slice(start,start+5);
-    var max=Math.max.apply(null,chunk.map(function(a){return Math.max(1,a.rounds.length)}));
-    var rows=[];
-    rows.push(chunk.map(function(a){
-      var parts=[a.number||''];
-      if(a.type) parts.push(a.type);
-      parts.push(a.name||'');
-      return parts.join(' ');
-    }));
-    for(var r=0;r<max;r++){
-      rows.push(chunk.map(function(a){return (a.rounds[r]||{}).leader||''}));
-      rows.push(chunk.map(function(a){
-        var x=a.rounds[r]||{};
-        var s=dateShort(x.startDate),e=dateShort(x.endDate);
-        if(!s&&!e) return '';
-        return s+(e?'~'+e:'');
-      }));
-    }
-    var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=chunk.map(function(){return {wch:18}});
-    Object.keys(ws).forEach(function(addr){
-      if(addr[0]==='!') return;
-      var rowIdx=parseInt(addr.replace(/[A-Z]+/g,''))-1;
-      var isHeader=rowIdx===0;
-      ws[addr].s={
-        alignment:{horizontal:'center',vertical:'center',wrapText:true},
-        fill:{fgColor:{rgb:isHeader?'C8DFC8':'EEF7EE'}},
-        font:isHeader?{bold:true}:undefined,
-        border:{top:{style:'thin',color:{rgb:'A8C8A8'}},bottom:{style:'thin',color:{rgb:'A8C8A8'}},left:{style:'thin',color:{rgb:'A8C8A8'}},right:{style:'thin',color:{rgb:'A8C8A8'}}}
-      };
-    });
-    var name=String(chunk[0].number||'')+'~'+String(chunk[chunk.length-1].number||'');
-    XLSX.utils.book_append_sheet(wb,ws,name.substring(0,31)||'records');
+async function exportExcel(){
+  var data=getFiltered().slice().sort(byNum);
+  var today=new Date().toISOString().slice(0,10);
+  if(!data.length){alert('내보낼 구역 기록이 없습니다.');return;}
+
+  data.forEach(function(a){a.rounds=cleanRounds(a.rounds||[]);});
+
+  // 모든 시트가 같은 전체 기록 칸 수를 사용한다.
+  var maxHistory=0;
+  data.forEach(function(a){maxHistory=Math.max(maxHistory,a.rounds.length);});
+  var totalRecordCols=Math.max(3,maxHistory);
+  var oldCols=Math.max(0,totalRecordCols-3);
+  var lastCol=2+totalRecordCols;
+  var lastColLetter=(function(n){
+    var out='';
+    while(n){var r=(n-1)%26;out=String.fromCharCode(65+r)+out;n=Math.floor((n-1)/26);}
+    return out;
+  })(lastCol);
+
+  function colLetter(n){
+    var out='';
+    while(n){var r=(n-1)%26;out=String.fromCharCode(65+r)+out;n=Math.floor((n-1)/26);}
+    return out;
   }
-  XLSX.writeFile(wb,'territory_records_'+today+'.xlsx');
+  function cellAddr(row,col){return colLetter(col)+row;}
+  function setCell(ws,row,col,value){
+    ws.getCell(row,col).value=value==null?'':value;
+  }
+  function dateText(r){
+    if(!r)return '';
+    var s=dateShort(r.startDate), e=dateShort(r.endDate);
+    if(!s&&!e)return '';
+    return s+(e?'~'+e:'');
+  }
+  function styleSheet(ws){
+    ws.getRow(1).height=22;
+    ws.getRow(2).height=22;
+    ws.getColumn(1).width=8;
+    ws.getColumn(2).width=22;
+    for(var c=3;c<=lastCol;c++) ws.getColumn(c).width=14;
+
+    // 머리글
+    ws.mergeCells('A1:B1');
+    setCell(ws,1,1,'구역');
+    if(oldCols>0) ws.mergeCells(cellAddr(2,3)+':'+cellAddr(2,2+oldCols));
+    if(oldCols>0) setCell(ws,2,3,'이전 기록');
+    setCell(ws,2,1,'번호');
+    setCell(ws,2,2,'구역이름');
+    setCell(ws,2,lastCol-2,'최근-2');
+    setCell(ws,2,lastCol-1,'최근-1');
+    setCell(ws,2,lastCol,'최근');
+
+    var headerFill={type:'pattern',pattern:'solid',fgColor:{argb:'FFD9EAD9'}};
+    var border={top:{style:'thin',color:{argb:'FFB7CDB7'}},bottom:{style:'thin',color:{argb:'FFB7CDB7'}},left:{style:'thin',color:{argb:'FFB7CDB7'}},right:{style:'thin',color:{argb:'FFB7CDB7'}}};
+    ws.getRow(1).eachCell({includeEmpty:true},function(cell){
+      cell.fill=headerFill;cell.font={bold:true};cell.alignment={horizontal:'center',vertical:'middle'};cell.border=border;
+    });
+    ws.getRow(2).eachCell({includeEmpty:true},function(cell){
+      cell.fill=headerFill;cell.font={bold:true};cell.alignment={horizontal:'center',vertical:'middle'};cell.border=border;
+    });
+
+    // 이전 기록 열은 기본 접힘 상태. +/- 버튼으로 펼칠 수 있다.
+    for(var c=3;c<=2+oldCols;c++){
+      var col=ws.getColumn(c);
+      col.outlineLevel=1;
+      col.hidden=true;
+    }
+    ws.views=[{state:'frozen',xSplit:2,ySplit:2,topLeftCell:'C3'}];
+    ws.autoFilter={from:'A2',to:lastColLetter+'2'};
+  }
+
+  function addAreaRows(ws,a,rowIndex,indexInGroup){
+    var r1=rowIndex,r2=rowIndex+1;
+    ws.mergeCells('A'+r1+':A'+r2);
+    ws.mergeCells('B'+r1+':B'+r2);
+    setCell(ws,r1,1,a.number);
+    setCell(ws,r1,2,a.name||'');
+    var nameCell=ws.getCell(r1,2);
+    nameCell.alignment={horizontal:'center',vertical:'middle',shrinkToFit:true};
+    ws.getCell(r1,1).alignment={horizontal:'center',vertical:'middle'};
+    var records=a.rounds||[];
+    // 가장 최근 기록 3개는 오른쪽 끝에 고정.
+    var firstCol=3+(totalRecordCols-Math.min(records.length,totalRecordCols));
+    records.slice(-totalRecordCols).forEach(function(rec,i){
+      var c=firstCol+i;
+      setCell(ws,r1,c,rec.leader||'');
+      setCell(ws,r2,c,dateText(rec));
+      ws.getCell(r1,c).alignment={horizontal:'center',vertical:'middle',wrapText:true};
+      ws.getCell(r2,c).alignment={horizontal:'center',vertical:'middle',wrapText:true};
+    });
+
+    var stripe=(indexInGroup%2===0);
+    for(var c=1;c<=lastCol;c++){
+      [r1,r2].forEach(function(rr){
+        var cell=ws.getCell(rr,c);
+        cell.border={top:{style:'thin',color:{argb:'FFE1EAE1'}},bottom:{style:'thin',color:{argb:'FFE1EAE1'}},left:{style:'thin',color:{argb:'FFE1EAE1'}},right:{style:'thin',color:{argb:'FFE1EAE1'}}};
+        if(stripe) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F8F2'}};
+      });
+    }
+    ws.getRow(r1).height=22;ws.getRow(r2).height=22;
+  }
+
+  function buildSheet(name,rows,groupEvery50){
+    var ws=wb.addWorksheet(name);
+    styleSheet(ws);
+    var row=3;
+    rows.forEach(function(a,i){
+      addAreaRows(ws,a,row,i%2);
+      row+=2;
+    });
+
+    // 전체보기는 50개 구역 단위로 행 접기 그룹을 만든다.
+    if(groupEvery50){
+      for(var start=0;start<rows.length;start+=50){
+        var from=3+start*2;
+        var to=Math.min(3+(start+50)*2-1, row-1);
+        for(var rr=from;rr<=to;rr++) ws.getRow(rr).outlineLevel=1;
+      }
+      ws.properties.outlineLevelRow=1;
+    }
+    return ws;
+  }
+
+  var wb=new ExcelJS.Workbook();
+  wb.creator='구역 카드 기록';
+  wb.created=new Date();
+
+  buildSheet('전체보기',data,true);
+
+  for(var startIdx=0;startIdx<data.length;startIdx+=50){
+    var chunk=data.slice(startIdx,startIdx+50);
+    var first=chunk[0].number, last=chunk[chunk.length-1].number;
+    buildSheet(String(first)+'~'+String(last),chunk,false);
+  }
+
+  var buffer=await wb.xlsx.writeBuffer();
+  var blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download='territory_records_'+today+'.xlsx';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
 }
 document.getElementById('searchInput').addEventListener('input',function(){page=0;render()});
 loadData().catch(function(e){document.getElementById('summary').innerHTML='<div class="empty">불러오기 실패: '+esc(e.message)+'</div>'});
