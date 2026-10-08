@@ -170,6 +170,14 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
 </head>
 <body>
 
+<div class="card" style="margin:12px 16px 10px">
+  <div class="card-title">📍 전체 구역 좌표 일괄 저장</div>
+  <div style="font-size:12px;color:#777;line-height:1.5;margin-bottom:10px">1번부터 마지막 구역까지 주소를 순서대로 검색해 좌표를 Firestore에 저장합니다. 이미 좌표가 있는 집은 건너뜁니다.</div>
+  <button id="allCoordBtn" class="btn-full btn-purple" onclick="runAllAreaCoordSave()">📍 전체 좌표 저장 시작</button>
+  <div id="allCoordStatus" style="font-size:12px;color:#666;margin-top:9px;line-height:1.5">대기 중</div>
+  <div id="allCoordFail" style="display:none;margin-top:8px;padding:8px;background:#fff5f5;border-radius:8px;color:#b91c1c;font-size:11px;max-height:180px;overflow:auto"></div>
+</div>
+
 <div id="loader">
   <div class="spin"></div>
   <p style="font-size:13px;color:#888">로딩 중...</p>
@@ -3043,5 +3051,78 @@ window.closeEditCard=closeAreaEditor;
 window.saveCardEdit=saveAreaEditor;
 
 </script>
-</body>
+<script>
+var _allCoordBusy=false;
+function _allCoordItems(){
+  var out=[];
+  (areas||[]).slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).forEach(function(area){
+    var blocks=Array.isArray(area.blocks)?area.blocks:[];
+    blocks.forEach(function(block,bi){
+      var topics=Array.isArray(block.subTopics)?block.subTopics:(Array.isArray(block.subs)?block.subs:[]);
+      if(topics.length){
+        topics.forEach(function(road,si){
+          var roadName=String((road&&(road.name||road.title))||'').trim();
+          (road&&Array.isArray(road.houses)?road.houses:[]).forEach(function(h,hi){
+            if(h) out.push({area:area,block:block,house:h,road:roadName,label:String(area.id)+'번 '+roadName+' '+String(h.addr||h.address||'').trim()});
+          });
+        });
+      }else if(Array.isArray(block.houses)){
+        block.houses.forEach(function(h){
+          if(h) out.push({area:area,block:block,house:h,road:'',label:String(area.id)+'번 '+String(h.addr||h.address||'').trim()});
+        });
+      }
+    });
+  });
+  return out;
+}
+function _allCoordCandidates(it){
+  var h=it.house, area=it.area, road=it.road;
+  var raw=String(h.addr||h.address||h.roadAddress||h.road_addr||'').trim();
+  var aid=Number(area.id), region=(aid>=1&&aid<=32)?'전북 고창군 ':'전북 부안군 ';
+  var name=String(area.name||'').trim(), a=[];
+  if(road&&raw){a.push(road+' '+raw);if(name)a.push(region+name+' '+road+' '+raw);a.push(region+road+' '+raw);}
+  if(name)a.push(region+name+(road?' '+road:'')+' '+raw);
+  if(road)a.push(region+road+' '+raw);
+  a.push(region+raw);a.push(raw);
+  return a.filter(function(q,i,x){return q&&x.indexOf(q)===i;});
+}
+function _allCoordSearch(q){
+  return new Promise(function(resolve){
+    if(!window.kakao||!kakao.maps||!kakao.maps.services){resolve(null);return;}
+    new kakao.maps.services.Geocoder().addressSearch(q,function(result,status){
+      if(status===kakao.maps.services.Status.OK&&result&&result[0]) resolve({lat:Number(result[0].y),lng:Number(result[0].x)});
+      else resolve(null);
+    });
+  });
+}
+function _allCoordDelay(ms){return new Promise(function(r){setTimeout(r,ms);});}
+async function runAllAreaCoordSave(){
+  if(_allCoordBusy)return;
+  _allCoordBusy=true;
+  var btn=document.getElementById('allCoordBtn'), st=document.getElementById('allCoordStatus'), fail=document.getElementById('allCoordFail');
+  if(btn)btn.disabled=true;
+  if(fail){fail.style.display='none';fail.innerHTML='';}
+  var items=_allCoordItems(), ok=0, skip=0, failed=[];
+  if(st)st.textContent='총 '+items.length+'개 주소를 준비했습니다.';
+  for(var i=0;i<items.length;i++){
+    var it=items[i], h=it.house;
+    if(h.lat!=null&&h.lng!=null&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){skip++;if(st)st.textContent='진행 '+(i+1)+' / '+items.length+' · 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;continue;}
+    var raw=String(h.addr||h.address||h.roadAddress||h.road_addr||'').trim();
+    if(!raw){failed.push(it.label+' — 주소 없음');continue;}
+    var cs=_allCoordCandidates(it), coord=null;
+    for(var ci=0;ci<cs.length&&!coord;ci++){coord=await _allCoordSearch(cs[ci]);if(coord)break;await _allCoordDelay(70);}
+    if(coord){
+      h.lat=coord.lat;h.lng=coord.lng;ok++;
+      try{await firebase.firestore().collection('areas').doc(String(it.area.docId||it.area.id)).update({blocks:it.area.blocks});}
+      catch(e){failed.push(it.label+' — 저장 실패: '+(e.message||e));}
+    }else failed.push(it.label+' — 좌표 검색 실패');
+    if(st)st.textContent='진행 '+(i+1)+' / '+items.length+' · 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;
+    await _allCoordDelay(120);
+  }
+  if(fail){fail.style.display=failed.length?'block':'none';fail.innerHTML=failed.map(function(x){return x.replace(/</g,'&lt;')}).join('<br>');}
+  if(st)st.textContent='완료 · 전체 '+items.length+' · 새로 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;
+  if(btn){btn.disabled=false;btn.textContent='📍 전체 좌표 다시 저장';}
+  _allCoordBusy=false;
+}
+</script></body>
 </html>
