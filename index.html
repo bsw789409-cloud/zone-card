@@ -616,6 +616,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   <div style="width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px"></div>
   <div style="font-size:16px;font-weight:700;color:#1a1040;margin-bottom:16px" id="editWaitingTitle">정보 수정</div>
   <div style="margin-bottom:12px">
+    <div style="font-size:13px;color:#888;margin-bottom:6px">이름 (오타 수정 가능)</div>
+    <input id="ewName" type="text" autocomplete="off" placeholder="이름을 입력해 주세요" style="width:100%;box-sizing:border-box;padding:12px;border:1.5px solid #ddd;border-radius:10px;font-size:16px;color:#222;outline:none" />
+  </div>
+  <div style="margin-bottom:12px">
     <div style="font-size:13px;color:#888;margin-bottom:6px">성별 구분</div>
     <div style="display:flex;gap:8px">
       <button id="ewGenBro" onclick="setEditWaitingGender('형제')" style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #ddd;background:white;font-size:14px;cursor:pointer">👦 형제</button>
@@ -3985,7 +3989,10 @@ function addToCar(gi, btn) {
 
 function openEditWaiting(person) {
   editingWaitingPerson = person;
+  editingWaitingPerson._editOriginalName = String(person.name || '');
   document.getElementById('editWaitingTitle').textContent = person.name + ' 정보 수정';
+  var nameInput = document.getElementById('ewName');
+  if(nameInput) nameInput.value = person.name || '';
   var g = person.gender || '';
   var c = person.car;
   document.getElementById('ewGenBro').style.background = g === '형제' ? '#1a1040' : 'white';
@@ -4018,18 +4025,94 @@ function setEditWaitingCar(val) {
 async function saveEditWaiting() {
   if(!editingWaitingPerson) return;
   var p = editingWaitingPerson;
-  // todaySignups 로컬 업데이트
-  var idx = todaySignups.findIndex(function(s){ return s.name === p.name; });
-  if(idx >= 0) { todaySignups[idx].gender = p.gender; todaySignups[idx].car = p.car; }
-  // carGroups 내에 같은 이름 있으면 업데이트
-  carGroups.forEach(function(g){ g.forEach(function(m){ if(m.name === p.name){ m.gender = p.gender; m.car = p.car; } }); });
-  // Firestore 저장
-  if(p.id) {
-    try { await db.collection('serviceSignups').doc(p.id).update({gender: p.gender, car: p.car}); } catch(e) {}
+  var oldName = String(p._editOriginalName || p.name || '').trim();
+  var nameInput = document.getElementById('ewName');
+  var newName = String(nameInput ? nameInput.value : '').trim();
+  if(!newName) { showToast('이름을 입력해 주세요'); if(nameInput) nameInput.focus(); return; }
+
+  var personId = p.id || '';
+  var signup = todaySignups.find(function(s) {
+    return (personId && s.id === personId) || (!personId && s.name === oldName);
+  });
+  var signupId = personId || (signup && signup.id) || (todayStr() + '_' + oldName);
+  var targetId = todayStr() + '_' + newName;
+
+  // 같은 이름의 다른 신청자가 있으면 덮어쓰지 않는다.
+  var duplicate = todaySignups.some(function(s) {
+    return s.name === newName && s.id !== signupId;
+  });
+  if(duplicate && newName !== oldName) {
+    showToast('이미 같은 이름으로 신청한 사람이 있습니다. 이름을 확인해 주세요.');
+    if(nameInput) nameInput.focus();
+    return;
   }
+
+  var oldRef = db.collection('serviceSignups').doc(signupId);
+  var targetRef = db.collection('serviceSignups').doc(targetId);
+  var oldSnap = null;
+  var targetSnap = null;
+  try {
+    oldSnap = await oldRef.get();
+    if(newName !== oldName) targetSnap = await targetRef.get();
+    if(newName !== oldName && targetSnap && targetSnap.exists && targetId !== signupId) {
+      showToast('수정할 이름으로 이미 등록된 신청이 있어 저장하지 않았습니다.');
+      return;
+    }
+
+    var updatedData = Object.assign({}, oldSnap && oldSnap.exists ? oldSnap.data() : {}, {
+      name: newName,
+      gender: p.gender || '',
+      car: !!p.car,
+      date: todayStr(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    if(newName !== oldName && oldSnap && oldSnap.exists && targetId !== signupId) {
+      await targetRef.set(updatedData);
+      await oldRef.delete();
+      p.id = targetId;
+    } else if(oldSnap && oldSnap.exists) {
+      await oldRef.set(updatedData, {merge:true});
+    } else if(signup) {
+      // 구형/수동 추가 레코드에서 원본 ID를 찾지 못한 경우에도 새 이름으로 등록을 유지한다.
+      await targetRef.set(updatedData, {merge:true});
+      p.id = targetId;
+    }
+  } catch(e) {
+    console.error('신청자 이름 수정 실패', e);
+    showToast('이름 저장에 실패했습니다. 연결 상태와 권한을 확인해 주세요.');
+    return;
+  }
+
+  // 로컬 신청자와 차량 배정 양쪽에 같은 이름을 반영한다.
+  todaySignups.forEach(function(s) {
+    if((signupId && s.id === signupId) || s === signup || (!personId && s.name === oldName)) {
+      s.name = newName;
+      s.gender = p.gender || '';
+      s.car = !!p.car;
+      if(p.id) s.id = p.id;
+    }
+  });
+  carGroups.forEach(function(g) {
+    g.forEach(function(m) {
+      if(m === p || (personId && m.id === personId) || (!personId && m.name === oldName)) {
+        m.name = newName;
+        m.gender = p.gender || '';
+        m.car = !!p.car;
+        if(p.id) m.id = p.id;
+      }
+    });
+  });
+  delete p._editOriginalName;
   closeEditWaiting();
   renderCarAssignment();
-  scheduleCarAssignmentSave();
+  try {
+    if(carAssignmentSaveTimer) { clearTimeout(carAssignmentSaveTimer); carAssignmentSaveTimer = null; }
+    await persistCarAssignment({notify:false});
+    showToast('이름과 신청 정보가 저장되었습니다.');
+  } catch(e) {
+    console.error('차량 배정 저장 실패', e);
+    showToast('신청 이름은 저장했지만 차량 배정 저장에 실패했습니다. 다시 확인해 주세요.');
+  }
 }
 function closeEditWaiting() {
   document.getElementById('editWaitingOverlay').style.display = 'none';
@@ -4063,56 +4146,10 @@ function addManualNameToCar(gi) {
   renderCarAssignment();
   scheduleCarAssignmentSave();
 }
-async function editAssignedCarPerson(gi, pi) {
+function editAssignedCarPerson(gi, pi) {
   var person = carGroups[gi] && carGroups[gi][pi];
   if(!person) return;
-  var oldName = String(person.name || '');
-  var name = prompt('이름을 수정해 주세요', oldName);
-  if(name === null) return;
-  name = name.trim();
-  if(!name) { showToast('이름을 입력해 주세요'); return; }
-  var gender = prompt('구분을 입력해 주세요: 형제 또는 자매', person.gender || '형제');
-  if(gender === null) return;
-  gender = gender.trim();
-  if(gender !== '형제' && gender !== '자매') { showToast('형제 또는 자매로 입력해 주세요'); return; }
-  var carAnswer = prompt('차량 보유 여부를 입력해 주세요: 있음 또는 없음', person.car ? '있음' : '없음');
-  if(carAnswer === null) return;
-  carAnswer = carAnswer.trim();
-  if(carAnswer !== '있음' && carAnswer !== '없음') { showToast('있음 또는 없음으로 입력해 주세요'); return; }
-
-  var newCar = carAnswer === '있음';
-  // 변경 전 이름으로 저장된 신청자 레코드를 먼저 찾되, 화면의 차량 배정은
-  // Firestore carAssignments 문서에 항상 새 이름으로 저장한다.
-  var matchingSignups = [];
-  try {
-    var signupSnap = await db.collection('serviceSignups')
-      .where('date','==',todayStr()).where('name','==',oldName).get();
-    matchingSignups = signupSnap.docs;
-  } catch(e) {
-    console.warn('신청자 레코드 조회 실패(차량 배정 저장은 계속 진행)', e);
-  }
-
-  person.name = name;
-  person.gender = gender;
-  person.car = newCar;
-  todaySignups.forEach(function(p) {
-    if(p.name === oldName || (p.id && person.id && p.id === person.id)) {
-      p.name = name; p.gender = gender; p.car = newCar;
-    }
-  });
-  renderCarAssignment();
-
-  try {
-    if(carAssignmentSaveTimer) { clearTimeout(carAssignmentSaveTimer); carAssignmentSaveTimer = null; }
-    await persistCarAssignment({notify:false});
-    await Promise.all(matchingSignups.map(function(doc) {
-      return doc.ref.update({name:name, gender:gender, car:newCar});
-    }));
-    showToast('이름과 차량 배정 정보가 저장되었습니다');
-  } catch(e) {
-    console.error('차량 배정 정보 수정 실패', e);
-    showToast('저장에 실패했습니다. 연결 상태와 Firestore 권한을 확인해 주세요.');
-  }
+  openEditWaiting(person);
 }
 
 function toggleCarCollapse(gi) {
