@@ -3022,7 +3022,8 @@ function getSeatSlots(group) {
 
 function normalizePerson(p) {
   return {
-    name: p.name,
+    id: p.id || '',
+    name: p.name || '',
     car: !!p.car,
     gender: p.gender || '',
     memo: p.memo || '',
@@ -3367,7 +3368,7 @@ function renderCarAssignment() {
           var pi = group.indexOf(p);
           body += '<div class="car-person-chip" draggable="true" data-gi="' + gi + '" data-pi="' + pi + '" style="background:' + lightColor + ';border-radius:9px;padding:5px 7px;font-size:11px;color:' + color + ';display:flex;align-items:center;justify-content:space-between;gap:4px;font-weight:700;cursor:grab;touch-action:none;user-select:none;min-height:26px;min-width:0;flex:1 1 78px;max-width:calc(50% - 4px)">' +
             '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (pi+1) + '. ' + p.name + (p.gender ? ' · ' + p.gender : '') + (p.car ? ' 🚗' : ' 🚶') + '</span>' +
-            '<button onclick="event.stopPropagation();editAssignedCarPerson(' + gi + ',' + pi + ')" title="정보 수정" style="border:0;background:rgba(255,255,255,.65);border-radius:5px;padding:2px 4px;font-size:10px;flex-shrink:0;cursor:pointer">수정</button>' +
+            '<button type="button" draggable="false" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation()" onclick="event.preventDefault();event.stopPropagation();editAssignedCarPerson(' + gi + ',' + pi + ')" title="정보 수정" style="border:0;background:rgba(255,255,255,.85);border-radius:5px;padding:4px 7px;font-size:11px;flex-shrink:0;cursor:pointer;touch-action:manipulation;position:relative;z-index:2">수정</button>' +
             '<span onclick="event.stopPropagation();removeFromCar(' + gi + ',' + pi + ')" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">×</span>' +
             '</div>';
         });
@@ -4080,7 +4081,17 @@ async function editAssignedCarPerson(gi, pi) {
   if(carAnswer !== '있음' && carAnswer !== '없음') { showToast('있음 또는 없음으로 입력해 주세요'); return; }
 
   var newCar = carAnswer === '있음';
-  // 화면 상태를 먼저 갱신해 이름 변경이 즉시 보이도록 한다.
+  // 변경 전 이름으로 저장된 신청자 레코드를 먼저 찾되, 화면의 차량 배정은
+  // Firestore carAssignments 문서에 항상 새 이름으로 저장한다.
+  var matchingSignups = [];
+  try {
+    var signupSnap = await db.collection('serviceSignups')
+      .where('date','==',todayStr()).where('name','==',oldName).get();
+    matchingSignups = signupSnap.docs;
+  } catch(e) {
+    console.warn('신청자 레코드 조회 실패(차량 배정 저장은 계속 진행)', e);
+  }
+
   person.name = name;
   person.gender = gender;
   person.car = newCar;
@@ -4092,18 +4103,15 @@ async function editAssignedCarPerson(gi, pi) {
   renderCarAssignment();
 
   try {
-    // 배정 데이터는 반드시 먼저 저장한다.
+    if(carAssignmentSaveTimer) { clearTimeout(carAssignmentSaveTimer); carAssignmentSaveTimer = null; }
     await persistCarAssignment({notify:false});
-    // 이름이 바뀐 경우 오늘 신청 데이터도 이름 기준으로 찾아 갱신한다.
-    var signupSnap = await db.collection('serviceSignups')
-      .where('date','==',todayStr()).where('name','==',oldName).get();
-    await Promise.all(signupSnap.docs.map(function(doc) {
+    await Promise.all(matchingSignups.map(function(doc) {
       return doc.ref.update({name:name, gender:gender, car:newCar});
     }));
     showToast('이름과 차량 배정 정보가 저장되었습니다');
   } catch(e) {
     console.error('차량 배정 정보 수정 실패', e);
-    showToast('배정은 화면에 반영됐지만 저장 중 오류가 발생했습니다. 인터넷/권한을 확인해 주세요.');
+    showToast('저장에 실패했습니다. 연결 상태와 Firestore 권한을 확인해 주세요.');
   }
 }
 
@@ -5301,7 +5309,10 @@ function updateCsMap(blk, areaId) {
 function renderCsGrid(aId) {
   var grid = document.getElementById('csGrid');
   if (!grid) return;
-  var oldTop = grid.scrollTop;
+  // 실제 스크롤 요소는 grid가 아니라 바텀시트의 cs-body다.
+  // 좌표 자동 저장/Firestore snapshot으로 재렌더링되어도 현재 읽던 위치를 유지한다.
+  var scrollHost = grid.closest('.cs-body') || document.getElementById('fieldScroll') || grid.parentElement;
+  var oldTop = scrollHost ? scrollHost.scrollTop : grid.scrollTop;
   renderBlocksInto(grid, aId, window._csBlockIdx === undefined ? -1 : window._csBlockIdx, window._csSlideDir);
 
   // 상단 진행률 바 업데이트
@@ -5320,7 +5331,8 @@ function renderCsGrid(aId) {
   
   currentAreaId = savedId2;
   requestAnimationFrame(function() {
-    grid.scrollTop = oldTop;
+    if(scrollHost) scrollHost.scrollTop = oldTop;
+    else grid.scrollTop = oldTop;
   });
 }
 
