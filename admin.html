@@ -223,8 +223,8 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
   </div>
   <div id="area3CoordTool" style="background:#f5f0ff;border:1px solid #ddd0ff;border-radius:12px;padding:11px 12px;margin-bottom:10px">
     <div style="font-size:13px;font-weight:800;color:#5b21b6;margin-bottom:4px">📍 3번 구역 주소 좌표 저장</div>
-    <div id="area3CoordToolStatus" style="font-size:11px;color:#777;line-height:1.45;margin-bottom:8px">버튼을 누를 때마다 좌표가 없는 주소 1개만 검색해서 저장합니다.</div>
-    <button id="area3CoordStepBtn" onclick="runAdminArea3CoordStep()" class="btn-full btn-purple" style="padding:10px;font-size:13px">3번 주소 1개 검색·저장</button>
+    <div id="area3CoordToolStatus" style="font-size:11px;color:#777;line-height:1.45;margin-bottom:8px">버튼을 한 번 누르면 3번 구역의 좌표 없는 주소를 처음부터 끝까지 순서대로 검색·저장합니다. 검색이 안 되는 주소는 건너뜁니다.</div>
+    <button id="area3CoordStepBtn" onclick="runAdminArea3CoordStep()" class="btn-full btn-purple" style="padding:10px;font-size:13px">3번 구역 전체 주소 검색·저장</button>
   </div>
   <input id="areaSearchInput" oninput="setAreaSearch(this.value)" placeholder="구역 번호/이름/인도자 검색" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;background:#f8f8f8;color:#1a1040;margin-bottom:10px" />
   <div class="filter-wrap" id="areaFaceFilter">
