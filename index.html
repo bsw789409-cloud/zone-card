@@ -4947,6 +4947,13 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       _csAddressOverlays.push(o);
       if(fromSearch && h && !getHouseCoord(h)){
         persistHouseCoordsInCurrentArea(areaId,h,y,x);
+        // 검색으로 새 좌표가 생긴 직후에도 현재 카드 화면이 그 위치를 바라보도록 맞춘다.
+        // 저장 전 검색 결과만 보이고 화면 밖에 남는 문제를 방지한다.
+        setTimeout(function(){
+          if(openSheetAreaId && String(openSheetAreaId)===String(areaId)){
+            refreshCsMapSelection();
+          }
+        },80);
       }
     }
 
