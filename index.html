@@ -4985,47 +4985,106 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     setTimeout(function(){ tryKeyword(0); },80);
   });
 }
-function scheduleCsMapRelayout() {
-  [0, 50, 120, 250, 500, 900, 1500].forEach(function(ms){
+function syncCsMapContainerSize(){
+  var mapDiv=document.getElementById('csKakaoMap');
+  var areaDiv=document.getElementById('csMapArea');
+  if(!mapDiv || !areaDiv) return false;
+  var w=areaDiv.clientWidth, h=areaDiv.clientHeight;
+  if(w<=20 || h<=20) return false;
+  mapDiv.style.width=w+'px';
+  mapDiv.style.height=h+'px';
+  return true;
+}
+
+function relayoutCsMapNow(){
+  if(!_csKakaoMap) return;
+  var mapDiv=document.getElementById('csKakaoMap');
+  if(!mapDiv) return;
+  if(syncCsMapContainerSize()) {
+    try { _csKakaoMap.relayout(); } catch(e) {}
+  }
+}
+
+function scheduleCsMapRelayout(){
+  [0,50,120,250,500,900,1500,2200].forEach(function(ms){
     setTimeout(function(){
-      var mapDiv=document.getElementById('csKakaoMap');
-      if(!mapDiv || !_csKakaoMap) return;
-      relayoutMapWhenReady(_csKakaoMap,mapDiv);
-    }, ms);
+      if(!_csKakaoMap) return;
+      relayoutCsMapNow();
+    },ms);
   });
 }
 
-function fitCsArea3SavedHouseCoords(blocks, map) {
-  if(!map || String(openSheetAreaId || currentAreaId || '') !== '3') return false;
-  var bounds = new kakao.maps.LatLngBounds();
-  var count = 0;
-  (blocks || []).forEach(function(b){
-    (getBlockHouses(b) || []).forEach(function(h){
-      var hc = getHouseCoord(h);
-      if(!hc) return;
-      bounds.extend(new kakao.maps.LatLng(hc.lat, hc.lng));
-      count++;
+function getCsArea3Coords(blocks){
+  var all=[];
+  (blocks||[]).forEach(function(b){
+    (getBlockHouses(b)||[]).forEach(function(h){
+      var hc=getHouseCoord(h);
+      if(hc) all.push(hc);
     });
   });
-  if(count === 0) return false;
-  if(count === 1) {
-    map.setCenter(bounds.getSouthWest());
-    map.setLevel(5);
-  } else {
-    map.setBounds(bounds, 45, 45, 45, 45);
+  return all;
+}
+
+function fitCsArea3SavedHouseCoords(blocks, map){
+  if(!map || String(openSheetAreaId || currentAreaId || '') !== '3') return false;
+
+  var all=getCsArea3Coords(blocks);
+  if(!all.length) return false;
+
+  // 3번 구역은 월암 주변의 실제 생활권 안에서 보이는 것이 목적이다.
+  // 잘못 저장된 좌표 하나 때문에 대한민국 전체가 잡히는 것을 방지한다.
+  var regionCenter={lat:35.5487,lng:126.7216};
+  var nearby=all.filter(function(p){
+    return Math.abs(p.lat-regionCenter.lat)<=0.15 &&
+           Math.abs(p.lng-regionCenter.lng)<=0.20;
+  });
+  if(!nearby.length) nearby=all.slice();
+
+  var bounds=new kakao.maps.LatLngBounds();
+  nearby.forEach(function(p){
+    bounds.extend(new kakao.maps.LatLng(p.lat,p.lng));
+  });
+
+  if(nearby.length===1){
+    map.setCenter(new kakao.maps.LatLng(nearby[0].lat,nearby[0].lng));
+    map.setLevel(4);
+    return true;
+  }
+
+  map.setBounds(bounds,55,55,55,55);
+
+  // 너무 넓게 잡히는 경우에도 최소한 구역 주변에서 볼 수 있도록 제한한다.
+  var level=Number(map.getLevel());
+  if(Number.isFinite(level) && level>6){
+    var centerLat=nearby.reduce(function(sum,p){return sum+p.lat;},0)/nearby.length;
+    var centerLng=nearby.reduce(function(sum,p){return sum+p.lng;},0)/nearby.length;
+    map.setCenter(new kakao.maps.LatLng(centerLat,centerLng));
+    map.setLevel(6);
   }
   return true;
 }
 
-function updateCsMapAll(blocks, areaId) {
-  var ph = document.getElementById('csMapPh');
-  var mapDiv = document.getElementById('csKakaoMap');
-  var parkBtn = document.getElementById('csParkingBtn');
+function refreshCsMapSelection(){
+  var aId=Number(openSheetAreaId || currentAreaId);
+  if(!_csKakaoMap || !openSheetAreaId) return;
+  relayoutCsMapNow();
+  if(aId!==3) return;
+
+  var blocks=currentAreaData||[];
+  var idx=Number.isInteger(window._csBlockIdx) ? window._csBlockIdx : -1;
+  var target=idx===-1 ? blocks : (blocks[idx] ? [blocks[idx]] : []);
+  if(target.length) fitCsArea3SavedHouseCoords(target,_csKakaoMap);
+}
+
+function updateCsMapAll(blocks, areaId){
+  var ph=document.getElementById('csMapPh');
+  var mapDiv=document.getElementById('csKakaoMap');
+  var parkBtn=document.getElementById('csParkingBtn');
   if(ph) ph.style.display='none';
   if(mapDiv) mapDiv.style.display='block';
   if(parkBtn) parkBtn.style.display='none';
 
-  if(window._csKakaoMarkerOverlay) {
+  if(window._csKakaoMarkerOverlay){
     window._csKakaoMarkerOverlay.setMap(null);
     window._csKakaoMarkerOverlay=null;
   }
@@ -5044,10 +5103,11 @@ function updateCsMapAll(blocks, areaId) {
   });
   if(!center) center=new kakao.maps.LatLng(35.5050,126.7280);
 
-  if(!_csKakaoMap) {
+  syncCsMapContainerSize();
+  if(!_csKakaoMap){
     _csKakaoMap=new kakao.maps.Map(mapDiv,{center:center,level:5});
     _csKakaoMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
-  } else {
+  }else{
     _csKakaoMap.relayout();
     _csKakaoMap.setCenter(center);
     _csKakaoMap.setLevel(5);
@@ -5057,21 +5117,22 @@ function updateCsMapAll(blocks, areaId) {
     renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
   });
 
-  // 3번 구역은 저장된 모든 집 좌표가 화면 안에 들어오도록 지도 범위를 맞춘다.
-  // 주차 위치를 중심으로 잡던 기존 방식 때문에 집 핀이 화면 밖으로 밀리는 문제를 방지한다.
-  if(String(areaId)==='3') {
+  if(String(areaId)==='3'){
     fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
   }
 
   scheduleCsMapRelayout();
   setTimeout(function(){
     if(!_csKakaoMap) return;
-    relayoutMapWhenReady(_csKakaoMap,mapDiv);
+    relayoutCsMapNow();
     clearCsAddressPins();
-    (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i,false); });
-    if(String(areaId)==='3') {
+    (blocks||[]).forEach(function(b,i){
+      renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
+    });
+    if(String(areaId)==='3'){
       fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
     }
+    relayoutCsMapNow();
   },900);
 }
 
