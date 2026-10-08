@@ -14,7 +14,9 @@
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:none;overflow-x:hidden}
+html,body{width:100%;min-height:100vh;height:auto;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:auto;overflow-x:hidden;overflow-y:auto}
+body{position:relative}
+.tab-content.active{display:block;min-height:calc(100vh - 100px)}
 
 /* 탑바 */
 .admin-topbar{background:#1a1040;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
@@ -556,10 +558,16 @@ function getAreaFace(id) {
 // ── 초기 로딩 ──
 window.onload = async function() {
   showLoader();
-  try {
-    var snap = await db.collection('areas').orderBy('id').get();
-    areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
-  } catch(e) {}
+  var loaded = false;
+  for(var attempt=0; attempt<3 && !loaded; attempt++) {
+    try {
+      var snap = await db.collection('areas').orderBy('id').get();
+      areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+      loaded = true;
+    } catch(e) {
+      if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 700 * (attempt + 1)); });
+    }
+  }
   hideLoader();
   loadHomeStats();
   loadAreaList();
@@ -567,6 +575,7 @@ window.onload = async function() {
   loadStatsList();
   loadRecordList();
   loadSettings();
+  if(!loaded) showToast('구역 데이터를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해 주세요.');
 };
 
 function showLoader() { document.getElementById('loader').classList.add('show'); }
