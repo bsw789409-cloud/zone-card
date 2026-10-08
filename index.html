@@ -4963,8 +4963,9 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     var areaName=area ? String(area.name||'') : '';
     var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북 고창군 ' : '전북 부안군 ';
     var candidates=[];
-    // 구역카드 3번만: 저장된 도로명과 번지 주소를 합친 완전주소를 최우선으로 사용
-    if(String(areaId)==='3' && roadName && rawAddr) {
+    // 모든 구역 카드에서 도로명 + 번지를 가장 먼저 검색한다.
+    // 3번 구역에서 검증된 방식과 동일하게 모든 카드에 적용한다.
+    if(roadName && rawAddr) {
       candidates.push(roadName+' '+rawAddr);
       if(areaName) candidates.push(region+areaName+' '+roadName+' '+rawAddr);
       candidates.push(region+roadName+' '+rawAddr);
@@ -5035,7 +5036,7 @@ function scheduleCsMapRelayout(){
   });
 }
 
-function getCsArea3Coords(blocks){
+function getCsSavedHouseCoords(blocks){
   var all=[];
   (blocks||[]).forEach(function(b){
     (getBlockHouses(b)||[]).forEach(function(h){
@@ -5046,18 +5047,24 @@ function getCsArea3Coords(blocks){
   return all;
 }
 
-function fitCsArea3SavedHouseCoords(blocks, map){
-  if(!map || String(openSheetAreaId || currentAreaId || '') !== '3') return false;
+function fitCsSavedHouseCoords(blocks, map, areaId){
+  if(!map) return false;
 
-  var all=getCsArea3Coords(blocks);
+  var all=getCsSavedHouseCoords(blocks);
   if(!all.length) return false;
 
-  // 3번 구역은 월암 주변의 실제 생활권 안에서 보이는 것이 목적이다.
-  // 잘못 저장된 좌표 하나 때문에 대한민국 전체가 잡히는 것을 방지한다.
-  var regionCenter={lat:35.5487,lng:126.7216};
+  // 모든 구역에서 주소 좌표가 저장된 집들을 기준으로 화면 범위를 맞춘다.
+  // 한 개의 잘못된 좌표 때문에 너무 넓어지는 것을 막기 위해
+  // 대부분의 좌표가 모여 있는 중앙 주변 좌표를 우선 사용한다.
+  var sortedLat=all.map(function(p){return p.lat;}).sort(function(a,b){return a-b;});
+  var sortedLng=all.map(function(p){return p.lng;}).sort(function(a,b){return a-b;});
+  var mid=Math.floor(all.length/2);
+  var centerLat=sortedLat.length%2 ? sortedLat[mid] : (sortedLat[mid-1]+sortedLat[mid])/2;
+  var centerLng=sortedLng.length%2 ? sortedLng[mid] : (sortedLng[mid-1]+sortedLng[mid])/2;
+
   var nearby=all.filter(function(p){
-    return Math.abs(p.lat-regionCenter.lat)<=0.15 &&
-           Math.abs(p.lng-regionCenter.lng)<=0.20;
+    return Math.abs(p.lat-centerLat)<=0.15 &&
+           Math.abs(p.lng-centerLng)<=0.20;
   });
   if(!nearby.length) nearby=all.slice();
 
@@ -5074,11 +5081,8 @@ function fitCsArea3SavedHouseCoords(blocks, map){
 
   map.setBounds(bounds,55,55,55,55);
 
-  // 너무 넓게 잡히는 경우에도 최소한 구역 주변에서 볼 수 있도록 제한한다.
   var level=Number(map.getLevel());
   if(Number.isFinite(level) && level>6){
-    var centerLat=nearby.reduce(function(sum,p){return sum+p.lat;},0)/nearby.length;
-    var centerLng=nearby.reduce(function(sum,p){return sum+p.lng;},0)/nearby.length;
     map.setCenter(new kakao.maps.LatLng(centerLat,centerLng));
     map.setLevel(6);
   }
@@ -5089,12 +5093,11 @@ function refreshCsMapSelection(){
   var aId=Number(openSheetAreaId || currentAreaId);
   if(!_csKakaoMap || !openSheetAreaId) return;
   relayoutCsMapNow();
-  if(aId!==3) return;
 
   var blocks=currentAreaData||[];
   var idx=Number.isInteger(window._csBlockIdx) ? window._csBlockIdx : -1;
   var target=idx===-1 ? blocks : (blocks[idx] ? [blocks[idx]] : []);
-  if(target.length) fitCsArea3SavedHouseCoords(target,_csKakaoMap);
+  if(target.length) fitCsSavedHouseCoords(target,_csKakaoMap,aId);
 }
 
 function updateCsMapAll(blocks, areaId){
@@ -5138,9 +5141,7 @@ function updateCsMapAll(blocks, areaId){
     renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
   });
 
-  if(String(areaId)==='3'){
-    fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
-  }
+  fitCsSavedHouseCoords(blocks,_csKakaoMap,areaId);
 
   scheduleCsMapRelayout();
   setTimeout(function(){
@@ -5150,9 +5151,7 @@ function updateCsMapAll(blocks, areaId){
     (blocks||[]).forEach(function(b,i){
       renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
     });
-    if(String(areaId)==='3'){
-      fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
-    }
+    fitCsSavedHouseCoords(blocks,_csKakaoMap,areaId);
     relayoutCsMapNow();
   },900);
 }
