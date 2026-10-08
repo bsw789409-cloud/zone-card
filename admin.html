@@ -14,10 +14,10 @@
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{width:100%;min-height:100%;height:auto;overflow-x:hidden;overflow-y:scroll}
-body{width:100%;min-height:100vh;height:auto;position:relative;display:block;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:auto;overflow-x:hidden;overflow-y:visible}
-.tab-content{position:relative;overflow-y:visible;overscroll-behavior:auto;touch-action:pan-y}
-.tab-content.active{display:block;min-height:calc(100vh - 100px);overflow-y:visible}
+html{width:100%;min-height:100%;height:auto!important;overflow-x:hidden!important;overflow-y:auto!important}
+body{width:100%;min-height:100vh;height:auto!important;position:static;display:flow-root;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:auto;overflow-x:hidden!important;overflow-y:visible!important}
+.tab-content{position:static;overflow:visible!important;overscroll-behavior:auto;touch-action:pan-y}
+.tab-content.active{display:block;min-height:calc(100vh - 100px);height:auto!important;max-height:none!important;overflow:visible!important}
 
 
 /* 탑바 */
@@ -2048,11 +2048,11 @@ function lockScroll() {
   document.body.style.overflowX = 'hidden';
 }
 function unlockScroll() {
-  document.body.style.overflow = 'visible';
-  document.body.style.position = 'relative';
-  document.body.style.width = '100%';
-  document.body.style.overflowX = 'hidden';
-  document.documentElement.style.overflowY = 'scroll';
+  document.body.style.overflow = '';
+  document.body.style.position = '';
+  document.body.style.width = '';
+  document.body.style.overflowX = '';
+  document.documentElement.style.overflowY = 'auto';
 }
 
 
