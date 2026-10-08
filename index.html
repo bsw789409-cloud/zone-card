@@ -4608,19 +4608,31 @@ var _csSwipeStartY = 0;
 var _csSwipeActive = false;
 window._csSlideDir = 'left';
 
-function setCsBlock(idx, dir) {
-  var blocks = currentAreaData || [];
-  window._csBlockIdx = idx;
-  window._csSlideDir = dir || 'left';
-  var tabsEl = document.getElementById('csBlockTabs');
-  if(tabsEl) {
-    tabsEl.querySelectorAll('.block-tab-btn').forEach(function(b) { b.classList.remove('active'); });
-    var activeBtn = tabsEl.querySelector('.block-tab-btn[data-block-idx="' + idx + '"]');
+function setCsBlock(idx, dir){
+  var blocks=currentAreaData||[];
+  window._csBlockIdx=idx;
+  window._csSlideDir=dir||'left';
+  var tabsEl=document.getElementById('csBlockTabs');
+  if(tabsEl){
+    tabsEl.querySelectorAll('.block-tab-btn').forEach(function(b){b.classList.remove('active');});
+    var activeBtn=tabsEl.querySelector('.block-tab-btn[data-block-idx="' + idx + '"]');
     if(activeBtn) activeBtn.classList.add('active');
   }
-  if(idx === -1) updateCsMapAll(blocks, Number(openSheetAreaId || currentAreaId));
-  else updateCsMap(blocks[idx], Number(openSheetAreaId || currentAreaId));
-  renderCsGrid(openSheetAreaId || currentAreaId);
+
+  if(idx===-1) updateCsMapAll(blocks,Number(openSheetAreaId||currentAreaId));
+  else if(blocks[idx]) updateCsMap(blocks[idx],Number(openSheetAreaId||currentAreaId));
+
+  renderCsGrid(openSheetAreaId||currentAreaId);
+
+  // 탭 전환으로 카드 내용의 높이/폭이 바뀐 직후 지도를 다시 맞춘다.
+  setTimeout(function(){
+    if(!openSheetAreaId) return;
+    refreshCsMapSelection();
+  },60);
+  setTimeout(function(){
+    if(!openSheetAreaId) return;
+    refreshCsMapSelection();
+  },350);
   scheduleCsMapRelayout();
 }
 
