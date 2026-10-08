@@ -14,10 +14,11 @@
 
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{width:100%;min-height:100%;height:auto!important;overflow-x:hidden!important;overflow-y:auto!important}
-body{width:100%;min-height:100vh;height:auto!important;position:static;display:flow-root;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:auto;overflow-x:hidden!important;overflow-y:visible!important}
-.tab-content{position:static;overflow:visible!important;overscroll-behavior:auto;touch-action:pan-y}
-.tab-content.active{display:block;min-height:calc(100vh - 100px);height:auto!important;max-height:none!important;overflow:visible!important}
+html{width:100%;min-height:100%;height:auto!important;overflow-x:clip!important;overflow-y:auto!important;scroll-behavior:auto}
+body{width:100%;min-height:100vh;height:auto!important;position:static;display:flow-root;background:#f0f0f5;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;font-size:16px;overscroll-behavior:auto;overflow-x:clip!important;overflow-y:visible!important}
+.tab-content{position:static;overflow-x:clip!important;overflow-y:visible!important;overscroll-behavior:auto;touch-action:pan-y}
+.tab-content.active{display:block;min-height:calc(100vh - 100px);height:auto!important;max-height:none!important;overflow-x:clip!important;overflow-y:visible!important}
+@media (min-width:700px){html,body{height:auto!important;min-height:100vh;overflow-x:clip!important;overflow-y:auto!important}body{display:flow-root}.tab-content.active{min-height:calc(100vh - 100px);height:auto!important;max-height:none!important}}
 
 
 /* 탑바 */
