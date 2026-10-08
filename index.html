@@ -772,11 +772,18 @@ window.onload = async function() {
     if(currentUser) rtdb.ref('locations/' + currentUser).remove();
   });
 
-  try {
-    var snap = await db.collection('areas').orderBy('id').get();
-    areas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    showScreen('login');
-  } catch(e) { showScreen('login'); }
+  var areasLoaded = false;
+  for(var attempt=0; attempt<3 && !areasLoaded; attempt++) {
+    try {
+      var snap = await db.collection('areas').orderBy('id').get();
+      areas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+      areasLoaded = true;
+    } catch(e) {
+      if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 700 * (attempt + 1)); });
+    }
+  }
+  showScreen('login');
+  if(!areasLoaded) showToast('구역 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.');
   listenForSOS();
 };
 
@@ -1657,6 +1664,11 @@ function makeRow(h) {
     '</div>' +
     '<div class="h-status '+st+'">'+stLabel[st]+'</div>' +
     '<button class="h-more-btn">⋯</button>';
+  var addrEl = row.querySelector('.h-addr');
+  if(addrEl) addrEl.addEventListener('click', function(e) {
+    // 주소 텍스트 터치는 행 전체의 방문상태 변경/재렌더링으로 이어지지 않게 한다.
+    e.stopPropagation();
+  });
   row.querySelector('.h-more-btn').onclick = function(e) { e.stopPropagation(); openDetail(h); };
   return row;
 }
@@ -3352,8 +3364,9 @@ function renderCarAssignment() {
         pair.members.forEach(function(p) {
           var pi = group.indexOf(p);
           body += '<div class="car-person-chip" draggable="true" data-gi="' + gi + '" data-pi="' + pi + '" style="background:' + lightColor + ';border-radius:9px;padding:5px 7px;font-size:11px;color:' + color + ';display:flex;align-items:center;justify-content:space-between;gap:4px;font-weight:700;cursor:grab;touch-action:none;user-select:none;min-height:26px;min-width:0;flex:1 1 78px;max-width:calc(50% - 4px)">' +
-            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (pi+1) + '. ' + p.name + '</span>' +
-            '<span onclick="removeFromCar(' + gi + ',' + pi + ')" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">×</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (pi+1) + '. ' + p.name + (p.gender ? ' · ' + p.gender : '') + (p.car ? ' 🚗' : ' 🚶') + '</span>' +
+            '<button onclick="event.stopPropagation();editAssignedCarPerson(' + gi + ',' + pi + ')" title="정보 수정" style="border:0;background:rgba(255,255,255,.65);border-radius:5px;padding:2px 4px;font-size:10px;flex-shrink:0;cursor:pointer">수정</button>' +
+            '<span onclick="event.stopPropagation();removeFromCar(' + gi + ',' + pi + ')" style="cursor:pointer;font-size:12px;opacity:0.55;flex-shrink:0">×</span>' +
             '</div>';
         });
         body += '</div>';
@@ -4046,6 +4059,37 @@ function addManualNameToCar(gi) {
   delete manualFormState[gi];
   renderCarAssignment();
   scheduleCarAssignmentSave();
+}
+async function editAssignedCarPerson(gi, pi) {
+  var person = carGroups[gi] && carGroups[gi][pi];
+  if(!person) return;
+  var oldName = String(person.name || '');
+  var name = prompt('이름을 수정해 주세요', oldName);
+  if(name === null) return;
+  name = name.trim();
+  if(!name) { showToast('이름을 입력해 주세요'); return; }
+  var gender = prompt('구분을 입력해 주세요: 형제 또는 자매', person.gender || '형제');
+  if(gender === null) return;
+  gender = gender.trim();
+  if(gender !== '형제' && gender !== '자매') { showToast('형제 또는 자매로 입력해 주세요'); return; }
+  var carAnswer = prompt('차량 보유 여부를 입력해 주세요: 있음 또는 없음', person.car ? '있음' : '없음');
+  if(carAnswer === null) return;
+  carAnswer = carAnswer.trim();
+  if(!['있음','없음'].includes(carAnswer)) { showToast('있음 또는 없음으로 입력해 주세요'); return; }
+  person.name = name; person.gender = gender; person.car = carAnswer === '있음';
+  // 대기 명단도 같은 이름을 참조하는 경우 정보 동기화
+  todaySignups.forEach(function(p) {
+    if(p.name === oldName || (p.id && person.id && p.id === person.id)) {
+      p.name = name; p.gender = gender; p.car = person.car;
+    }
+  });
+  try {
+    await persistCarAssignment({notify:false});
+    renderCarAssignment();
+    showToast('차량 배정 정보가 수정되었습니다');
+  } catch(e) {
+    showToast('저장에 실패했습니다. 다시 시도해 주세요');
+  }
 }
 function toggleCarCollapse(gi) {
   carCollapsed[gi] = !carCollapsed[gi];
