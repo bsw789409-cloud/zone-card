@@ -221,6 +221,11 @@ html,body{width:100%;min-height:100vh;background:#f0f0f5;font-family:-apple-syst
     <div style="font-size:14px;font-weight:700;color:#1a1040">구역 목록</div>
     <button onclick="openAddArea()" class="btn-sm btn-primary">+ 새 구역 추가</button>
   </div>
+  <div id="area3CoordTool" style="background:#f5f0ff;border:1px solid #ddd0ff;border-radius:12px;padding:11px 12px;margin-bottom:10px">
+    <div style="font-size:13px;font-weight:800;color:#5b21b6;margin-bottom:4px">📍 3번 구역 주소 좌표 저장</div>
+    <div id="area3CoordToolStatus" style="font-size:11px;color:#777;line-height:1.45;margin-bottom:8px">버튼을 누를 때마다 좌표가 없는 주소 1개만 검색해서 저장합니다.</div>
+    <button id="area3CoordStepBtn" onclick="runAdminArea3CoordStep()" class="btn-full btn-purple" style="padding:10px;font-size:13px">3번 주소 1개 검색·저장</button>
+  </div>
   <input id="areaSearchInput" oninput="setAreaSearch(this.value)" placeholder="구역 번호/이름/인도자 검색" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;background:#f8f8f8;color:#1a1040;margin-bottom:10px" />
   <div class="filter-wrap" id="areaFaceFilter">
     <div class="chip active" onclick="setAreaFaceFilter('전체',this)">전체</div>
@@ -722,6 +727,183 @@ function setAreaSearch(value) {
 }
 
 function loadAreaList() { renderAreaList(); }
+
+
+var _adminArea3CoordBusy = false;
+
+function adminArea3GetItems(blocks) {
+  var items = [];
+  (Array.isArray(blocks) ? blocks : []).forEach(function(block, bi) {
+    var roads = Array.isArray(block && block.subTopics) ? block.subTopics :
+      (Array.isArray(block && block.subs) ? block.subs : []);
+    if(roads.length) {
+      roads.forEach(function(road, ri) {
+        var roadName = String((road && (road.name || road.title)) || '').trim();
+        (Array.isArray(road && road.houses) ? road.houses : []).forEach(function(h, hi) {
+          if(!h) return;
+          items.push({blockIndex:bi, roadIndex:ri, houseIndex:hi, roadName:roadName, house:h});
+        });
+      });
+    } else if(Array.isArray(block && block.houses)) {
+      block.houses.forEach(function(h, hi) {
+        if(!h) return;
+        items.push({blockIndex:bi, roadIndex:-1, houseIndex:hi, roadName:'', house:h});
+      });
+    }
+  });
+  return items;
+}
+
+function adminArea3HasCoord(h) {
+  return h && Number.isFinite(Number(h.lat)) && Number.isFinite(Number(h.lng));
+}
+
+function adminArea3UpdateStatus(msg) {
+  var el=document.getElementById('area3CoordToolStatus');
+  if(el) el.textContent=msg;
+}
+
+function adminArea3UpdateButton(remaining) {
+  var btn=document.getElementById('area3CoordStepBtn');
+  if(!btn) return;
+  btn.disabled=!!_adminArea3CoordBusy;
+  if(_adminArea3CoordBusy) {
+    btn.textContent='검색·저장 중…';
+  } else if(remaining === 0) {
+    btn.textContent='3번 구역 좌표 저장 완료';
+    btn.disabled=true;
+  } else {
+    btn.textContent='3번 주소 1개 검색·저장 ('+remaining+'개 남음)';
+  }
+}
+
+function adminArea3Candidates(area, item) {
+  var h=item.house || {};
+  var raw=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
+  var road=String(item.roadName || '').trim();
+  var areaName=String(area && area.name || '').trim();
+  var candidates=[];
+  function add(q) {
+    q=String(q||'').trim();
+    if(q && candidates.indexOf(q)===-1) candidates.push(q);
+  }
+
+  // 3번 구역의 실제 구역명 + 도로명 + 번지수를 가장 먼저 검색한다.
+  if(areaName && road && raw) add('전북 고창군 '+areaName+' '+road+' '+raw);
+  if(road && raw) add(road+' '+raw);
+  if(areaName && road && raw) add('전북 고창군 '+road+' '+raw);
+  if(areaName && raw) add('전북 고창군 '+areaName+' '+raw);
+  if(raw) add(raw);
+  return candidates;
+}
+
+async function runAdminArea3CoordStep() {
+  if(_adminArea3CoordBusy) return;
+  _adminArea3CoordBusy=true;
+  adminArea3UpdateButton(0);
+
+  try {
+    // 매 클릭마다 최신 Firestore 문서를 읽어서 다른 관리자 작업과 충돌하지 않게 한다.
+    var doc=await db.collection('areas').doc('3').get();
+    if(!doc.exists) {
+      adminArea3UpdateStatus('3번 구역 문서를 찾을 수 없습니다.');
+      adminArea3UpdateButton(0);
+      return;
+    }
+
+    var data=doc.data() || {};
+    var blocks=Array.isArray(data.blocks) ? data.blocks : [];
+    var items=adminArea3GetItems(blocks);
+    var remaining=items.filter(function(it){ return !adminArea3HasCoord(it.house); });
+
+    if(!remaining.length) {
+      adminArea3UpdateStatus('좌표가 없는 주소가 없습니다. 모든 주소 처리가 완료됐습니다.');
+      adminArea3UpdateButton(0);
+      return;
+    }
+
+    var item=remaining[0];
+    var h=item.house;
+    var raw=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
+
+    if(!raw) {
+      adminArea3UpdateStatus('다음 주소에 주소 번호가 없습니다. 관리자에서 주소를 먼저 확인해 주세요.');
+      adminArea3UpdateButton(remaining.length);
+      return;
+    }
+
+    var area=areas.find(function(a){return String(a.id)==='3';}) || data;
+    var candidates=adminArea3Candidates(area,item);
+    adminArea3UpdateStatus('검색 중: '+(item.roadName ? item.roadName+' ' : '')+raw);
+
+    if(!candidates.length) {
+      adminArea3UpdateStatus('검색할 완전한 주소를 만들 수 없습니다: '+raw);
+      adminArea3UpdateButton(remaining.length);
+      return;
+    }
+
+    function searchAddress(index) {
+      return new Promise(function(resolve) {
+        if(index>=candidates.length) return resolve(null);
+        try {
+          new kakao.maps.services.Geocoder().addressSearch(candidates[index],function(result,status) {
+            if(status===kakao.maps.services.Status.OK && result && result[0]) {
+              resolve({lat:Number(result[0].y),lng:Number(result[0].x),query:candidates[index]});
+            } else {
+              searchAddress(index+1).then(resolve);
+            }
+          });
+        } catch(e) {
+          searchAddress(index+1).then(resolve);
+        }
+      });
+    }
+
+    function searchKeyword(index) {
+      return new Promise(function(resolve) {
+        if(index>=candidates.length || !kakao.maps.services.Places) return resolve(null);
+        try {
+          new kakao.maps.services.Places().keywordSearch(candidates[index],function(result,status) {
+            if(status===kakao.maps.services.Status.OK && result && result[0]) {
+              resolve({lat:Number(result[0].y),lng:Number(result[0].x),query:candidates[index]});
+            } else {
+              searchKeyword(index+1).then(resolve);
+            }
+          });
+        } catch(e) {
+          searchKeyword(index+1).then(resolve);
+        }
+      });
+    }
+
+    var found=await searchAddress(0);
+    if(!found) found=await searchKeyword(0);
+
+    if(!found || !Number.isFinite(found.lat) || !Number.isFinite(found.lng)) {
+      adminArea3UpdateStatus('검색 실패: '+(item.roadName ? item.roadName+' ' : '')+raw+' — 저장하지 않았습니다.');
+      adminArea3UpdateButton(remaining.length);
+      return;
+    }
+
+    h.lat=found.lat;
+    h.lng=found.lng;
+    await db.collection('areas').doc('3').update({blocks:blocks});
+
+    var localArea=areas.find(function(a){return String(a.id)==='3';});
+    if(localArea) localArea.blocks=blocks;
+
+    var left=remaining.length-1;
+    adminArea3UpdateStatus('저장 완료: '+(item.roadName ? item.roadName+' ' : '')+raw+' → '+found.lat.toFixed(6)+', '+found.lng.toFixed(6));
+    adminArea3UpdateButton(left);
+  } catch(e) {
+    console.error('관리자 3번 좌표 저장 실패',e);
+    adminArea3UpdateStatus('오류: '+(e && e.message ? e.message : e));
+  } finally {
+    _adminArea3CoordBusy=false;
+    var btn=document.getElementById('area3CoordStepBtn');
+    if(btn && btn.textContent==='검색·저장 중…') btn.textContent='3번 주소 1개 검색·저장';
+  }
+}
 
 function renderAreaList() {
   var filtered = areas.slice().sort((a,b) => Number(a.id) - Number(b.id));
