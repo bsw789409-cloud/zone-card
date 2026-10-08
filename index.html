@@ -4540,10 +4540,16 @@ window.openCardSheet = async function(aId) {
     // 지도 컨테이너가 실제 크기를 가진 순간에만 relayout한다.
     scheduleCsMapRelayout();
     setTimeout(function(){
-      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) refreshUnifiedAreaView();
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) {
+        refreshUnifiedAreaView();
+        refreshCsMapSelection();
+      }
     }, 400);
     setTimeout(function(){
-      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) refreshUnifiedAreaView();
+      if(openSheetAreaId && String(openSheetAreaId) === String(aId)) {
+        refreshUnifiedAreaView();
+        refreshCsMapSelection();
+      }
     }, 1000);
     if(syncUnsubscribe) syncUnsubscribe();
     syncUnsubscribe = db.collection('visits').where('areaId','==',String(aId)).onSnapshot(function(snap) {
@@ -4581,6 +4587,9 @@ window.openCardSheet = async function(aId) {
       initCsBlockTabs({id: aId, blocks: currentAreaData}, true);
       renderCsAssignTools(aId);
       renderCsGrid(aId);
+      setTimeout(function(){
+        if(openSheetAreaId && String(openSheetAreaId) === String(aId)) refreshCsMapSelection();
+      },80);
     });
     setTimeout(function() { startLocationSharing(); }, 500);
   } catch(e) {
