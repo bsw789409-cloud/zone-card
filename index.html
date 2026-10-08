@@ -4942,6 +4942,12 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     var areaName=area ? String(area.name||'') : '';
     var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북 고창군 ' : '전북 부안군 ';
     var candidates=[];
+    // 구역카드 3번만: 저장된 도로명과 번지 주소를 합친 완전주소를 최우선으로 사용
+    if(String(areaId)==='3' && roadName && rawAddr) {
+      candidates.push(roadName+' '+rawAddr);
+      if(areaName) candidates.push(region+areaName+' '+roadName+' '+rawAddr);
+      candidates.push(region+roadName+' '+rawAddr);
+    }
     if(roadName && rawAddr.indexOf(roadName)===-1) candidates.push(roadName+' '+rawAddr);
     if(region && areaName) candidates.push(region+areaName+(roadName?' '+roadName:'')+' '+rawAddr);
     if(region && roadName) candidates.push(region+roadName+' '+rawAddr);
