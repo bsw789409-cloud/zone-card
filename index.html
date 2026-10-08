@@ -772,19 +772,21 @@ window.onload = async function() {
     if(currentUser) rtdb.ref('locations/' + currentUser).remove();
   });
 
-  var areasLoaded = false;
-  for(var attempt=0; attempt<3 && !areasLoaded; attempt++) {
-    try {
-      var snap = await db.collection('areas').orderBy('id').get();
-      areas = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      areasLoaded = true;
-    } catch(e) {
-      if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 700 * (attempt + 1)); });
-    }
-  }
+  // 첫 화면은 즉시 보여 주고 구역 데이터는 백그라운드에서 가져온다.
   showScreen('login');
-  if(!areasLoaded) showToast('구역 목록을 불러오지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.');
   listenForSOS();
+  (async function loadAreasInBackground(){
+    for(var attempt=0; attempt<3; attempt++) {
+      try {
+        var snap = await db.collection('areas').orderBy('id').get();
+        areas = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        return;
+      } catch(e) {
+        if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 500 * (attempt + 1)); });
+      }
+    }
+    showToast('구역 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+  })();
 };
 
 function showScreen(id) {
@@ -4075,31 +4077,36 @@ async function editAssignedCarPerson(gi, pi) {
   var carAnswer = prompt('차량 보유 여부를 입력해 주세요: 있음 또는 없음', person.car ? '있음' : '없음');
   if(carAnswer === null) return;
   carAnswer = carAnswer.trim();
-  if(!['있음','없음'].includes(carAnswer)) { showToast('있음 또는 없음으로 입력해 주세요'); return; }
-  person.name = name; person.gender = gender; person.car = carAnswer === '있음';
-  // 대기 명단도 같은 이름을 참조하는 경우 정보 동기화
+  if(carAnswer !== '있음' && carAnswer !== '없음') { showToast('있음 또는 없음으로 입력해 주세요'); return; }
+
+  var newCar = carAnswer === '있음';
+  // 화면 상태를 먼저 갱신해 이름 변경이 즉시 보이도록 한다.
+  person.name = name;
+  person.gender = gender;
+  person.car = newCar;
   todaySignups.forEach(function(p) {
     if(p.name === oldName || (p.id && person.id && p.id === person.id)) {
-      p.name = name; p.gender = gender; p.car = person.car;
+      p.name = name; p.gender = gender; p.car = newCar;
     }
   });
+  renderCarAssignment();
+
   try {
-    // 오늘 신청 명단도 함께 갱신해 이름 변경 후 대기 명단에 중복 표시되지 않게 한다.
-    try {
-      var signupSnap = await db.collection('serviceSignups').where('date','==',todayStr()).where('name','==',oldName).get();
-      await Promise.all(signupSnap.docs.map(function(doc) {
-        return doc.ref.update({name:name, gender:gender, car:person.car});
-      }));
-    } catch(signupError) {
-      console.warn('신청 명단 동기화 실패', signupError);
-    }
+    // 배정 데이터는 반드시 먼저 저장한다.
     await persistCarAssignment({notify:false});
-    renderCarAssignment();
-    showToast('차량 배정 정보가 수정되었습니다');
+    // 이름이 바뀐 경우 오늘 신청 데이터도 이름 기준으로 찾아 갱신한다.
+    var signupSnap = await db.collection('serviceSignups')
+      .where('date','==',todayStr()).where('name','==',oldName).get();
+    await Promise.all(signupSnap.docs.map(function(doc) {
+      return doc.ref.update({name:name, gender:gender, car:newCar});
+    }));
+    showToast('이름과 차량 배정 정보가 저장되었습니다');
   } catch(e) {
-    showToast('저장에 실패했습니다. 다시 시도해 주세요');
+    console.error('차량 배정 정보 수정 실패', e);
+    showToast('배정은 화면에 반영됐지만 저장 중 오류가 발생했습니다. 인터넷/권한을 확인해 주세요.');
   }
 }
+
 function toggleCarCollapse(gi) {
   carCollapsed[gi] = !carCollapsed[gi];
   renderCarAssignment();
@@ -5000,13 +5007,6 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       _csAddressOverlays.push(o);
       if(fromSearch && h && !getHouseCoord(h)){
         persistHouseCoordsInCurrentArea(areaId,h,y,x);
-        // 검색으로 새 좌표가 생긴 직후에도 현재 카드 화면이 그 위치를 바라보도록 맞춘다.
-        // 저장 전 검색 결과만 보이고 화면 밖에 남는 문제를 방지한다.
-        setTimeout(function(){
-          if(openSheetAreaId && String(openSheetAreaId)===String(areaId)){
-            refreshCsMapSelection();
-          }
-        },80);
       }
     }
 
