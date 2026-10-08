@@ -901,7 +901,10 @@ async function runAdminArea3CoordStep() {
   } finally {
     _adminArea3CoordBusy=false;
     var btn=document.getElementById('area3CoordStepBtn');
-    if(btn && btn.textContent==='검색·저장 중…') btn.textContent='3번 주소 1개 검색·저장';
+    if(btn && btn.textContent==='검색·저장 중…') {
+      btn.textContent='3번 주소 1개 검색·저장';
+      btn.disabled=false;
+    }
   }
 }
 
