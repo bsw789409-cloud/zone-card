@@ -4995,6 +4995,28 @@ function scheduleCsMapRelayout() {
   });
 }
 
+function fitCsArea3SavedHouseCoords(blocks, map) {
+  if(!map || String(openSheetAreaId || currentAreaId || '') !== '3') return false;
+  var bounds = new kakao.maps.LatLngBounds();
+  var count = 0;
+  (blocks || []).forEach(function(b){
+    (getBlockHouses(b) || []).forEach(function(h){
+      var hc = getHouseCoord(h);
+      if(!hc) return;
+      bounds.extend(new kakao.maps.LatLng(hc.lat, hc.lng));
+      count++;
+    });
+  });
+  if(count === 0) return false;
+  if(count === 1) {
+    map.setCenter(bounds.getSouthWest());
+    map.setLevel(5);
+  } else {
+    map.setBounds(bounds, 45, 45, 45, 45);
+  }
+  return true;
+}
+
 function updateCsMapAll(blocks, areaId) {
   var ph = document.getElementById('csMapPh');
   var mapDiv = document.getElementById('csKakaoMap');
@@ -5034,12 +5056,22 @@ function updateCsMapAll(blocks, areaId) {
   (blocks||[]).forEach(function(b,i){
     renderCsAddressPins(b,areaId,_csKakaoMap,i,false);
   });
+
+  // 3번 구역은 저장된 모든 집 좌표가 화면 안에 들어오도록 지도 범위를 맞춘다.
+  // 주차 위치를 중심으로 잡던 기존 방식 때문에 집 핀이 화면 밖으로 밀리는 문제를 방지한다.
+  if(String(areaId)==='3') {
+    fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
+  }
+
   scheduleCsMapRelayout();
   setTimeout(function(){
     if(!_csKakaoMap) return;
     relayoutMapWhenReady(_csKakaoMap,mapDiv);
     clearCsAddressPins();
     (blocks||[]).forEach(function(b,i){ renderCsAddressPins(b,areaId,_csKakaoMap,i,false); });
+    if(String(areaId)==='3') {
+      fitCsArea3SavedHouseCoords(blocks,_csKakaoMap);
+    }
   },900);
 }
 
