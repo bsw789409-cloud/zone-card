@@ -3709,7 +3709,8 @@ function zdNumberOverlay(position,label,onClick,active){
  overlay.setMap(zdMap);zdMarkers.push(overlay);return overlay;
 }
 function zdCreateMap(){
- var el=document.getElementById('zdMap');if(!el||!window.kakao||!kakao.maps){if(el)el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return}
+ var el=document.getElementById('zdMap');
+ if(!el||!window.kakao||!kakao.maps){if(el)el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return;}
  el.innerHTML='';zdClearMarkers();
  var center=new kakao.maps.LatLng(35.5487,126.7216),valid=[];
  if(zdMapMode==='overview'){
@@ -3724,17 +3725,26 @@ function zdCreateMap(){
  if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)zdMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
  else if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.SKYVIEW)zdMap.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
  if(zdMapMode==='overview'){
-  // 전체 구역 지도에서는 번호 라벨을 숨기고 작은 클릭 가능한 점만 표시해 가독성을 높인다.
+  // 전체 구역은 번호 대신 작은 점만 표시한다. 점을 누르면 해당 구역의 번지 핀으로 전환한다.
   valid.forEach(function(v){
-   var dot=document.createElement('button');dot.type='button';dot.setAttribute('aria-label',String(v.area.id)+'번 구역 열기');
-   dot.title=String(v.area.id)+'번 구역';
+   var dot=document.createElement('button');dot.type='button';
+   dot.setAttribute('aria-label',String(v.area.id)+'번 구역 열기');dot.title=String(v.area.id)+'번 구역';
    dot.style.cssText='width:14px;height:14px;padding:0;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px #0008;background:#7c3aed;cursor:pointer';
-   dot.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var sel=document.getElementById('zdAreaSelect');sel.value=String(v.area.id);zdLoadArea(String(v.area.id));});
+   dot.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var sel=document.getElementById('zdAreaSelect');if(sel)sel.value=String(v.area.id);zdLoadArea(String(v.area.id));});
    var overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(v.lat,v.lng),content:dot,yAnchor:.5,xAnchor:.5,zIndex:5});
    overlay.setMap(zdMap);zdMarkers.push(overlay);
   });
  }else{
-  valid.forEach(function(r){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdNumberOverlay(pos,r.number,function(){zdSelectRow(r,true)},zasync function zdOpenRequest(docId){
+  valid.forEach(function(r){zdNumberOverlay(new kakao.maps.LatLng(r.lat,r.lng),r.number,function(){zdSelectRow(r,true)},!!(zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi));});
+ }
+ if(valid.length>1)zdFitMap();else if(valid.length===1){
+  var p=zdMapMode==='overview'?new kakao.maps.LatLng(valid[0].lat,valid[0].lng):new kakao.maps.LatLng(valid[0].lat,valid[0].lng);
+  zdMap.setCenter(p);
+ }
+ setTimeout(function(){if(zdMap)zdMap.relayout();},100);
+}
+
+async function zdOpenRequest(docId){
  var box=document.getElementById('zdInlineRequestCard');
  if(!box)return;
  box.style.display='block';
@@ -3763,11 +3773,6 @@ function zdCreateMap(){
 }
 function zdCloseInlineRequest(){
  var box=document.getElementById('zdInlineRequestCard');if(box){box.style.display='none';box.innerHTML='';}
-}
-dSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi)});
- }
- if(valid.length>1)zdFitMap();else if(valid.length===1)zdMap.setCenter(new kakao.maps.LatLng(valid[0].lat,valid[0].lng));
- setTimeout(function(){if(zdMap)zdMap.relayout()},100);
 }
 function zdFitMap(){
  if(!zdMap||!window.kakao)return;
