@@ -1491,6 +1491,20 @@ async function openFixRequestCardEditor() {
 
 var fixFullCardAreaId = '';
 var fixFullCardBlocks = [];
+var fixRequestMap=null,fixRequestMapOverlays=[],fixRequestSelectedHouse=null;
+function clearFixRequestMapOverlays(){fixRequestMapOverlays.forEach(function(o){try{o.setMap(null)}catch(e){}});fixRequestMapOverlays=[];}
+function selectFixRequestHouseForMap(bi,si,hi){syncFixFullCardInputs();fixRequestSelectedHouse={bi:bi,si:si,hi:hi};renderFixFullCardEditor();showToast('선택한 번지의 위치를 바꾸려면 지도에서 새 위치를 눌러 주세요.');}
+function initFixRequestMap(){
+ var el=document.getElementById('fixRequestMap');if(!el||!window.kakao||!kakao.maps)return;clearFixRequestMapOverlays();fixRequestMap=null;
+ var center=new kakao.maps.LatLng(35.5487,126.7216),target=null,all=[];
+ (fixFullCardBlocks||[]).forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){if(h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){var item={bi:bi,si:si,hi:hi,lat:Number(h.lat),lng:Number(h.lng)};all.push(item);if(fixRequestSelectedHouse&&fixRequestSelectedHouse.bi===bi&&fixRequestSelectedHouse.si===si&&fixRequestSelectedHouse.hi===hi)target=item;}});});});
+ if(!target&&all.length)target=all[0];if(target)center=new kakao.maps.LatLng(target.lat,target.lng);
+ fixRequestMap=new kakao.maps.Map(el,{center:center,level:4});if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)fixRequestMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+ var number=0;(fixFullCardBlocks||[]).forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){number++;if(h.lat===null||h.lng===null||h.lat===undefined||h.lng===undefined||!Number.isFinite(Number(h.lat))||!Number.isFinite(Number(h.lng)))return;var selected=fixRequestSelectedHouse&&fixRequestSelectedHouse.bi===bi&&fixRequestSelectedHouse.si===si&&fixRequestSelectedHouse.hi===hi;var requested=activeFixHouseLocation&&activeFixHouseLocation.bi===bi&&activeFixHouseLocation.si===si&&activeFixHouseLocation.hi===hi;var pin=document.createElement('div');pin.style.cssText='width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px #0005;background:'+(selected||requested?'#ea580c':'#2563eb')+';color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;cursor:pointer';pin.textContent=number;pin.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();selectFixRequestHouseForMap(bi,si,hi);});var o=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(Number(h.lat),Number(h.lng)),content:pin,yAnchor:.5,xAnchor:.5});o.setMap(fixRequestMap);fixRequestMapOverlays.push(o);});});});
+ kakao.maps.event.addListener(fixRequestMap,'click',function(ev){if(!fixRequestSelectedHouse){showToast('먼저 주소 목록에서 지도 위치 수정을 선택해 주세요.');return;}var loc=fixRequestSelectedHouse,blk=fixFullCardBlocks[loc.bi],sub=blk&&blk.subTopics&&blk.subTopics[loc.si],h=sub&&sub.houses&&sub.houses[loc.hi];if(!h)return;h.lat=ev.latLng.getLat();h.lng=ev.latLng.getLng();renderFixFullCardEditor();showToast('지도 위치를 변경했습니다. 전체 수정 저장을 눌러 확정하세요.');});
+ setTimeout(function(){if(fixRequestMap)fixRequestMap.relayout()},80);
+}
+
 
 function syncFixFullCardInputs() {
   var content=document.getElementById('fixFullCardContent');
@@ -1517,6 +1531,11 @@ function renderFixFullCardEditor() {
   notice.style.cssText='padding:12px;border:2px solid #f97316;background:#fff7ed;border-radius:10px;color:#7c2d12;margin-bottom:12px';
   notice.innerHTML='<div style="font-weight:900;margin-bottom:5px">🔎 수정해야 할 내용</div><div style="font-weight:800">'+escHtml(String(reqData.addr||'주차 위치'))+(reqData.block?' · 블럭 '+reqData.block:'')+'</div><div style="white-space:pre-wrap;margin-top:5px">'+escHtml(String(reqData.memo||'요청 내용이 없습니다. 요청한 위치를 확인해 주세요.'))+'</div><div style="font-size:12px;margin-top:6px">주황색 테두리로 표시된 항목을 우선 확인한 뒤 저장하세요.</div>';
   content.appendChild(notice);
+  var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
+  var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
+  var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도 위치 수정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
+  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:320px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);content.appendChild(mapWrap);
+
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
   fixFullCardBlocks.forEach(function(blk,bi) {
     if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
@@ -1531,18 +1550,19 @@ function renderFixFullCardEditor() {
       sh.innerHTML='<b style="font-size:12px;color:#475569">도로명/그룹 '+(si+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',-1)">↑</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',1)">↓</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'sub\','+bi+','+si+')">그룹 삭제</button>';group.appendChild(sh);
       var sn=document.createElement('input');sn.value=String(sub.name||'');sn.placeholder='도로명 또는 그룹 이름';sn.style.cssText=inp+';font-weight:700;margin-bottom:8px';sn.dataset.fixField='subName';sn.dataset.bi=bi;sn.dataset.si=si;group.appendChild(sn);
       sub.houses.forEach(function(h,hi) {
-        var row=document.createElement('div');var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px;border-top:1px solid #e2e8f0;border-radius:8px;background:'+(houseRequested?'#fff7ed':'transparent')+';outline:'+(houseRequested?'2px solid #f97316':'none');
+        var row=document.createElement('div');var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);var numberLabel=document.createElement('div');numberLabel.style.cssText='grid-column:1/-1;font-size:12px;font-weight:900;color:'+(houseRequested?'#c2410c':'#475569');numberLabel.textContent=(bi+1)+'블럭 · '+(si+1)+'그룹 · '+(hi+1)+'번지'+(houseRequested?' · 🔶 수정요청 대상':'');row.appendChild(numberLabel);row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px;border-top:1px solid #e2e8f0;border-radius:8px;background:'+(houseRequested?'#fff7ed':'transparent')+';outline:'+(houseRequested?'2px solid #f97316':'none');
         var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='번지/주소';ai.style.cssText=inp+';font-weight:800';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;
         var ni=document.createElement('textarea');ni.value=String(h.note||h.memo||'');ni.placeholder='메모 또는 카드 내용';ni.rows=2;ni.style.cssText=inp+';resize:vertical';ni.dataset.fixField='note';ni.dataset.bi=bi;ni.dataset.si=si;ni.dataset.hi=hi;
         row.appendChild(ai);row.appendChild(ni);group.appendChild(row);
         var ha=document.createElement('div');ha.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin:4px 0 7px';
-        ha.innerHTML='<button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',-1)">↑ 번지</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',1)">↓ 번지</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'house\','+bi+','+si+','+hi+')">삭제</button>';group.appendChild(ha);
+        ha.innerHTML='<button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',-1)">↑ 번지</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',1)">↓ 번지</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'house\','+bi+','+si+','+hi+')">삭제</button>';group.appendChild(ha);var mapBtn=document.createElement('button');mapBtn.textContent='📍 지도 위치 수정';mapBtn.style.cssText=btn;mapBtn.onclick=(function(bi2,si2,hi2){return function(){selectFixRequestHouseForMap(bi2,si2,hi2);};})(bi,si,hi);ha.appendChild(mapBtn);
       });
       var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
     });
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);content.appendChild(card);
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
+  initFixRequestMap();
 }
 function moveFixFullCardItem(type,bi,si,hi,dir) {
   syncFixFullCardInputs();
@@ -1580,7 +1600,7 @@ async function openFixRequestFullCard() {
   try {
     fixFullCardAreaId=String(activeFixRequest.data.areaId||'');var snap=await db.collection('areas').doc(fixFullCardAreaId).get();if(!snap.exists)throw new Error('해당 구역 카드를 찾을 수 없습니다.');
     var data=snap.data()||{};subtitle.textContent=fixFullCardAreaId+'번 구역 · '+String(data.name||activeFixRequest.data.areaName||'')+' · 모든 항목 편집 가능';
-    var blocks=data.blocks||[];if(!Array.isArray(blocks))blocks=Object.values(blocks);fixFullCardBlocks=JSON.parse(JSON.stringify(blocks));renderFixFullCardEditor();
+    var blocks=data.blocks||[];if(!Array.isArray(blocks))blocks=Object.values(blocks);fixFullCardBlocks=JSON.parse(JSON.stringify(blocks));fixRequestSelectedHouse=activeFixHouseLocation?{bi:activeFixHouseLocation.bi,si:activeFixHouseLocation.si,hi:activeFixHouseLocation.hi}:null;renderFixFullCardEditor();
   } catch(e){content.innerHTML='<div style="padding:16px;color:#b91c1c;background:white;border-radius:10px">카드 내용을 불러오지 못했습니다: '+escHtml(e&&e.message?e.message:e)+'</div>';}
 }
 function closeFixRequestFullCard() {
