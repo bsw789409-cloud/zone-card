@@ -528,7 +528,7 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
   <div onclick="event.stopPropagation()" style="width:min(100%,900px);max-height:92vh;overflow:auto;background:#f8fafc;border-radius:16px;padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:-16px;background:#f8fafc;padding:8px 0;z-index:1">
       <div><div style="font-size:19px;font-weight:900">전체 카드 보기</div><div id="fixFullCardSubtitle" style="font-size:12px;color:#64748b;margin-top:3px"></div></div>
-      <button onclick="closeFixRequestFullCard()" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:white">닫기</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="saveFixFullCardEditor()" style="padding:9px 12px;border-radius:9px;border:0;background:#ea580c;color:white;font-weight:900">전체 수정 저장</button><button onclick="closeFixRequestFullCard()" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:white">닫기</button></div>
     </div>
     <div id="fixFullCardContent"><div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div></div>
   </div>
@@ -1495,58 +1495,89 @@ async function openFixRequestCardEditor() {
   await openEditCard(areaId, addr);
 }
 
-async function openFixRequestFullCard() {
-  if(!activeFixRequest) { showToast('먼저 수정요청을 열어 주세요.'); return; }
-  var overlay=document.getElementById('fixFullCardOverlay');
+var fixFullCardAreaId = '';
+var fixFullCardBlocks = [];
+
+function syncFixFullCardInputs() {
   var content=document.getElementById('fixFullCardContent');
-  var subtitle=document.getElementById('fixFullCardSubtitle');
-  overlay.style.display='flex';
-  content.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div>';
-  try {
-    var areaId=String(activeFixRequest.data.areaId||'');
-    var snap=await db.collection('areas').doc(areaId).get();
-    if(!snap.exists) throw new Error('해당 구역 카드를 찾을 수 없습니다.');
-    var data=snap.data()||{};
-    subtitle.textContent=areaId+'번 구역 · '+String(data.name||activeFixRequest.data.areaName||'');
-    var blocks=data.blocks||[];
-    if(!Array.isArray(blocks)) blocks=Object.values(blocks);
-    if(!blocks.length) { content.innerHTML='<div style="padding:18px;background:white;border-radius:10px">이 구역 카드에 등록된 블럭이 없습니다.</div>'; return; }
-    content.innerHTML='';
-    blocks.forEach(function(blk,bi) {
-      var blockCard=document.createElement('section');
-      blockCard.style.cssText='background:white;border:1px solid #e2e8f0;border-radius:12px;padding:12px;margin:10px 0';
-      var blockTitle=document.createElement('div');
-      blockTitle.style.cssText='font-size:15px;font-weight:900;margin-bottom:10px;color:#1e293b';
-      blockTitle.textContent=String(blk.name||('블럭 '+(bi+1)));
-      blockCard.appendChild(blockTitle);
-      var subs=Array.isArray(blk.subTopics)?blk.subTopics:[];
-      if(!subs.length && Array.isArray(blk.houses)) subs=[{name:blk.name||'번지 목록',houses:blk.houses}];
-      if(!subs.length) {
-        var empty=document.createElement('div'); empty.style.cssText='font-size:12px;color:#94a3b8;padding:8px 0'; empty.textContent='등록된 도로명이나 번지 정보가 없습니다.'; blockCard.appendChild(empty);
-      }
-      subs.forEach(function(sub,si) {
-        var group=document.createElement('div');
-        group.style.cssText='border-top:1px solid #f1f5f9;padding-top:9px;margin-top:9px';
-        var heading=document.createElement('div');
-        heading.style.cssText='font-size:13px;font-weight:800;color:#475569;margin-bottom:7px';
-        heading.textContent=String(sub.name||('도로명 '+(si+1)));
-        group.appendChild(heading);
-        var houses=Array.isArray(sub.houses)?sub.houses:[];
-        if(!houses.length) { var none=document.createElement('div');none.style.cssText='font-size:12px;color:#94a3b8';none.textContent='번지 정보 없음';group.appendChild(none); }
-        houses.forEach(function(h,hi) {
-          var row=document.createElement('div');
-          row.style.cssText='display:grid;grid-template-columns:minmax(90px,1fr) minmax(0,2fr);gap:8px;padding:8px 0;border-top:1px solid #f8fafc;font-size:13px';
-          var addr=document.createElement('div'); addr.style.cssText='font-weight:800;overflow-wrap:anywhere'; addr.textContent=String(h.addr||h.num||('번지 '+(hi+1)));
-          var note=document.createElement('div'); note.style.cssText='color:#64748b;white-space:pre-wrap;overflow-wrap:anywhere'; note.textContent=String(h.note||h.memo||'');
-          row.appendChild(addr);row.appendChild(note);group.appendChild(row);
-        });
-        blockCard.appendChild(group);
+  if(!content) return;
+  content.querySelectorAll('[data-fix-field]').forEach(function(el) {
+    var bi=Number(el.getAttribute('data-bi')), si=Number(el.getAttribute('data-si')), hi=Number(el.getAttribute('data-hi')), field=el.getAttribute('data-fix-field');
+    if(!fixFullCardBlocks[bi]) return;
+    if(field==='blockName') fixFullCardBlocks[bi].name=el.value;
+    if(field==='subName' && fixFullCardBlocks[bi].subTopics[si]) fixFullCardBlocks[bi].subTopics[si].name=el.value;
+    if(field==='addr' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) {
+      var house=fixFullCardBlocks[bi].subTopics[si].houses[hi];house.addr=el.value;if(Object.prototype.hasOwnProperty.call(house,'num'))house.num=el.value;
+    }
+    if(field==='note' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) {
+      var houseNote=fixFullCardBlocks[bi].subTopics[si].houses[hi];houseNote.note=el.value;if(Object.prototype.hasOwnProperty.call(houseNote,'memo'))houseNote.memo=el.value;
+    }
+  });
+}
+function renderFixFullCardEditor() {
+  var content=document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
+  var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
+  var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
+  fixFullCardBlocks.forEach(function(blk,bi) {
+    if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
+    var card=document.createElement('section');card.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
+    var head=document.createElement('div');head.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px';
+    head.innerHTML='<b style="font-size:12px;color:#64748b">블럭 '+(bi+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',-1)">↑ 위로</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',1)">↓ 아래로</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'block\','+bi+')">블럭 삭제</button>';card.appendChild(head);
+    var bn=document.createElement('input');bn.value=String(blk.name||'');bn.placeholder='블럭 이름';bn.style.cssText=inp+';font-weight:800;margin-bottom:8px';bn.dataset.fixField='blockName';bn.dataset.bi=bi;card.appendChild(bn);
+    blk.subTopics.forEach(function(sub,si) {
+      if(!Array.isArray(sub.houses))sub.houses=[];
+      var group=document.createElement('div');group.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin:10px 0;background:#f8fafc';
+      var sh=document.createElement('div');sh.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:7px';
+      sh.innerHTML='<b style="font-size:12px;color:#475569">도로명/그룹 '+(si+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',-1)">↑</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',1)">↓</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'sub\','+bi+','+si+')">그룹 삭제</button>';group.appendChild(sh);
+      var sn=document.createElement('input');sn.value=String(sub.name||'');sn.placeholder='도로명 또는 그룹 이름';sn.style.cssText=inp+';font-weight:700;margin-bottom:8px';sn.dataset.fixField='subName';sn.dataset.bi=bi;sn.dataset.si=si;group.appendChild(sn);
+      sub.houses.forEach(function(h,hi) {
+        var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px 0;border-top:1px solid #e2e8f0';
+        var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='번지/주소';ai.style.cssText=inp+';font-weight:800';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;
+        var ni=document.createElement('textarea');ni.value=String(h.note||h.memo||'');ni.placeholder='메모 또는 카드 내용';ni.rows=2;ni.style.cssText=inp+';resize:vertical';ni.dataset.fixField='note';ni.dataset.bi=bi;ni.dataset.si=si;ni.dataset.hi=hi;
+        row.appendChild(ai);row.appendChild(ni);group.appendChild(row);
+        var ha=document.createElement('div');ha.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin:4px 0 7px';
+        ha.innerHTML='<button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',-1)">↑ 번지</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',1)">↓ 번지</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'house\','+bi+','+si+','+hi+')">삭제</button>';group.appendChild(ha);
       });
-      content.appendChild(blockCard);
+      var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
     });
-  } catch(e) {
-    content.innerHTML='<div style="padding:16px;color:#b91c1c;background:white;border-radius:10px">카드 내용을 불러오지 못했습니다: '+escHtml(e&&e.message?e.message:e)+'</div>';
-  }
+    var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);content.appendChild(card);
+  });
+  var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
+}
+function moveFixFullCardItem(type,bi,si,hi,dir) {
+  syncFixFullCardInputs();
+  var arr,index,delta;
+  if(type==='block'){arr=fixFullCardBlocks;index=bi;delta=si;}
+  else if(type==='sub'){arr=fixFullCardBlocks[bi].subTopics;index=si;delta=hi;}
+  else {arr=fixFullCardBlocks[bi].subTopics[si].houses;index=hi;delta=dir;}
+  var next=index+delta;if(!arr||next<0||next>=arr.length)return;
+  var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;renderFixFullCardEditor();
+}
+function removeFixFullCardItem(type,bi,si,hi) {
+  syncFixFullCardInputs();if(!confirm('선택한 항목을 삭제할까요? 저장 전까지 실제 카드에는 반영되지 않습니다.'))return;
+  if(type==='block')fixFullCardBlocks.splice(bi,1);else if(type==='sub')fixFullCardBlocks[bi].subTopics.splice(si,1);else fixFullCardBlocks[bi].subTopics[si].houses.splice(hi,1);
+  renderFixFullCardEditor();
+}
+async function saveFixFullCardEditor() {
+  if(!fixFullCardAreaId)return;syncFixFullCardInputs();
+  if(!confirm('이 구역 카드의 전체 수정 내용을 저장할까요? 삭제하거나 순서를 바꾼 항목도 반영됩니다.'))return;
+  showLoader();
+  try {
+    var ref=db.collection('areas').doc(String(fixFullCardAreaId)),fresh=await ref.get();if(!fresh.exists)throw new Error('구역 카드를 찾을 수 없습니다.');
+    await ref.update({blocks:fixFullCardBlocks});
+    var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
+    showToast('구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');loadAreaList();loadHomeStats();closeFixRequestFullCard();
+  } catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}hideLoader();
+}
+async function openFixRequestFullCard() {
+  if(!activeFixRequest){showToast('먼저 수정요청을 열어 주세요.');return;}
+  var overlay=document.getElementById('fixFullCardOverlay'),content=document.getElementById('fixFullCardContent'),subtitle=document.getElementById('fixFullCardSubtitle');
+  overlay.style.display='flex';content.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div>';
+  try {
+    fixFullCardAreaId=String(activeFixRequest.data.areaId||'');var snap=await db.collection('areas').doc(fixFullCardAreaId).get();if(!snap.exists)throw new Error('해당 구역 카드를 찾을 수 없습니다.');
+    var data=snap.data()||{};subtitle.textContent=fixFullCardAreaId+'번 구역 · '+String(data.name||activeFixRequest.data.areaName||'')+' · 모든 항목 편집 가능';
+    var blocks=data.blocks||[];if(!Array.isArray(blocks))blocks=Object.values(blocks);fixFullCardBlocks=JSON.parse(JSON.stringify(blocks));renderFixFullCardEditor();
+  } catch(e){content.innerHTML='<div style="padding:16px;color:#b91c1c;background:white;border-radius:10px">카드 내용을 불러오지 못했습니다: '+escHtml(e&&e.message?e.message:e)+'</div>';}
 }
 function closeFixRequestFullCard() {
   var overlay=document.getElementById('fixFullCardOverlay');
