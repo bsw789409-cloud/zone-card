@@ -1612,7 +1612,7 @@ function syncFixFullCardInputs() {
   });
 }
 function renderFixFullCardEditor() {
-  var content=document.getElementById('fixFullCardContent')||document.getElementById('zdInlineFullCardContent'); if(!content)return; content.innerHTML='';
+  var inlineContent=document.getElementById('zdInlineFullCardContent');var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
   var reqData=activeFixRequest&&activeFixRequest.data?activeFixRequest.data:{};
   var reqLoc=activeFixHouseLocation;
@@ -3751,11 +3751,7 @@ function zdCreateMap(){
   fixFullCardBlocks=JSON.parse(JSON.stringify(raw));
   fixRequestSelectedHouse=found?{bi:found.bi,si:found.si,hi:found.hi}:null;
   // Reuse the existing full-card editor without opening a separate modal.
-  var content=document.getElementById('fixFullCardContent'),inline=document.getElementById('zdInlineFullCardContent');
-  if(content){content.id='zdInlineFullCardContent';}
   renderFixFullCardEditor();
-  var rendered=document.getElementById('fixFullCardContent');
-  if(rendered&&rendered!==inline){inline.innerHTML=rendered.innerHTML;rendered.innerHTML='';}
   box.scrollIntoView({behavior:'smooth',block:'start'});
  }catch(e){box.innerHTML='<div style="color:#b91c1c;padding:10px">'+escHtml(e.message||e)+'</div>';}
 }
