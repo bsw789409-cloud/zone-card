@@ -301,8 +301,8 @@ button:active{transform:translateY(1px)}
     <div class="stat-card blue"><div class="stat-num" id="statUnassigned">-</div><div class="stat-lbl">미배정</div></div>
     <div class="stat-card red"><div class="stat-num" id="statReject">-</div><div class="stat-lbl">거절</div></div>
     <div class="stat-card yellow"><div class="stat-num" id="statInterest">-</div><div class="stat-lbl">관심자</div></div>
-    <div class="stat-card gray"><div class="stat-num" id="statVacant">-</div><div class="stat-lbl">공실</div></div>
-    <div class="stat-card"><div class="stat-num" id="statFix">-</div><div class="stat-lbl">수정요청</div></div>
+    
+    
   </div>
 
   <div class="card">
@@ -606,8 +606,8 @@ button:active{transform:translateY(1px)}
 <div style="padding:20px;display:grid;gap:14px"><div><b>전도인이 보낸 요청 내용</b><div id="fixRequestMemo" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:6px;min-height:48px"></div></div><div><label for="fixRequestAddrInput">해당 번지</label><input id="fixRequestAddrInput" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:800"></div><div><label for="fixRequestNoteInput">카드 메모 / 수정할 내용</label><textarea id="fixRequestNoteInput" rows="3" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px"></textarea></div><div style="font-size:12px;color:#64748b">기존 카드 편집기와 분리된 수정요청 전용 화면입니다. 저장 전 완료 여부를 확인합니다.</div></div>
 <div style="padding:14px 20px 20px;display:flex;gap:10px;flex-wrap:wrap"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="openFixRequestFullCard()" style="flex:1;padding:12px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-weight:900">전체 카드 보기 · 한꺼번에 수정</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
 <!-- 수정요청에서 여는 해당 구역 전체 카드 보기 -->
-<div id="fixFullCardOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:13000;padding:12px;align-items:center;justify-content:center" onclick="closeFixRequestFullCard()">
-  <div onclick="event.stopPropagation()" style="width:min(100%,900px);max-height:92vh;overflow:auto;background:#f8fafc;border-radius:16px;padding:16px">
+<div id="fixFullCardOverlay" style="display:none;position:fixed;inset:0;background:#f8fafc;z-index:13000;padding:0;align-items:stretch;justify-content:stretch" onclick="closeFixRequestFullCard()">
+  <div onclick="event.stopPropagation()" style="width:100%;height:100vh;max-height:100vh;overflow:auto;background:#f8fafc;border-radius:0;padding:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:-16px;background:#f8fafc;padding:8px 0;z-index:1">
       <div><div style="font-size:19px;font-weight:900">전체 카드 보기</div><div id="fixFullCardSubtitle" style="font-size:12px;color:#64748b;margin-top:3px"></div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="saveFixFullCardEditor()" style="padding:9px 12px;border-radius:9px;border:0;background:#ea580c;color:white;font-weight:900">전체 수정 저장</button><button onclick="closeFixRequestFullCard()" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:white">닫기</button></div>
@@ -3699,6 +3699,32 @@ function zdLoadArea(id){
   zdRenderList();zdRunAudit();zdCreateMap();
  }).catch(function(e){list.innerHTML='<div class="zd-empty">불러오지 못했습니다: '+escHtml(e.message||e)+'</div>'});
 }
+function zdRenderList(){
+ var list=document.getElementById('zdAddressList');if(!list)return;
+ var q=String((document.getElementById('zdSearch')||{}).value||'').trim().toLowerCase();
+ var rows=zdDashboardRows.filter(function(r){return !q||String(r.addr+' '+r.road+' '+(r.house&&r.house.note||'')).toLowerCase().indexOf(q)>=0;});
+ if(!rows.length){list.innerHTML='<div class="zd-empty">'+(zdDashboardRows.length?'검색 결과가 없습니다.':'이 구역에 번지 정보가 없습니다.')+'</div>';return;}
+ list.innerHTML=rows.map(function(r){
+  var active=zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi;
+  return '<button type="button" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:pointer" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div></button>';
+ }).join('');
+}
+function zdSelectRowByIndex(bi,si,hi){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi;});if(r)zdSelectRow(r,true);}
+function zdSelectRow(r,centerMap){
+ if(!r)return;zdSelectedHouse={bi:r.bi,si:r.si,hi:r.hi};zdRenderList();
+ if(centerMap&&zdMap&&Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0)zdMap.panTo(new kakao.maps.LatLng(r.lat,r.lng));
+ zdCreateMap();
+}
+function zdRunAudit(){
+ var count=document.getElementById('zdAuditCount'),details=document.getElementById('zdAuditDetails');
+ if(!count||!details)return;
+ if(!zdDashboardBlocks.length){count.textContent='선택 필요';details.textContent='구역을 선택하면 주소 오류를 검사할 수 있습니다.';return;}
+ var missing=0,dupes={},duplicate=0,total=0;
+ zdDashboardBlocks.forEach(function(blk){(blk.subTopics||[]).forEach(function(sub){(sub.houses||[]).forEach(function(h){total++;var a=String(h.addr||h.num||'').trim();if(!a)missing++;else{dupes[a]=(dupes[a]||0)+1;}});});});
+ Object.keys(dupes).forEach(function(k){if(dupes[k]>1)duplicate+=dupes[k]-1;});
+ count.textContent=(missing+duplicate)?(missing+duplicate)+'건 확인':'정상';
+ details.textContent='전체 '+total+'개 번지 · 주소 누락 '+missing+'개 · 중복 주소 '+duplicate+'개';
+}
 function zdClearMarkers(){zdMarkers.forEach(function(m){m.setMap(null)});zdMarkers=[]}
 function zdNumberOverlay(position,label,onClick,active){
  var pin=document.createElement('button');pin.type='button';pin.textContent=String(label);
@@ -3745,10 +3771,6 @@ function zdCreateMap(){
 }
 
 async function zdOpenRequest(docId){
- var box=document.getElementById('zdInlineRequestCard');
- if(!box)return;
- box.style.display='block';
- box.innerHTML='<div class="zd-empty">수정요청과 구역 카드를 불러오는 중...</div>';
  try{
   var snap=await db.collection('fixRequests').doc(String(docId)).get();
   if(!snap.exists)throw new Error('이 수정요청을 찾을 수 없습니다.');
@@ -3757,19 +3779,10 @@ async function zdOpenRequest(docId){
   var areaId=String(data.areaId||'');if(!areaId)throw new Error('요청에 구역 번호가 없습니다.');
   var areaSnap=await db.collection('areas').doc(areaId).get();if(!areaSnap.exists)throw new Error('해당 구역 카드를 찾을 수 없습니다.');
   var blocks=addressNormalizeBlocks(areaSnap.data().blocks||[]),addr=String(data.addr||data.address||'').trim(),found=null;
-  blocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){
-   if(!found&&addr&&[h.addr,h.num].some(function(v){return String(v||'').trim()===addr;}))found={bi:bi,si:si,hi:hi,oldAddr:String(h.addr||h.num||'')};
-  });});});
+  blocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){if(!found&&addr&&[h.addr,h.num].some(function(v){return String(v||'').trim()===addr;}))found={bi:bi,si:si,hi:hi,oldAddr:String(h.addr||h.num||'')};});});});
   activeFixHouseLocation=found;
-  box.innerHTML='<div class="zd-inline-title"><div><b>'+escHtml(areaId+'번 구역 · '+String(data.addr||data.address||'주소 미지정'))+'</b><div style="font-size:13px;color:#6b21a8;margin-top:4px">요청: '+escHtml(data.memo||data.description||data.type||'수정 내용 확인')+'</div></div><button type="button" onclick="zdCloseInlineRequest()">닫기</button></div><div style="font-size:13px;color:#64748b;margin-bottom:8px">아래에서 구역 카드의 번지·메모·위치를 확인하고 편집할 수 있어요. 저장 전 변경 내용을 확인하세요.</div><div id="zdInlineFullCardContent"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" onclick="saveFixFullCardEditor()" style="background:#7c3aed;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:900">카드 수정 저장</button><button type="button" onclick="zdCloseInlineRequest()" style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 14px">닫기</button></div>';
-  fixFullCardAreaId=areaId;
-  var raw=areaSnap.data().blocks||[];if(!Array.isArray(raw))raw=Object.values(raw);
-  fixFullCardBlocks=JSON.parse(JSON.stringify(raw));
-  fixRequestSelectedHouse=found?{bi:found.bi,si:found.si,hi:found.hi}:null;
-  // Reuse the existing full-card editor without opening a separate modal.
-  renderFixFullCardEditor();
-  box.scrollIntoView({behavior:'smooth',block:'start'});
- }catch(e){box.innerHTML='<div style="color:#b91c1c;padding:10px">'+escHtml(e.message||e)+'</div>';}
+  await openFixRequestFullCard();
+ }catch(e){showToast('수정요청을 열지 못했습니다: '+(e&&e.message?e.message:e));}
 }
 function zdCloseInlineRequest(){
  var box=document.getElementById('zdInlineRequestCard');if(box){box.style.display='none';box.innerHTML='';}
