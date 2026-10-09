@@ -1363,7 +1363,7 @@ function loadFixList() {
         '</div>' +
         '<div class="fix-btns">' +
           '<button onclick="resolveFixRequest(\'' + d.id + '\')" class="btn-sm btn-success">처리완료</button>' +
-          '<button onclick="openFixRequestEditor(\'' + d.id + '\')" class="btn-sm btn-primary">요청 확인·수정</button>' +
+          '<button onclick="openFixRequestEditor(&quot;' + d.id + '&quot;)" class="btn-sm btn-primary">요청 확인·수정</button>' +
         '</div>';
       list.appendChild(div);
     });
