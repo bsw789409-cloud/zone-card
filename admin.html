@@ -958,11 +958,15 @@ async function doDeleteArea(type) {
 // 카드 수정 에디터
 // ══════════════════════════
 var editingFixMemos = {}; // addr → memo
+var editingFixRequestDocs = [];
+var editingFixFocusAddr = '';
 
-async function openEditCard(aId) {
+async function openEditCard(aId, focusAddr) {
   lockScroll();
   editingAreaId = aId;
   editingFixMemos = {};
+  editingFixRequestDocs = [];
+  editingFixFocusAddr = String(focusAddr || '');
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
   var overlay = document.getElementById('editCardOverlay');
   var sheet = document.getElementById('editCardSheet');
@@ -983,11 +987,28 @@ async function openEditCard(aId) {
     var fixSnap = await db.collection('fixRequests')
       .where('areaId','==',String(aId))
       .where('status','==','\uBBF8\uCC98\uB9AC').get();
+    editingFixRequestDocs = fixSnap.docs.map(function(d) { return {docId:d.id, data:d.data() || {}}; });
     fixSnap.docs.forEach(function(d) {
       var r = d.data() || {};
       if(r.addr) editingFixMemos[r.addr] = {memo: r.memo || '', docId: d.id};
     });
     renderCardEditor();
+    if(editingFixFocusAddr) {
+      var targetAddr = editingFixFocusAddr;
+      editingFixFocusAddr = '';
+      setTimeout(function() {
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#editCardBody [data-bi][data-si][data-hi]'));
+        var target = rows.find(function(el) {
+          var input = el.querySelector('input[placeholder="주소"]');
+          return input && String(input.value || '').trim() === targetAddr;
+        });
+        if(target) {
+          target.scrollIntoView({behavior:'smooth', block:'center'});
+          target.style.outline = '3px solid #e65100';
+          setTimeout(function(){ target.style.outline = ''; }, 2200);
+        } else showToast('요청 주소를 카드에서 찾지 못했습니다. 주소가 변경됐을 수 있습니다.');
+      }, 180);
+    }
   } catch(e) {
     body.innerHTML = '<div style="text-align:center;color:#dc2626;padding:24px;font-size:13px;font-weight:700">\uCE74\uB4DC \uB0B4\uC6A9\uC744 \uBD88\uB7EC\uC624\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span></div>';
   }
@@ -1206,14 +1227,32 @@ function editBlkParking(bi) {
 }
 
 async function saveCardEdit() {
+  var pendingFixes = editingFixRequestDocs.slice();
+  var completeFixes = false;
+  if(pendingFixes.length) completeFixes = confirm('카드 수정 내용을 저장하시겠습니까?\n\n확인을 누르면 이 구역의 수정요청 ' + pendingFixes.length + '건도 처리 완료로 표시됩니다.');
   showLoader();
   try {
     await db.collection('areas').doc(String(editingAreaId)).update({blocks: editingBlocks});
     var idx = areas.findIndex(function(a) { return String(a.id) === String(editingAreaId); });
     if(idx >= 0) areas[idx].blocks = editingBlocks;
+    if(completeFixes) {
+      for(var fi=0; fi<pendingFixes.length; fi++) {
+        var item = pendingFixes[fi], r = item.data || {};
+        await db.collection('fixRequests').doc(item.docId).update({status:'완료', resolvedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        if(r.addr && r.type !== 'parking') {
+          var vs = await db.collection('visits').where('areaId','==',String(r.areaId)).where('addr','==',String(r.addr)).where('status','==','fix').get();
+          if(!vs.empty) {
+            var vb = db.batch();
+            vs.docs.forEach(function(vd){ vb.update(vd.ref,{status:'visited',memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()}); });
+            await vb.commit();
+          }
+        }
+      }
+    }
     closeEditCard();
-    showToast('\uC800\uC7A5\uB410\uC2B5\uB2C8\uB2E4. \uC218\uC815\uC694\uCCAD\uC740 \uAC1C\uBCC4 \uCC98\uB9AC\uC644\uB8CC\uB97C \uB20C\uB7EC \uC0AD\uC81C\uB429\uB2C8\uB2E4.');
-  } catch(e) { showToast('\uC800\uC7A5 \uC624\uB958: ' + e.message); }
+    showToast(completeFixes ? '저장했고 수정요청을 처리 완료했습니다.' : '카드 내용을 저장했습니다.');
+    loadFixList(); loadHomeStats();
+  } catch(e) { showToast('저장 오류: ' + e.message); }
   hideLoader();
 }
 
@@ -1250,7 +1289,7 @@ async function loadFixList() {
         '</div>' +
         '<div class="fix-btns">' +
           '<button onclick="resolveFixRequest(\'' + d.id + '\')" class="btn-sm btn-success">처리완료</button>' +
-          '<button onclick="openEditCard(\'' + r.areaId + '\')" class="btn-sm btn-primary">카드 수정</button>' +
+          '<button onclick="openEditCard(\'' + r.areaId + '\', \'' + String(r.addr||'').replace(/'/g, "\\'") + '\')" class="btn-sm btn-primary">카드 수정</button>' +
         '</div>';
       list.appendChild(div);
     });
@@ -1258,29 +1297,18 @@ async function loadFixList() {
 }
 
 async function resolveFixRequest(docId) {
+  if(!confirm('이 수정요청을 처리 완료하시겠습니까?')) return;
   try {
-    var doc = await db.collection('fixRequests').doc(docId).get();
-    if(doc.exists) {
-      var r = doc.data();
-      if(r.addr && r.type !== 'parking') {
-        var vSnap = await db.collection('visits')
-          .where('areaId','==',String(r.areaId))
-          .where('addr','==',r.addr)
-          .where('status','==','fix')
-          .get();
-        if(!vSnap.empty) {
-          var batch = db.batch();
-          vSnap.docs.forEach(function(d) {
-            batch.update(d.ref, { status:'visited', memo:'', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-          });
-          await batch.commit();
-        }
-      }
+    var ref=db.collection('fixRequests').doc(docId), doc=await ref.get();
+    if(!doc.exists){showToast('이미 삭제되었거나 처리된 요청입니다.');await loadFixList();return;}
+    var r=doc.data()||{};
+    if(r.addr && r.type!=='parking'){
+      var vs=await db.collection('visits').where('areaId','==',String(r.areaId)).where('addr','==',String(r.addr)).where('status','==','fix').get();
+      if(!vs.empty){var b=db.batch();vs.docs.forEach(function(d){b.update(d.ref,{status:'visited',memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});});await b.commit();}
     }
-    await db.collection('fixRequests').doc(docId).delete();
-    showToast('✅ 처리완료 됐습니다');
-    loadFixList();
-  } catch(e) {}
+    await ref.update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp()});
+    showToast('수정요청을 처리 완료했습니다.'); await loadFixList(); loadHomeStats();
+  } catch(e){showToast('처리 실패: '+(e&&e.message?e.message:e));}
 }
 
 // ══════════════════════════
