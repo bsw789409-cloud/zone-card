@@ -1272,7 +1272,7 @@ function setFixFilter(filter, el) {
   loadFixList();
 }
 
-async var activeFixRequest = null;
+var activeFixRequest = null;
 var activeFixHouseLocation = null;
 function closeFixRequestEditor() {
   var el=document.getElementById('fixRequestOverlay');
@@ -1340,7 +1340,7 @@ async function saveFixRequestEditor() {
   hideLoader();
 }
 
-function loadFixList() {
+async function loadFixList() {
   var list = document.getElementById('fixList');
   list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
   try {
