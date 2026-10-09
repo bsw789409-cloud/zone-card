@@ -1612,7 +1612,7 @@ function syncFixFullCardInputs() {
   });
 }
 function renderFixFullCardEditor() {
-  var content=document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
+  var content=document.getElementById('fixFullCardContent')||document.getElementById('zdInlineFullCardContent'); if(!content)return; content.innerHTML='';
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
   var reqData=activeFixRequest&&activeFixRequest.data?activeFixRequest.data:{};
   var reqLoc=activeFixHouseLocation;
