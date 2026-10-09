@@ -3724,9 +3724,15 @@ function zdCreateMap(){
  if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)zdMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
  else if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.SKYVIEW)zdMap.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
  if(zdMapMode==='overview'){
-  valid.forEach(function(v){var pos=new kakao.maps.LatLng(v.lat,v.lng);zdNumberOverlay(pos,v.area.id,function(){
-    var sel=document.getElementById('zdAreaSelect');sel.value=String(v.area.id);zdLoadArea(String(v.area.id));
-  },false)});
+  // 전체 구역 지도에서는 번호 라벨을 숨기고 작은 클릭 가능한 점만 표시해 가독성을 높인다.
+  valid.forEach(function(v){
+   var dot=document.createElement('button');dot.type='button';dot.setAttribute('aria-label',String(v.area.id)+'번 구역 열기');
+   dot.title=String(v.area.id)+'번 구역';
+   dot.style.cssText='width:14px;height:14px;padding:0;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px #0008;background:#7c3aed;cursor:pointer';
+   dot.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var sel=document.getElementById('zdAreaSelect');sel.value=String(v.area.id);zdLoadArea(String(v.area.id));});
+   var overlay=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(v.lat,v.lng),content:dot,yAnchor:.5,xAnchor:.5,zIndex:5});
+   overlay.setMap(zdMap);zdMarkers.push(overlay);
+  });
  }else{
   valid.forEach(function(r){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdNumberOverlay(pos,r.number,function(){zdSelectRow(r,true)},zasync function zdOpenRequest(docId){
  var box=document.getElementById('zdInlineRequestCard');
