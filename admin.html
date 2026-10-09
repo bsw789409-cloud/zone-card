@@ -224,21 +224,10 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 
 <!-- ══════════ 구역관리 탭 ══════════ -->
 <div class="tab-content" id="tab-area">
-<div class="card" style="margin:12px 16px 10px">
-  <div class="card-title">📍 전체 구역 좌표 일괄 저장</div>
-  <div style="font-size:12px;color:#777;line-height:1.5;margin-bottom:10px">1번부터 마지막 구역까지 주소를 순서대로 검색해 좌표를 Firestore에 저장합니다. 이미 좌표가 있는 집은 건너뜁니다.</div>
-  <button id="allCoordBtn" class="btn-full btn-purple" onclick="runAllAreaCoordSave()">📍 전체 좌표 저장 시작</button>
-  <div id="allCoordStatus" style="font-size:12px;color:#666;margin-top:9px;line-height:1.5">대기 중</div>
-  <div id="allCoordFail" style="display:none;margin-top:8px;padding:8px;background:#fff5f5;border-radius:8px;color:#b91c1c;font-size:11px;max-height:180px;overflow:auto"></div>
-</div>
-
-
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div style="font-size:14px;font-weight:700;color:#1a1040">구역 목록</div>
     <button onclick="openAddArea()" class="btn-sm btn-primary">+ 새 구역 추가</button>
   </div>
-  <button onclick="cleanupPhoneAndEmptyAreas()" class="btn-full" style="background:#fff7ed;color:#9a3412;border:1px solid #fdba74;margin-bottom:10px">🧹 전화 태그·빈 구역 카드 정리</button>
-  <div style="font-size:11px;color:#9a3412;margin:-4px 0 10px;line-height:1.5">전화 유형으로 태그된 구역과 256~300번 중 이름·주소·주차 정보가 모두 없는 빈 카드만 미리 확인 후 삭제합니다.</div>
   <input id="areaSearchInput" oninput="setAreaSearch(this.value)" placeholder="구역 번호/이름/인도자 검색" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;background:#f8f8f8;color:#1a1040;margin-bottom:10px" />
   <div class="filter-wrap" id="areaFaceFilter">
     <div class="chip active" onclick="setAreaFaceFilter('전체',this)">전체</div>
@@ -776,54 +765,6 @@ function setAreaFaceFilter(face, el) {
 function setAreaSearch(value) {
   areaSearch = String(value || '').trim().toLowerCase();
   renderAreaList();
-}
-
-async function cleanupPhoneAndEmptyAreas() {
-  if(!confirm('Firebase에서 전화 태그가 붙은 구역 카드와 256~300번 사이의 완전히 빈 카드만 찾아 삭제 대상 목록을 확인할까요?')) return;
-  showLoader();
-  try {
-    var snap=await db.collection('areas').get();
-    var phoneDocs=[],emptyDocs=[];
-    snap.docs.forEach(function(doc){
-      var d=doc.data()||{};
-      var id=Number(d.id!==undefined&&d.id!==null?d.id:doc.id);
-      var type=[d.type,d.tag,d.category,d.areaType].map(function(v){return String(v||'');}).join(' ');
-      var blocks=d.blocks||[];
-      if(!Array.isArray(blocks)) blocks=Object.values(blocks);
-      var addressCount=0,hasParking=false;
-      blocks.forEach(function(b){
-        if(!b||typeof b!=='object')return;
-        if(String(b.parking||'').trim())hasParking=true;
-        var roads=b.subTopics||b.subs||[];
-        if(!Array.isArray(roads))roads=Object.values(roads);
-        roads.forEach(function(r){
-          if(!r||typeof r!=='object')return;
-          var houses=r.houses||[];
-          if(!Array.isArray(houses))houses=Object.values(houses);
-          houses.forEach(function(h){if(h&&String(h.addr||h.num||'').trim())addressCount++;});
-        });
-        var direct=b.houses||[];
-        if(!Array.isArray(direct))direct=Object.values(direct);
-        direct.forEach(function(h){if(h&&String(h.addr||h.num||'').trim())addressCount++;});
-      });
-      if(type.indexOf('전화')>=0) phoneDocs.push({ref:doc.ref,id:id,docId:doc.id,type:type});
-      else if(id>=256&&id<=300&&addressCount===0&&!hasParking&&!String(d.name||'').trim()) emptyDocs.push({ref:doc.ref,id:id,docId:doc.id,type:type});
-    });
-    var all=phoneDocs.concat(emptyDocs);
-    if(!all.length){showToast('삭제 대상 전화 카드나 완전히 빈 256~300번 카드가 없습니다.');return;}
-    var labels=all.map(function(x){return (x.id||x.docId)+'번'+(x.type?' · '+x.type:'')+(phoneDocs.indexOf(x)>=0?' (전화 태그)':' (빈 카드)');});
-    var msg='다음 구역 카드 문서만 삭제합니다. 일반 주소가 있는 카드는 제외됩니다.\n\n'+labels.join('\n')+'\n\n삭제를 진행할까요?';
-    if(!confirm(msg))return;
-    for(var i=0;i<all.length;i+=450){
-      var batch=db.batch();
-      all.slice(i,i+450).forEach(function(x){batch.delete(x.ref);});
-      await batch.commit();
-    }
-    areas=areas.filter(function(a){return !all.some(function(x){return String(a.id)===String(x.id)||String(a.id)===String(x.docId);});});
-    loadAreaList();loadHomeStats();
-    showToast(all.length+'개 구역 카드 문서를 삭제했습니다. 방문 기록·수정요청 기록은 보존했습니다.');
-  } catch(e){showToast('정리 실패: '+(e&&e.message?e.message:e));}
-  finally{hideLoader();}
 }
 
 function loadAreaList() { renderAreaList(); }
@@ -3537,78 +3478,5 @@ window.closeEditCard=closeAreaEditor;
 window.saveCardEdit=saveAreaEditor;
 
 </script>
-<script>
-var _allCoordBusy=false;
-function _allCoordItems(){
-  var out=[];
-  (areas||[]).slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).forEach(function(area){
-    var blocks=Array.isArray(area.blocks)?area.blocks:[];
-    blocks.forEach(function(block,bi){
-      var topics=Array.isArray(block.subTopics)?block.subTopics:(Array.isArray(block.subs)?block.subs:[]);
-      if(topics.length){
-        topics.forEach(function(road,si){
-          var roadName=String((road&&(road.name||road.title))||'').trim();
-          (road&&Array.isArray(road.houses)?road.houses:[]).forEach(function(h,hi){
-            if(h) out.push({area:area,block:block,house:h,road:roadName,label:String(area.id)+'번 '+roadName+' '+String(h.addr||h.address||'').trim()});
-          });
-        });
-      }else if(Array.isArray(block.houses)){
-        block.houses.forEach(function(h){
-          if(h) out.push({area:area,block:block,house:h,road:'',label:String(area.id)+'번 '+String(h.addr||h.address||'').trim()});
-        });
-      }
-    });
-  });
-  return out;
-}
-function _allCoordCandidates(it){
-  var h=it.house, area=it.area, road=it.road;
-  var raw=String(h.addr||h.address||h.roadAddress||h.road_addr||'').trim();
-  var aid=Number(area.id), region=(aid>=1&&aid<=32)?'전북 고창군 ':'전북 부안군 ';
-  var name=String(area.name||'').trim(), a=[];
-  if(road&&raw){a.push(road+' '+raw);if(name)a.push(region+name+' '+road+' '+raw);a.push(region+road+' '+raw);}
-  if(name)a.push(region+name+(road?' '+road:'')+' '+raw);
-  if(road)a.push(region+road+' '+raw);
-  a.push(region+raw);a.push(raw);
-  return a.filter(function(q,i,x){return q&&x.indexOf(q)===i;});
-}
-function _allCoordSearch(q){
-  return new Promise(function(resolve){
-    if(!window.kakao||!kakao.maps||!kakao.maps.services){resolve(null);return;}
-    new kakao.maps.services.Geocoder().addressSearch(q,function(result,status){
-      if(status===kakao.maps.services.Status.OK&&result&&result[0]) resolve({lat:Number(result[0].y),lng:Number(result[0].x)});
-      else resolve(null);
-    });
-  });
-}
-function _allCoordDelay(ms){return new Promise(function(r){setTimeout(r,ms);});}
-async function runAllAreaCoordSave(){
-  if(_allCoordBusy)return;
-  _allCoordBusy=true;
-  var btn=document.getElementById('allCoordBtn'), st=document.getElementById('allCoordStatus'), fail=document.getElementById('allCoordFail');
-  if(btn)btn.disabled=true;
-  if(fail){fail.style.display='none';fail.innerHTML='';}
-  var items=_allCoordItems(), ok=0, skip=0, failed=[];
-  if(st)st.textContent='총 '+items.length+'개 주소를 준비했습니다.';
-  for(var i=0;i<items.length;i++){
-    var it=items[i], h=it.house;
-    if(h.lat!=null&&h.lng!=null&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){skip++;if(st)st.textContent='진행 '+(i+1)+' / '+items.length+' · 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;continue;}
-    var raw=String(h.addr||h.address||h.roadAddress||h.road_addr||'').trim();
-    if(!raw){failed.push(it.label+' — 주소 없음');continue;}
-    var cs=_allCoordCandidates(it), coord=null;
-    for(var ci=0;ci<cs.length&&!coord;ci++){coord=await _allCoordSearch(cs[ci]);if(coord)break;await _allCoordDelay(70);}
-    if(coord){
-      h.lat=coord.lat;h.lng=coord.lng;ok++;
-      try{await firebase.firestore().collection('areas').doc(String(it.area.docId||it.area.id)).update({blocks:it.area.blocks});}
-      catch(e){failed.push(it.label+' — 저장 실패: '+(e.message||e));}
-    }else failed.push(it.label+' — 좌표 검색 실패');
-    if(st)st.textContent='진행 '+(i+1)+' / '+items.length+' · 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;
-    await _allCoordDelay(120);
-  }
-  if(fail){fail.style.display=failed.length?'block':'none';fail.innerHTML=failed.map(function(x){return x.replace(/</g,'&lt;')}).join('<br>');}
-  if(st)st.textContent='완료 · 전체 '+items.length+' · 새로 저장 '+ok+' · 기존 '+skip+' · 실패 '+failed.length;
-  if(btn){btn.disabled=false;btn.textContent='📍 전체 좌표 다시 저장';}
-  _allCoordBusy=false;
-}
-</script></body>
+</body>
 </html>
