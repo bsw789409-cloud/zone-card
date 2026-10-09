@@ -163,6 +163,8 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 .area-address-row{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid #f0f0f0;background:white}
 .area-address-row.dragging{opacity:.45;background:#f0eeff}
 .area-address-row.swap-selected{background:#fff7d6;outline:2px solid #f59e0b;outline-offset:-2px}
+.area-map-edit-toggle{position:absolute;right:10px;bottom:12px;z-index:5;border:0;border-radius:999px;padding:11px 16px;background:#7c3aed;color:#fff;font-size:13px;font-weight:800;box-shadow:0 3px 12px rgba(0,0,0,.25);cursor:pointer}
+.area-map-edit-toggle.active{background:#b45309}
 .area-address-handle{width:26px;height:30px;display:flex;align-items:center;justify-content:center;color:#aaa;background:#f7f7f7;border-radius:7px;touch-action:none;user-select:none;cursor:grab;flex-shrink:0}
 .area-address-text{flex:1;min-width:0;font-size:12px;color:#333;line-height:1.35}
 .area-address-edit{border:0;background:#EEEDFE;color:#7c3aed;border-radius:7px;padding:6px 8px;font-size:11px;cursor:pointer}
@@ -2911,6 +2913,7 @@ var areaEditorGeocoder = null;
 var areaEditorPlaces = null;
 var areaEditorOverlays = [];
 var areaEditorPickMode = '';
+var areaEditorEditMode = false;
 var areaEditorSwapSelection = null;
 var areaEditorPending = null;
 var areaEditorDrag = null;
@@ -3048,6 +3051,7 @@ function renderAreaEditor(){
   if(idFilled&&nameFilled){
     html+='<div class="area-stage"><div class="area-stage-title">③ 지도</div>';
     html+='<div class="area-editor-map-wrap"><div id="areaEditorMap"></div>';
+    html+='<button type="button" class="area-map-edit-toggle '+(areaEditorEditMode?'active':'')+'" onclick="toggleAreaEditorEditMode()">'+(areaEditorEditMode?'✓ 수정 모드 종료':'✏️ 수정')+'</button>';
     html+='<div class="area-map-search"><input id="areaMapSearchInput" placeholder="마을명 / 도로명 검색" onkeydown="if(event.key===\'Enter\') searchAreaEditorMap()"><button onclick="searchAreaEditorMap()">검색</button></div>';
     html+='<div id="areaSearchResults" class="area-search-results"></div><div id="areaPinMode" class="area-pin-mode"></div></div>';
     html+='<div class="area-mini-note">주차/주소 입력 단계에서는 지도를 눌러 위치를 선택할 수 있습니다.</div>';
@@ -3080,9 +3084,13 @@ function renderAreaEditor(){
         var r=roads[areaEditorRoadIdx];
         html+='<div class="area-stage"><div class="area-stage-title">⑦ 주소 · 지도</div>';
         html+='<div style="display:flex;gap:6px;margin-bottom:8px">';
+if(areaEditorEditMode){
 html+='<button class="btn-full '+(areaEditorPickMode==='address'?'btn-purple':'btn-outline')+'" onclick="startAreaAddressPick()" style="flex:1">'+(areaEditorPickMode==='address'?'지도에서 주소 선택 중…':'🗺 지도에서 주소 추가')+'</button>';
 html+='<button class="btn-full btn-outline" onclick="startManualAreaAddress()" style="flex:1">✍ 주소 직접 입력</button></div>';
-        html+='<div class="area-mini-note">지도에서 주소를 누르면 현재 마지막 순번 다음으로 추가됩니다. 지도 핀이나 목록의 ‘번호 교환’을 눌러 주소 두 개를 선택하면 순번을 서로 바꿀 수 있습니다. 변경 후 아래 저장 버튼을 눌러 확정하세요.</div>';
+        html+='<div class="area-mini-note">수정 모드에서 지도 핀 또는 목록의 ‘번호 교환’을 눌러 두 주소의 순번을 바꾸거나, 지도에서 새 주소를 추가할 수 있습니다. 변경 후 저장 버튼을 눌러 확정하세요.</div>';
+}else{
+html+='<div class="area-mini-note">주소를 추가하거나 변경하려면 지도 오른쪽 아래의 ‘✏️ 수정’을 눌러 주세요.</div>';
+}
         if(areaEditorPending && (areaEditorPending.manual || areaEditorPending.editing)){
           html+='<div class="area-pending"><div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px">'+(areaEditorPending.editing?'주소 수정':'추가할 주소')+'</div>';
           html+='<input id="areaPendingAddr" class="inp" value="'+escAttr(areaEditorPending.addr||'')+'" placeholder="주소/지번" style="margin-bottom:7px">';
@@ -3112,11 +3120,14 @@ function renderAreaEditorAddressGroups(){
       var n=areaEditorHouseNumber(ri,hi);
       var swapSelected=!!(areaEditorSwapSelection&&areaEditorSwapSelection===h.houseId);
       html+='<div class="area-address-row '+(swapSelected?'swap-selected':'')+'" data-ari="'+ri+'" data-ahi="'+hi+'">';
-      html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
+      if(areaEditorEditMode) html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
       html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
+      if(areaEditorEditMode){
       html+='<button class="area-address-edit" style="background:'+(swapSelected?'#f59e0b':'#e0f2fe')+';color:'+(swapSelected?'#fff':'#075985')+'" onclick="selectAreaHouseForSwap(\''+escAttr(h.houseId)+'\')">'+(swapSelected?'선택됨':'번호 교환')+'</button>';
       html+='<button class="area-address-edit" onclick="editAreaHouse('+ri+','+hi+')">✎</button>';
-      html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button></div>';
+      html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button>';
+      }
+      html+='</div>';
     });
     html+='</div>';
   });
@@ -3133,7 +3144,17 @@ function findAreaHouseById(houseId){
   return null;
 }
 
+function toggleAreaEditorEditMode(){
+  areaEditorEditMode=!areaEditorEditMode;
+  areaEditorPickMode='';
+  areaEditorSwapSelection=null;
+  areaEditorPending=null;
+  renderAreaEditor();
+  showToast(areaEditorEditMode?'수정 모드입니다. 주소 추가·삭제·번호 교환을 할 수 있어요.':'수정 모드를 종료했어요. 변경 사항은 저장 버튼을 눌러 저장해 주세요.');
+}
+
 function selectAreaHouseForSwap(houseId){
+  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   if(!houseId)return;
   if(!areaEditorSwapSelection){
     areaEditorSwapSelection=String(houseId);
@@ -3201,6 +3222,7 @@ function startAreaParkingPick(){
 }
 
 function startAreaAddressPick(){
+  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   if(!areaEditorData.blocks[areaEditorBlockIdx].subTopics.length){showToast('먼저 도로명을 추가해 주세요');return;}
   areaEditorPickMode='address';
   setAreaEditorModeBadge('주소 선택 중 — 지도를 눌러 주세요');
@@ -3221,7 +3243,7 @@ function makeAreaPin(lat,lng,n,color,onClick){
   var el=document.createElement('div');
   el.style.cssText='width:28px;height:28px;border-radius:50%;background:'+color+';border:3px solid white;box-shadow:0 2px 7px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:800;'+(onClick?'cursor:pointer;':'');
   el.textContent=n;
-  if(onClick) el.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();onClick();});
+  if(onClick) el.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();if(areaEditorEditMode)onClick();});
   return new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(lat,lng),content:el,yAnchor:0.5,xAnchor:0.5});
 }
 
@@ -3238,7 +3260,7 @@ function renderAreaEditorPins(){
       // 예: 3번 주소의 위치를 모르면 지도에는 1,2,4,5가 그대로 남는다.
       n++;
       if(Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){
-        var o=makeAreaPin(Number(h.lat),Number(h.lng),n,color,(function(houseId){return function(){selectAreaHouseForSwap(houseId);};})(h.houseId));
+        var o=makeAreaPin(Number(h.lat),Number(h.lng),n,color,areaEditorEditMode?(function(houseId){return function(){selectAreaHouseForSwap(houseId);};})(h.houseId):null);
         o.setMap(areaEditorMap);
         areaEditorOverlays.push(o);
       }
@@ -3328,6 +3350,7 @@ function areaEditorMapClicked(latlng){
 }
 
 function startManualAreaAddress(){
+  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   areaEditorPending={addr:'',lat:null,lng:null,editing:false,manual:true};
   areaEditorPickMode='';
   renderAreaEditor();
@@ -3376,12 +3399,14 @@ function confirmAreaPending(){
 
 function cancelAreaPending(){areaEditorPending=null;renderAreaEditor();}
 function editAreaHouse(ri,hi){
+  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   var h=areaEditorData.blocks[areaEditorBlockIdx].subTopics[ri].houses[hi];
   areaEditorRoadIdx=ri;
   areaEditorPending={addr:h.addr||'',lat:Number(h.lat),lng:Number(h.lng),editing:true,ri:ri,hi:hi};
   renderAreaEditor();
 }
 function deleteAreaHouse(ri,hi){
+  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   var b=areaEditorData.blocks[areaEditorBlockIdx];
   var r=b && b.subTopics && b.subTopics[ri];
   if(!r || !r.houses || !r.houses[hi]) return;
@@ -3454,6 +3479,7 @@ function selectAreaSearchResult(i){
 }
 
 function startAreaHouseMouseDrag(e,handle){
+  if(!areaEditorEditMode)return;
   e.preventDefault();
   var row=handle.closest('.area-address-row');if(!row)return;
   areaEditorDrag={ri:Number(row.dataset.ari),hi:Number(row.dataset.ahi),row:row};
@@ -3467,6 +3493,7 @@ function finishAreaHouseMouseDrag(e){
   areaEditorDrag=null;document.removeEventListener('mouseup',finishAreaHouseMouseDrag);renderAreaEditor();
 }
 function startAreaHouseTouchDrag(e,handle){
+  if(!areaEditorEditMode)return;
   var row=handle.closest('.area-address-row');if(!row)return;
   var start={ri:Number(row.dataset.ari),hi:Number(row.dataset.ahi),row:row};
   var timer=setTimeout(function(){
@@ -3483,6 +3510,7 @@ function finishAreaHouseTouchDrag(e){
   areaEditorDrag=null;renderAreaEditor();
 }
 function reorderAreaHouse(sri,shi,tri,thi){
+  if(!areaEditorEditMode)return;
   var b=areaEditorData.blocks[areaEditorBlockIdx];if(sri!==tri)return;
   var arr=b.subTopics[sri].houses,item=arr.splice(shi,1)[0];if(shi<thi)thi--;arr.splice(thi,0,item);
 }
