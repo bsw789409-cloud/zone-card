@@ -2997,6 +2997,9 @@ function closeAreaEditor(){
   areaEditorPickMode='';
   areaEditorPending=null;
   clearAreaEditorOverlays();
+  areaEditorMap=null;
+  areaEditorViewCenter=null;
+  areaEditorViewLevel=null;
 }
 
 function areaEditorNameChanged(){
@@ -3122,11 +3125,9 @@ function renderAreaEditorAddressGroups(){
       html+='<div class="area-address-row '+(swapSelected?'swap-selected':'')+'" data-ari="'+ri+'" data-ahi="'+hi+'">';
       if(areaEditorEditMode) html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
       html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
-      if(areaEditorEditMode){
       html+='<button class="area-address-edit" style="background:'+(swapSelected?'#f59e0b':'#e0f2fe')+';color:'+(swapSelected?'#fff':'#075985')+'" onclick="selectAreaHouseForSwap(\''+escAttr(h.houseId)+'\')">'+(swapSelected?'선택됨':'번호 교환')+'</button>';
       html+='<button class="area-address-edit" onclick="editAreaHouse('+ri+','+hi+')">✎</button>';
       html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button>';
-      }
       html+='</div>';
     });
     html+='</div>';
@@ -3154,7 +3155,6 @@ function toggleAreaEditorEditMode(){
 }
 
 function selectAreaHouseForSwap(houseId){
-  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   if(!houseId)return;
   if(!areaEditorSwapSelection){
     areaEditorSwapSelection=String(houseId);
@@ -3281,15 +3281,13 @@ function initAreaEditorMap(){
   var center=new kakao.maps.LatLng(35.5487,126.7216);
   var target=b&&Number.isFinite(Number(b.parkingLat))&&Number.isFinite(Number(b.parkingLng))?new kakao.maps.LatLng(Number(b.parkingLat),Number(b.parkingLng)):null;
   if(!target){
-    var blocks=areaEditorData.blocks||[];
-    for(var bi=0;bi<blocks.length&&!target;bi++){
-      var roads=blocks[bi].subTopics||[];
-      for(var si=0;si<roads.length&&!target;si++){
-        var houses=roads[si].houses||[];
-        for(var hi=0;hi<houses.length;hi++){
-          var h=houses[hi];
-          if(h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){target=new kakao.maps.LatLng(Number(h.lat),Number(h.lng));break;}
-        }
+    // 주차 좌표가 없으면 현재 선택된 블럭의 주소 좌표만 사용한다.
+    var roads=b&&b.subTopics||[];
+    for(var si=0;si<roads.length&&!target;si++){
+      var houses=roads[si].houses||[];
+      for(var hi=0;hi<houses.length;hi++){
+        var h=houses[hi];
+        if(h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){target=new kakao.maps.LatLng(Number(h.lat),Number(h.lng));break;}
       }
     }
   }
@@ -3399,14 +3397,12 @@ function confirmAreaPending(){
 
 function cancelAreaPending(){areaEditorPending=null;renderAreaEditor();}
 function editAreaHouse(ri,hi){
-  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   var h=areaEditorData.blocks[areaEditorBlockIdx].subTopics[ri].houses[hi];
   areaEditorRoadIdx=ri;
   areaEditorPending={addr:h.addr||'',lat:Number(h.lat),lng:Number(h.lng),editing:true,ri:ri,hi:hi};
   renderAreaEditor();
 }
 function deleteAreaHouse(ri,hi){
-  if(!areaEditorEditMode){showToast('먼저 지도에서 수정 버튼을 눌러 주세요');return;}
   var b=areaEditorData.blocks[areaEditorBlockIdx];
   var r=b && b.subTopics && b.subTopics[ri];
   if(!r || !r.houses || !r.houses[hi]) return;
