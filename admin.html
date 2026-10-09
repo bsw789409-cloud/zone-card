@@ -787,7 +787,7 @@ async function cleanupPhoneAndEmptyAreas() {
     snap.docs.forEach(function(doc){
       var d=doc.data()||{};
       var id=Number(d.id!==undefined&&d.id!==null?d.id:doc.id);
-      var type=String(d.type||d.tag||d.category||'');
+      var type=[d.type,d.tag,d.category,d.areaType].map(function(v){return String(v||'');}).join(' ');
       var blocks=d.blocks||[];
       if(!Array.isArray(blocks)) blocks=Object.values(blocks);
       var addressCount=0,hasParking=false;
