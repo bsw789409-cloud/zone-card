@@ -1354,8 +1354,12 @@ function renderAddressManager() {
   filtered.forEach(function(r){
     var div=document.createElement('div');
     div.style.cssText='background:white;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin-bottom:8px';
-    var options='<option value="'+r.si+'">'+escHtml(r.road||('도로명 '+(r.si+1)))+'</option>';
-    (addressManagerBlocks[r.bi].subTopics||[]).forEach(function(sub,si){if(si!==r.si)options+='<option value="'+si+'">'+escHtml(sub.name||('도로명 '+(si+1)))+'</option>';});
+    var currentKey=r.bi+'_'+r.si;
+    var options='<option value="'+currentKey+'">현재 위치 · '+escHtml(r.road||('도로명 '+(r.si+1)))+'</option>';
+    addressManagerBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){
+      var key=bi+'_'+si;
+      if(key!==currentKey) options+='<option value="'+key+'">'+(bi+1)+'블럭 · '+escHtml(sub.name||('도로명 '+(si+1)))+'</option>';
+    });});
     div.innerHTML='<div style="font-size:11px;color:#777;margin-bottom:6px">'+(r.bi+1)+'블럭 · '+escHtml(r.road||'도로명 미지정')+' · 순서 '+(r.hi+1)+'</div>'+
       '<div style="display:grid;grid-template-columns:minmax(90px,1fr) minmax(90px,1.2fr);gap:6px">'+
       '<input class="inp" data-field="addr" value="'+escAttr(r.addr)+'" placeholder="번지 주소" aria-label="번지 주소">'+
@@ -1407,12 +1411,13 @@ async function addressReorderRow(row,delta,card) {
 }
 async function addressMoveRow(row,card) {
   if(!addressApplyRowInputs(row,card))return;
-  var targetSi=Number(card.querySelector('[data-field="target"]').value);
-  if(targetSi===row.si){showToast('다른 도로명을 선택해 주세요.');return;}
+  var targetParts=String(card.querySelector('[data-field="target"]').value||'').split('_');
+  var targetBi=Number(targetParts[0]), targetSi=Number(targetParts[1]);
+  if(targetBi===row.bi && targetSi===row.si){showToast('다른 블럭 또는 도로명을 선택해 주세요.');return;}
   var source=addressManagerBlocks[row.bi].subTopics[row.si].houses;
-  var target=addressManagerBlocks[row.bi].subTopics[targetSi];
+  var targetBlock=addressManagerBlocks[targetBi], target=targetBlock&&(targetBlock.subTopics||[])[targetSi];
   if(!target){showToast('이동할 도로명을 찾을 수 없습니다.');return;}
-  if(!confirm('선택한 번지를 "'+(target.name||'도로명 미지정')+'"으로 이동할까요? 기존 번지 데이터는 유지됩니다.'))return;
+  if(!confirm('선택한 번지를 "'+(targetBlock.name||((targetBi+1)+'블럭'))+' · '+(target.name||'도로명 미지정')+'"으로 이동할까요? 기존 번지 정보는 유지됩니다.'))return;
   var house=source.splice(row.hi,1)[0];
   target.houses.push(house);
   showLoader();
