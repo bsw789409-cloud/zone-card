@@ -1639,11 +1639,11 @@ function makeRow(h) {
     var isPhoneNow = String(currentAreaType || '').indexOf('전화') >= 0;
     if(st === 'none') {
       lastLocalUpdateTime = Date.now();
+      // setSt()가 화면과 지도 갱신을 이미 수행하므로, 중복 렌더링은 하지 않는다.
+      // 애니메이션을 생략해 터치 반응 지연과 스크롤 위치 초기화를 줄인다.
+      window._suppressBlockAnimation = true;
       setSt(h,'visited');
       dirtyVisitKeys[String(currentAreaId) + '|' + (h._key || h.addr)] = {areaId:String(currentAreaId), addr:h.addr, key:h._key};
-      window._suppressBlockAnimation = true;
-      if(openSheetAreaId) renderCsGrid(openSheetAreaId);
-      else renderFieldBlocks(currentAreaId);
       triggerSmartSave();
       if(isPhoneNow && (h.note || '')) {
         var telNum = (h.note || '').replace(/[^0-9+]/g, '');
@@ -5425,10 +5425,9 @@ function updateCsMap(blk, areaId) {
 function renderCsGrid(aId) {
   var grid = document.getElementById('csGrid');
   if (!grid) return;
-  // 실제 스크롤 요소는 grid가 아니라 바텀시트의 cs-body다.
-  // 좌표 자동 저장/Firestore snapshot으로 재렌더링되어도 현재 읽던 위치를 유지한다.
-  var scrollHost = grid.closest('.cs-body') || document.getElementById('fieldScroll') || grid.parentElement;
-  var oldTop = scrollHost ? scrollHost.scrollTop : grid.scrollTop;
+  // 실제 주소 목록의 스크롤 요소는 csGrid 자체다.
+  // 부모 요소의 scrollTop을 저장하면 복원 대상이 달라져 목록이 맨 위로 튈 수 있다.
+  var oldTop = grid.scrollTop;
   renderBlocksInto(grid, aId, window._csBlockIdx === undefined ? -1 : window._csBlockIdx, window._csSlideDir);
 
   // 상단 진행률 바 업데이트
@@ -5447,8 +5446,7 @@ function renderCsGrid(aId) {
   
   currentAreaId = savedId2;
   requestAnimationFrame(function() {
-    if(scrollHost) scrollHost.scrollTop = oldTop;
-    else grid.scrollTop = oldTop;
+    grid.scrollTop = oldTop;
   });
 }
 
