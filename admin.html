@@ -194,6 +194,7 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('home',this)">🏠 홈</button>
   <button class="tab-btn" onclick="switchTab('area',this)">🗺 구역관리</button>
+  <button class="tab-btn" onclick="switchTab('addresses',this)">🏘 전체 번지수</button>
   <button class="tab-btn" onclick="switchTab('fix',this)">🔧 수정요청</button>
   <button class="tab-btn" onclick="switchTab('stats',this)">📊 통계</button>
   <button class="tab-btn" onclick="switchTab('record',this)">📋 기록</button>
@@ -248,6 +249,19 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
   </div>
   <div id="areaList">
     <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- ══════════ 전체 번지수 관리 탭 ══════════ -->
+<div class="tab-content" id="tab-addresses">
+  <div class="card">
+    <div class="card-title">🏘 전체 번지수 관리</div>
+    <div style="font-size:12px;color:#666;line-height:1.6;margin-bottom:12px">구역을 선택해 해당 구역의 모든 번지수를 확인합니다. 주소와 메모를 수정하고, 같은 구역 안에서 도로명 간 이동 또는 표시 순서 변경을 할 수 있습니다. 저장 전 중복·빈 주소를 점검합니다.</div>
+    <div class="lbl">구역 선택</div>
+    <select id="addressAreaSelect" class="inp" onchange="loadAddressManager()" style="margin-bottom:10px"><option value="">구역을 선택하세요</option></select>
+    <input id="addressSearch" class="inp" placeholder="번지 / 도로명 / 메모 검색" oninput="renderAddressManager()" style="margin-bottom:10px">
+    <div id="addressAuditSummary" style="background:#f5f3ff;border-radius:10px;padding:10px;font-size:12px;line-height:1.6;margin-bottom:10px">구역을 선택하면 번지 점검 결과가 표시됩니다.</div>
+    <div id="addressManagerList"><div style="text-align:center;color:#aaa;padding:20px">먼저 구역을 선택하세요.</div></div>
   </div>
 </div>
 
@@ -537,6 +551,8 @@ var recordFaceFilter = '전체';
 var deleteTargetId = null;
 var editingAreaId = null;
 var editingBlocks = [];
+var addressManagerAreaId = '';
+var addressManagerBlocks = [];
 
 var AREA_RANGES = {
   '흥덕면':[1,32],'줄포면':[33,77],'보안면':[78,128],
@@ -580,6 +596,7 @@ window.onload = async function() {
   hideLoader();
   loadHomeStats();
   loadAreaList();
+  populateAddressAreaSelect();
   loadFixList();
   loadStatsList();
   loadRecordList();
@@ -596,7 +613,7 @@ function showToast(msg) {
 }
 
 // ── 탭 전환 ──
-var adminTabOrder = ['home','area','fix','stats','record','settings'];
+var adminTabOrder = ['home','area','addresses','fix','stats','record','settings'];
 var adminCurrentTab = 'home';
 var adminSwipeStartX = 0;
 var adminSwipeStartY = 0;
@@ -1259,6 +1276,148 @@ async function saveCardEdit() {
     showToast(completeFixes ? '저장했고 수정요청을 처리 완료했습니다.' : '카드 내용을 저장했습니다.');
     loadFixList(); loadHomeStats();
   } catch(e) { showToast('저장 오류: ' + e.message); }
+  hideLoader();
+}
+
+
+/* 전체 번지수 관리: 기존 areas/{areaId}.blocks 구조를 유지하며 선택한 구역만 수정 */
+function populateAddressAreaSelect() {
+  var sel=document.getElementById('addressAreaSelect');
+  if(!sel) return;
+  var previous=sel.value || addressManagerAreaId;
+  sel.innerHTML='<option value="">구역을 선택하세요</option>';
+  areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id);}).forEach(function(a){
+    var opt=document.createElement('option');
+    opt.value=String(a.id);
+    opt.textContent=String(a.id)+'번 · '+String(a.name||'이름 없음');
+    sel.appendChild(opt);
+  });
+  if(previous && areas.some(function(a){return String(a.id)===String(previous);})) sel.value=String(previous);
+}
+function addressNormalizeBlocks(blocks) {
+  if(!Array.isArray(blocks)) blocks=blocks && typeof blocks==='object' ? Object.values(blocks) : [];
+  return blocks.map(function(blk){
+    blk=blk && typeof blk==='object'?blk:{};
+    var b=Object.assign({},blk);
+    if(!Array.isArray(b.subTopics)){
+      if(Array.isArray(b.houses)) b.subTopics=[{name:b.name||'',houses:b.houses}];
+      else if(Array.isArray(b.topics)) b.subTopics=b.topics;
+      else b.subTopics=[];
+    }
+    b.subTopics=b.subTopics.map(function(sub){
+      sub=sub&&typeof sub==='object'?sub:{};
+      return Object.assign({},sub,{name:String(sub.name||sub.title||''),houses:Array.isArray(sub.houses)?sub.houses:[]});
+    });
+    return b;
+  });
+}
+async function loadAddressManager() {
+  var sel=document.getElementById('addressAreaSelect');
+  addressManagerAreaId=sel?String(sel.value||''):'';
+  var list=document.getElementById('addressManagerList');
+  if(!addressManagerAreaId){addressManagerBlocks=[];list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">먼저 구역을 선택하세요.</div>';document.getElementById('addressAuditSummary').textContent='구역을 선택하면 번지 점검 결과가 표시됩니다.';return;}
+  list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">번지 목록 불러오는 중...</div>';
+  try{
+    var snap=await db.collection('areas').doc(addressManagerAreaId).get();
+    if(!snap.exists) throw new Error('선택한 구역을 찾을 수 없습니다.');
+    addressManagerBlocks=addressNormalizeBlocks(snap.data().blocks||[]);
+    renderAddressManager();
+  }catch(e){list.innerHTML='<div style="color:#b91c1c;padding:16px">번지 목록을 불러오지 못했습니다: '+escHtml(e.message||e)+'</div>';}
+}
+function addressRows() {
+  var rows=[];
+  addressManagerBlocks.forEach(function(blk,bi){
+    (blk.subTopics||[]).forEach(function(sub,si){
+      (sub.houses||[]).forEach(function(h,hi){
+        rows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),note:String(h.note||h.memo||'')});
+      });
+    });
+  });
+  return rows;
+}
+function renderAddressManager() {
+  var list=document.getElementById('addressManagerList'), summary=document.getElementById('addressAuditSummary');
+  if(!list||!summary) return;
+  if(!addressManagerAreaId){list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">먼저 구역을 선택하세요.</div>';return;}
+  var rows=addressRows(), counts={}, blanks=0, duplicates=[];
+  rows.forEach(function(r){
+    var key=(r.road+' '+r.addr).replace(/\s+/g,' ').trim().toLowerCase();
+    if(!r.addr.trim()) blanks++;
+    else {counts[key]=(counts[key]||0)+1;}
+  });
+  Object.keys(counts).forEach(function(k){if(counts[k]>1)duplicates.push(k);});
+  summary.innerHTML='총 <b>'+rows.length+'</b>개 · 빈 주소 <b style="color:'+(blanks?'#b91c1c':'#047857')+'">'+blanks+'</b>개 · 중복 주소 <b style="color:'+(duplicates.length?'#b91c1c':'#047857')+'">'+duplicates.length+'</b>종류'+(duplicates.length?'<div style="color:#b91c1c;margin-top:4px">중복: '+duplicates.map(escHtml).join(', ')+'</div>':'')+'<div style="color:#777;margin-top:4px">※ 번지 번호의 연속성은 지역별 주소 체계가 달라 자동으로 누락 판정하지 않습니다. 빈 주소와 중복을 우선 점검합니다.</div>';
+  var q=String(document.getElementById('addressSearch').value||'').trim().toLowerCase();
+  var filtered=rows.filter(function(r){return !q||(r.addr+' '+r.road+' '+r.note+' '+(r.bi+1)+'블럭').toLowerCase().includes(q);});
+  if(!filtered.length){list.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">표시할 번지수가 없습니다.</div>';return;}
+  list.innerHTML='';
+  filtered.forEach(function(r){
+    var div=document.createElement('div');
+    div.style.cssText='background:white;border:1px solid #e5e7eb;border-radius:12px;padding:10px;margin-bottom:8px';
+    var options='<option value="'+r.si+'">'+escHtml(r.road||('도로명 '+(r.si+1)))+'</option>';
+    (addressManagerBlocks[r.bi].subTopics||[]).forEach(function(sub,si){if(si!==r.si)options+='<option value="'+si+'">'+escHtml(sub.name||('도로명 '+(si+1)))+'</option>';});
+    div.innerHTML='<div style="font-size:11px;color:#777;margin-bottom:6px">'+(r.bi+1)+'블럭 · '+escHtml(r.road||'도로명 미지정')+' · 순서 '+(r.hi+1)+'</div>'+
+      '<div style="display:grid;grid-template-columns:minmax(90px,1fr) minmax(90px,1.2fr);gap:6px">'+
+      '<input class="inp" data-field="addr" value="'+escAttr(r.addr)+'" placeholder="번지 주소" aria-label="번지 주소">'+
+      '<input class="inp" data-field="note" value="'+escAttr(r.note)+'" placeholder="메모" aria-label="메모"></div>'+
+      '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:7px">'+
+      '<button class="btn-sm" data-action="up">↑ 위로</button><button class="btn-sm" data-action="down">↓ 아래로</button>'+
+      '<select class="inp" data-field="target" style="flex:1;min-width:130px;padding:6px">'+options+'</select>'+
+      '<button class="btn-sm btn-primary" data-action="move">도로명 이동</button><button class="btn-sm btn-success" data-action="save">저장</button></div>';
+    div.querySelector('[data-action="save"]').onclick=function(){addressSaveRow(r,div);};
+    div.querySelector('[data-action="up"]').onclick=function(){addressReorderRow(r,-1,div);};
+    div.querySelector('[data-action="down"]').onclick=function(){addressReorderRow(r,1,div);};
+    div.querySelector('[data-action="move"]').onclick=function(){addressMoveRow(r,div);};
+    list.appendChild(div);
+  });
+}
+function addressApplyRowInputs(row,card) {
+  var addr=String(card.querySelector('[data-field="addr"]').value||'').trim();
+  var note=String(card.querySelector('[data-field="note"]').value||'').trim();
+  if(!addr){showToast('번지 주소를 비워둘 수 없습니다.');return false;}
+  var house=addressManagerBlocks[row.bi].subTopics[row.si].houses[row.hi];
+  if(!house){showToast('번지 위치가 변경되었습니다. 목록을 새로고침해 주세요.');return false;}
+  house.addr=addr; house.note=note;
+  return true;
+}
+async function addressCommitBlocks(message) {
+  var ref=db.collection('areas').doc(String(addressManagerAreaId));
+  await ref.update({blocks:addressManagerBlocks});
+  var idx=areas.findIndex(function(a){return String(a.id)===String(addressManagerAreaId);});
+  if(idx>=0) areas[idx].blocks=addressManagerBlocks;
+  showToast(message||'번지 정보를 저장했습니다.');
+  renderAddressManager();
+}
+async function addressSaveRow(row,card) {
+  if(!addressApplyRowInputs(row,card))return;
+  showLoader();
+  try{await addressCommitBlocks('번지 주소와 메모를 저장했습니다.');}
+  catch(e){showToast('저장 실패: '+(e.message||e));}
+  hideLoader();
+}
+async function addressReorderRow(row,delta,card) {
+  if(!addressApplyRowInputs(row,card))return;
+  var houses=addressManagerBlocks[row.bi].subTopics[row.si].houses, target=row.hi+delta;
+  if(target<0||target>=houses.length){showToast('더 이동할 수 없습니다.');return;}
+  var tmp=houses[row.hi];houses[row.hi]=houses[target];houses[target]=tmp;
+  showLoader();
+  try{await addressCommitBlocks('번지 표시 순서를 변경했습니다.');}
+  catch(e){showToast('순서 저장 실패: '+(e.message||e));}
+  hideLoader();
+}
+async function addressMoveRow(row,card) {
+  if(!addressApplyRowInputs(row,card))return;
+  var targetSi=Number(card.querySelector('[data-field="target"]').value);
+  if(targetSi===row.si){showToast('다른 도로명을 선택해 주세요.');return;}
+  var source=addressManagerBlocks[row.bi].subTopics[row.si].houses;
+  var target=addressManagerBlocks[row.bi].subTopics[targetSi];
+  if(!target){showToast('이동할 도로명을 찾을 수 없습니다.');return;}
+  if(!confirm('선택한 번지를 "'+(target.name||'도로명 미지정')+'"으로 이동할까요? 기존 번지 데이터는 유지됩니다.'))return;
+  var house=source.splice(row.hi,1)[0];
+  target.houses.push(house);
+  showLoader();
+  try{await addressCommitBlocks('번지를 선택한 도로명으로 이동했습니다.');}
+  catch(e){showToast('이동 저장 실패: '+(e.message||e));}
   hideLoader();
 }
 
