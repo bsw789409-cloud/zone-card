@@ -194,7 +194,7 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab('home',this)">🏠 홈</button>
   <button class="tab-btn" onclick="switchTab('area',this)">🗺 구역관리</button>
-  <button class="tab-btn" onclick="switchTab('addresses',this)">🏘 전체 번지수</button>
+  
   <button class="tab-btn" onclick="switchTab('fix',this)">🔧 수정요청</button>
   <button class="tab-btn" onclick="switchTab('stats',this)">📊 통계</button>
   <button class="tab-btn" onclick="switchTab('record',this)">📋 기록</button>
@@ -522,7 +522,7 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 <div onclick="event.stopPropagation()" style="width:min(100%,520px);max-height:88vh;overflow:auto;background:#fff;border-radius:18px">
 <div style="padding:18px 20px;background:#fff7ed;border-radius:18px 18px 0 0"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;font-weight:800;color:#c2410c">수정요청 전용</div><div id="fixRequestTitle" style="font-size:20px;font-weight:900;color:#7c2d12;margin-top:4px">수정요청 처리</div></div><button onclick="closeFixRequestEditor()">닫기</button></div><div id="fixRequestAreaLabel" style="font-size:12px;color:#9a3412;margin-top:8px"></div></div>
 <div style="padding:20px;display:grid;gap:14px"><div><b>전도인이 보낸 요청 내용</b><div id="fixRequestMemo" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:6px;min-height:48px"></div></div><div><label for="fixRequestAddrInput">해당 번지</label><input id="fixRequestAddrInput" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:800"></div><div><label for="fixRequestNoteInput">카드 메모 / 수정할 내용</label><textarea id="fixRequestNoteInput" rows="3" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px"></textarea></div><div style="font-size:12px;color:#64748b">기존 카드 편집기와 분리된 수정요청 전용 화면입니다. 저장 전 완료 여부를 확인합니다.</div></div>
-<div style="padding:14px 20px 20px;display:flex;gap:10px;flex-wrap:wrap"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="openFixRequestFullCard()" style="flex:1;padding:12px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-weight:900">전체 카드 보기 · 한꺼번에 수정</button><button onclick="openFixRequestCardEditor()" style="flex:1;padding:12px;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;border-radius:10px;font-weight:900">기존 카드 편집기</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
+<div style="padding:14px 20px 20px;display:flex;gap:10px;flex-wrap:wrap"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="openFixRequestFullCard()" style="flex:1;padding:12px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-weight:900">전체 카드 보기 · 한꺼번에 수정</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
 <!-- 수정요청에서 여는 해당 구역 전체 카드 보기 -->
 <div id="fixFullCardOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:13000;padding:12px;align-items:center;justify-content:center" onclick="closeFixRequestFullCard()">
   <div onclick="event.stopPropagation()" style="width:min(100%,900px);max-height:92vh;overflow:auto;background:#f8fafc;border-radius:16px;padding:16px">
@@ -1517,10 +1517,16 @@ function syncFixFullCardInputs() {
 function renderFixFullCardEditor() {
   var content=document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
+  var reqData=activeFixRequest&&activeFixRequest.data?activeFixRequest.data:{};
+  var reqLoc=activeFixHouseLocation;
+  var notice=document.createElement('div');
+  notice.style.cssText='padding:12px;border:2px solid #f97316;background:#fff7ed;border-radius:10px;color:#7c2d12;margin-bottom:12px';
+  notice.innerHTML='<div style="font-weight:900;margin-bottom:5px">🔎 수정해야 할 내용</div><div style="font-weight:800">'+escHtml(String(reqData.addr||'주차 위치'))+(reqData.block?' · 블럭 '+reqData.block:'')+'</div><div style="white-space:pre-wrap;margin-top:5px">'+escHtml(String(reqData.memo||'요청 내용이 없습니다. 요청한 위치를 확인해 주세요.'))+'</div><div style="font-size:12px;margin-top:6px">주황색 테두리로 표시된 항목을 우선 확인한 뒤 저장하세요.</div>';
+  content.appendChild(notice);
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
   fixFullCardBlocks.forEach(function(blk,bi) {
     if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
-    var card=document.createElement('section');card.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
+    var card=document.createElement('section');var blockRequested=!!(reqData.type==='parking' && Number(reqData.block)===bi+1);card.style.cssText='background:white;border:'+(blockRequested?'3px solid #f97316':'1px solid #cbd5e1')+';border-radius:12px;padding:12px;margin:10px 0';
     var head=document.createElement('div');head.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px';
     head.innerHTML='<b style="font-size:12px;color:#64748b">블럭 '+(bi+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',-1)">↑ 위로</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',1)">↓ 아래로</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'block\','+bi+')">블럭 삭제</button>';card.appendChild(head);
     var bn=document.createElement('input');bn.value=String(blk.name||'');bn.placeholder='블럭 이름';bn.style.cssText=inp+';font-weight:800;margin-bottom:8px';bn.dataset.fixField='blockName';bn.dataset.bi=bi;card.appendChild(bn);
@@ -1531,7 +1537,7 @@ function renderFixFullCardEditor() {
       sh.innerHTML='<b style="font-size:12px;color:#475569">도로명/그룹 '+(si+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',-1)">↑</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',1)">↓</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'sub\','+bi+','+si+')">그룹 삭제</button>';group.appendChild(sh);
       var sn=document.createElement('input');sn.value=String(sub.name||'');sn.placeholder='도로명 또는 그룹 이름';sn.style.cssText=inp+';font-weight:700;margin-bottom:8px';sn.dataset.fixField='subName';sn.dataset.bi=bi;sn.dataset.si=si;group.appendChild(sn);
       sub.houses.forEach(function(h,hi) {
-        var row=document.createElement('div');row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px 0;border-top:1px solid #e2e8f0';
+        var row=document.createElement('div');var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px;border-top:1px solid #e2e8f0;border-radius:8px;background:'+(houseRequested?'#fff7ed':'transparent')+';outline:'+(houseRequested?'2px solid #f97316':'none');
         var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='번지/주소';ai.style.cssText=inp+';font-weight:800';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;
         var ni=document.createElement('textarea');ni.value=String(h.note||h.memo||'');ni.placeholder='메모 또는 카드 내용';ni.rows=2;ni.style.cssText=inp+';resize:vertical';ni.dataset.fixField='note';ni.dataset.bi=bi;ni.dataset.si=si;ni.dataset.hi=hi;
         row.appendChild(ai);row.appendChild(ni);group.appendChild(row);
@@ -1551,7 +1557,11 @@ function moveFixFullCardItem(type,bi,si,hi,dir) {
   else if(type==='sub'){arr=fixFullCardBlocks[bi].subTopics;index=si;delta=hi;}
   else {arr=fixFullCardBlocks[bi].subTopics[si].houses;index=hi;delta=dir;}
   var next=index+delta;if(!arr||next<0||next>=arr.length)return;
-  var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;renderFixFullCardEditor();
+  var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;
+  if(type==='block'){
+    arr.forEach(function(blk,i){var name=String(blk.name||'').trim();if(!name||/^\\d+\\s*블럭$/.test(name))blk.name=(i+1)+'블럭';});
+  }
+  renderFixFullCardEditor();
 }
 function removeFixFullCardItem(type,bi,si,hi) {
   syncFixFullCardInputs();if(!confirm('선택한 항목을 삭제할까요? 저장 전까지 실제 카드에는 반영되지 않습니다.'))return;
