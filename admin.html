@@ -1506,8 +1506,12 @@ function syncFixFullCardInputs() {
     if(!fixFullCardBlocks[bi]) return;
     if(field==='blockName') fixFullCardBlocks[bi].name=el.value;
     if(field==='subName' && fixFullCardBlocks[bi].subTopics[si]) fixFullCardBlocks[bi].subTopics[si].name=el.value;
-    if(field==='addr' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) fixFullCardBlocks[bi].subTopics[si].houses[hi].addr=el.value;
-    if(field==='note' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) fixFullCardBlocks[bi].subTopics[si].houses[hi].note=el.value;
+    if(field==='addr' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) {
+      var house=fixFullCardBlocks[bi].subTopics[si].houses[hi];house.addr=el.value;if(Object.prototype.hasOwnProperty.call(house,'num'))house.num=el.value;
+    }
+    if(field==='note' && fixFullCardBlocks[bi].subTopics[si] && fixFullCardBlocks[bi].subTopics[si].houses[hi]) {
+      var houseNote=fixFullCardBlocks[bi].subTopics[si].houses[hi];houseNote.note=el.value;if(Object.prototype.hasOwnProperty.call(houseNote,'memo'))houseNote.memo=el.value;
+    }
   });
 }
 function renderFixFullCardEditor() {
