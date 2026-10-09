@@ -2039,6 +2039,12 @@ async function deleteHouseInfo() {
       });
       if(!removed) throw new Error('삭제할 주소를 정확히 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.');
       tx.set(areaRef, {blocks: blocks, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
+      return blocks;
+    }).then(function(updatedBlocks) {
+      currentAreaData = updatedBlocks;
+      var cachedArea = areas.find(function(a){ return String(a.id) === areaId; });
+      if(cachedArea) cachedArea.blocks = updatedBlocks;
+      assignHouseKeys(currentAreaData);
     });
 
     // 해당 주소에 연결된 상태/메모 기록만 정리한다.
@@ -2075,10 +2081,6 @@ async function deleteHouseInfo() {
     showToast('주소 정보가 삭제되었습니다.');
     // Firestore 구역 스냅샷이 목록을 갱신하며, 리더 화면에서는 즉시 다시 렌더링한다.
     if(openSheetAreaId) {
-      var areaNow = areas.find(function(a){ return String(a.id) === areaId; });
-      if(areaNow) {
-        areaNow.blocks = (areaNow.blocks || []).filter(function(){ return true; });
-      }
       renderCsGrid(areaId);
       refreshCurrentMapPinsPreserveViewport();
     } else {
