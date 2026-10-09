@@ -277,6 +277,7 @@ button:active{transform:translateY(1px)}
     </div>
     <div class="zd-bottom-grid"><section class="zd-panel"><h3>🔎 주소 오류 검사</h3><p>선택한 구역의 빈 주소와 중복 주소를 검사합니다.</p><div id="zdAuditDetails" class="zd-audit-details">구역을 선택하세요.</div><button class="zd-secondary" onclick="zdRunAudit()">다시 검사</button></section><section class="zd-panel"><h3>↩️ 안전한 변경 관리</h3><p>기존 편집 기능에서 저장하기 전에 내용을 확인하세요. 삭제·좌표 변경은 저장 전 다시 확인하는 것을 권장합니다.</p><button class="zd-secondary" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">변경 기록 열기</button></section></div>
   </section>
+  </section>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 구역</div></div>
     <div class="stat-card purple"><div class="stat-num" id="statAssigned">-</div><div class="stat-lbl">배정중</div></div>
@@ -3646,7 +3647,7 @@ function zdInit(){
  sel.innerHTML='<option value="">구역 선택</option>'+areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).map(function(a){return '<option value="'+escAttr(a.id)+'">'+escHtml(a.id+'번 · '+(a.name||'구역'))+'</option>'}).join('');
  var total=0;areas.forEach(function(a){(a.blocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){total+=(st.houses||[]).length})})});
  document.getElementById('zdAreaCount').textContent=areas.length;document.getElementById('zdHouseCount').textContent=total;
- zdLoadRequests();
+ zdLoadRequests();if(areas.length){sel.value=String(areas[0].id);zdLoadArea(sel.value)}
 }
 async function zdLoadArea(id){
  zdDashboardBlocks=[];zdDashboardRows=[];zdSelectedHouse=null;zdClearMarkers();
