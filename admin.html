@@ -205,6 +205,36 @@ button:active{transform:translateY(1px)}
  .tab-btn{font-size:12px!important;padding:9px 8px!important}
  .card{border-radius:12px!important}
 }
+
+/* Map-first integrated zone dashboard */
+.zone-dashboard{max-width:1600px;margin:0 auto;color:#182b40}
+.zd-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 16px}
+.zd-eyebrow{font-size:10px;letter-spacing:1.8px;font-weight:900;color:#2878ef;margin-bottom:5px}
+.zd-heading h2{font-size:24px;letter-spacing:-.6px;margin:0 0 5px;color:#172d45}
+.zd-heading p,.zd-panel-head p,.zd-bottom-grid p{font-size:12px;color:#718198;line-height:1.55}
+.zd-primary,.zd-secondary{border:0;border-radius:10px;padding:11px 14px;font-weight:800;cursor:pointer}
+.zd-primary{background:#2479ed;color:white;box-shadow:0 5px 12px #2479ed30}.zd-secondary{background:#edf5ff;color:#1765c0;margin-top:10px}
+.zd-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.zd-stats>div{background:white;border:1px solid #dce7f4;border-radius:13px;padding:13px 15px;box-shadow:0 4px 14px #173b6410}
+.zd-stats span{display:block;color:#718198;font-size:12px;margin-bottom:7px}.zd-stats b{font-size:23px;color:#1c3551}
+.zd-main{display:grid;grid-template-columns:minmax(360px,1.35fr) minmax(270px,.8fr) minmax(250px,.72fr);gap:12px;align-items:stretch}
+.zd-panel{background:#fff;border:1px solid #dce7f4;border-radius:15px;padding:14px;box-shadow:0 5px 18px #173b640b;min-width:0}
+.zd-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.zd-panel-head h3,.zd-bottom-grid h3{font-size:14px;margin:0 0 4px;color:#213b58}
+.zd-panel-head select{max-width:145px;border:1px solid #d5e2f0;border-radius:9px;padding:9px;background:#f8fbff;color:#234}
+#zdMap{height:450px;min-height:320px;border-radius:11px;background:linear-gradient(135deg,#e9f3f9,#dceee7);overflow:hidden}
+.zd-map-foot{display:flex;align-items:center;gap:13px;flex-wrap:wrap;font-size:11px;color:#63758b;padding-top:11px}.zd-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}.zd-dot.blue{background:#2878ef}.zd-dot.orange{background:#f97316}.zd-map-foot button,.zd-link{border:0;background:transparent;color:#2475e5;font-weight:800;cursor:pointer;margin-left:auto;font-size:11px}
+.zd-search{width:100%;padding:10px 11px;border:1px solid #dce7f4;border-radius:9px;margin-bottom:9px;font-size:13px}
+.zd-address-list{max-height:400px;overflow:auto;overscroll-behavior:contain}
+.zd-address-row{display:flex;align-items:center;gap:9px;width:100%;padding:10px 8px;border:0;border-bottom:1px solid #edf1f6;background:white;text-align:left;cursor:pointer}
+.zd-address-row:hover,.zd-address-row.selected{background:#edf5ff}.zd-number{display:grid;place-items:center;width:28px;height:28px;flex-shrink:0;border-radius:9px;background:#e8f2ff;color:#1c70dc;font-weight:900;font-size:12px}.zd-address-row.selected .zd-number{background:#f97316;color:#fff}
+.zd-address-copy{min-width:0;flex:1}.zd-address-copy b{display:block;font-size:12px;color:#263f5b;overflow-wrap:anywhere}.zd-address-copy small{display:block;font-size:10px;color:#7c8da1;margin-top:4px}.zd-empty{padding:22px 8px;text-align:center;color:#92a0b2;font-size:12px}
+.zd-list-actions{border-top:1px solid #edf1f6;padding-top:10px;margin-top:8px}.zd-list-actions button{width:100%;border:0;border-radius:9px;background:#f0f6ff;color:#2468b8;padding:10px;font-size:12px;font-weight:800}
+.zd-request-counts{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.zd-request-counts span{font-size:10px;border-radius:99px;padding:7px 9px;background:#f2f6fb;color:#5a6f85}.zd-request-counts b{margin-left:3px;color:#24496d}
+.zd-recent-item,.zd-history-item{padding:10px 0;border-bottom:1px solid #edf1f6;font-size:11px;line-height:1.55;color:#3c536d}.zd-recent-item b,.zd-history-item b{display:block;color:#263e58;font-size:12px;margin-bottom:3px}.zd-history-head{margin-top:16px;padding-top:14px;border-top:1px solid #e9eff6}
+.zd-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.zd-bottom-grid p{margin:6px 0}.zd-audit-details{font-size:12px;line-height:1.8;color:#51677f;margin-top:8px}
+@media(max-width:1150px){.zd-main{grid-template-columns:minmax(0,1fr) minmax(260px,.75fr)}.zd-requests-panel{grid-column:1/-1}.zd-recent{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}#zdMap{height:390px}}
+@media(max-width:760px){.zd-heading{align-items:flex-start;flex-direction:column}.zd-heading h2{font-size:21px}.zd-primary{width:100%}.zd-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.zd-stats>div{padding:11px}.zd-stats b{font-size:20px}.zd-main,.zd-bottom-grid{grid-template-columns:1fr}.zd-requests-panel{grid-column:auto}.zd-recent{display:block}#zdMap{height:310px;min-height:260px}.zd-panel{padding:11px}.zd-panel-head select{max-width:125px}}
 </style>
 </head>
 <body>
@@ -237,6 +267,16 @@ button:active{transform:translateY(1px)}
 
 <!-- ══════════ 홈 탭 ══════════ -->
 <div class="tab-content active" id="tab-home">
+  <section class="zone-dashboard">
+    <div class="zd-heading"><div><div class="zd-eyebrow">ZONE CONTROL CENTER</div><h2>구역 통합 관리</h2><p>지도와 번지 목록, 수정요청을 한 화면에서 확인하세요.</p></div><button class="zd-primary" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">수정요청 전체 보기 →</button></div>
+    <div class="zd-stats"><div><span>전체 구역</span><b id="zdAreaCount">-</b></div><div><span>전체 번지</span><b id="zdHouseCount">-</b></div><div><span>미처리 요청</span><b id="zdPendingCount">-</b></div><div><span>주소 점검</span><b id="zdAuditCount">선택 필요</b></div></div>
+    <div class="zd-main">
+      <section class="zd-panel zd-map-panel"><div class="zd-panel-head"><div><h3>🗺 구역 지도</h3><p>핀을 선택하면 해당 번지가 목록에서 강조됩니다.</p></div><select id="zdAreaSelect" onchange="zdLoadArea(this.value)"><option value="">구역 선택</option></select></div><div id="zdMap" role="application" aria-label="구역 번지 지도"></div><div class="zd-map-foot"><span><i class="zd-dot blue"></i> 주소 위치</span><span><i class="zd-dot orange"></i> 선택한 번지</span><button onclick="zdFitMap()">지도 위치 맞춤</button></div></section>
+      <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div><div class="zd-list-actions"><button onclick="document.getElementById('addressAreaSelect').value=document.getElementById('zdAreaSelect').value;loadAddressManager();switchTab('addresses',null)">전체 번지 편집 열기 →</button></div></section>
+      <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
+    </div>
+    <div class="zd-bottom-grid"><section class="zd-panel"><h3>🔎 주소 오류 검사</h3><p>선택한 구역의 빈 주소와 중복 주소를 검사합니다.</p><div id="zdAuditDetails" class="zd-audit-details">구역을 선택하세요.</div><button class="zd-secondary" onclick="zdRunAudit()">다시 검사</button></section><section class="zd-panel"><h3>↩️ 안전한 변경 관리</h3><p>기존 편집 기능에서 저장하기 전에 내용을 확인하세요. 삭제·좌표 변경은 저장 전 다시 확인하는 것을 권장합니다.</p><button class="zd-secondary" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">변경 기록 열기</button></section></div>
+  </section>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 구역</div></div>
     <div class="stat-card purple"><div class="stat-num" id="statAssigned">-</div><div class="stat-lbl">배정중</div></div>
@@ -636,6 +676,7 @@ window.onload = async function() {
   loadStatsList();
   loadRecordList();
   loadSettings();
+  zdInit();
   if(!loaded) showToast('구역 데이터를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해 주세요.');
 };
 
@@ -3597,6 +3638,52 @@ async function saveAreaEditor(){
 window.closeEditCard=closeAreaEditor;
 window.saveCardEdit=saveAreaEditor;
 
+
+/* Dashboard bindings use the existing Firebase data and address structure. */
+var zdMap=null,zdMarkers=[],zdSelectedHouse=null,zdDashboardBlocks=[],zdDashboardRows=[];
+function zdInit(){
+ var sel=document.getElementById('zdAreaSelect');if(!sel)return;
+ sel.innerHTML='<option value="">구역 선택</option>'+areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).map(function(a){return '<option value="'+escAttr(a.id)+'">'+escHtml(a.id+'번 · '+(a.name||'구역'))+'</option>'}).join('');
+ var total=0;areas.forEach(function(a){(a.blocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){total+=(st.houses||[]).length})})});
+ document.getElementById('zdAreaCount').textContent=areas.length;document.getElementById('zdHouseCount').textContent=total;
+ zdLoadRequests();
+}
+async function zdLoadArea(id){
+ zdDashboardBlocks=[];zdDashboardRows=[];zdSelectedHouse=null;zdClearMarkers();
+ var list=document.getElementById('zdAddressList'),caption=document.getElementById('zdListCaption');
+ if(!id){list.innerHTML='<div class="zd-empty">먼저 구역을 선택하세요.</div>';caption.textContent='구역을 선택하면 주소가 표시됩니다.';document.getElementById('zdAuditCount').textContent='선택 필요';document.getElementById('zdAuditDetails').textContent='구역을 선택하세요.';return}
+ list.innerHTML='<div class="zd-empty">번지 목록 불러오는 중...</div>';
+ try{var snap=await db.collection('areas').doc(String(id)).get();if(!snap.exists)throw new Error('구역을 찾을 수 없습니다.');zdDashboardBlocks=addressNormalizeBlocks(snap.data().blocks||[]);zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1})})})});
+ caption.textContent=zdDashboardRows.length+'개 번지 · '+id+'번 구역';zdRenderList();zdRunAudit();zdCreateMap();}catch(e){list.innerHTML='<div class="zd-empty">불러오지 못했습니다: '+escHtml(e.message||e)+'</div>'}
+}
+function zdClearMarkers(){zdMarkers.forEach(function(m){m.setMap(null)});zdMarkers=[]}
+function zdCreateMap(){
+ var el=document.getElementById('zdMap');if(!el||!window.kakao||!kakao.maps){el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return}
+ zdClearMarkers();var valid=zdDashboardRows.filter(function(r){return Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0});
+ var center=valid.length?new kakao.maps.LatLng(valid[0].lat,valid[0].lng):new kakao.maps.LatLng(35.5487,126.7216);
+ zdMap=new kakao.maps.Map(el,{center:center,level:4});
+ valid.forEach(function(r){var marker=new kakao.maps.Marker({map:zdMap,position:new kakao.maps.LatLng(r.lat,r.lng),title:r.road+' '+r.addr});marker.__zdRow=r;kakao.maps.event.addListener(marker,'click',function(){zdSelectRow(r,true)});zdMarkers.push(marker)});
+ if(valid.length>1)zdFitMap();else if(valid.length===1)zdMap.setCenter(center);
+}
+function zdFitMap(){if(!zdMap||!window.kakao)return;var bounds=new kakao.maps.LatLngBounds();var count=0;zdDashboardRows.forEach(function(r){if(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0){bounds.extend(new kakao.maps.LatLng(r.lat,r.lng));count++}});if(count)zdMap.setBounds(bounds)}
+function zdRenderList(){
+ var root=document.getElementById('zdAddressList'),q=String(document.getElementById('zdSearch').value||'').trim().toLowerCase();
+ var rows=zdDashboardRows.filter(function(r){return !q||(r.addr+' '+r.road+' '+r.note+' '+r.number).toLowerCase().includes(q)});
+ if(!rows.length){root.innerHTML='<div class="zd-empty">검색 결과가 없습니다.</div>';return}
+ root.innerHTML=rows.map(function(r){var active=zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi;return '<button class="zd-address-row'+(active?' selected':'')+'" onclick="zdSelectByIndex('+r.bi+','+r.si+','+r.hi+',true)"><span class="zd-number">'+r.number+'</span><span class="zd-address-copy"><b>'+escHtml(r.road||'도로명 미지정')+' · '+escHtml(r.addr||'주소 없음')+'</b><small>'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'좌표 등록됨':'좌표 없음')+'</small></span></button>'}).join('');
+}
+function zdSelectByIndex(bi,si,hi,move){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi});if(r)zdSelectRow(r,move)}
+function zdSelectRow(r,move){zdSelectedHouse=r;zdRenderList();if(move&&zdMap&&Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdMap.panTo(pos);zdMap.setLevel(2)}zdMarkers.forEach(function(m){var x=m.__zdRow;if(x.bi===r.bi&&x.si===r.si&&x.hi===r.hi){m.setZIndex(20)}else m.setZIndex(1)})}
+function zdRunAudit(){
+ var rows=zdDashboardRows,blank=rows.filter(function(r){return !r.addr.trim()}).length,missing=rows.filter(function(r){return !Number.isFinite(r.lat)||!Number.isFinite(r.lng)||!Math.abs(r.lat)||!Math.abs(r.lng)}).length,counts={},dupes=0;
+ rows.forEach(function(r){var key=(r.road+' '+r.addr).replace(/\s+/g,' ').trim().toLowerCase();if(key)counts[key]=(counts[key]||0)+1});Object.keys(counts).forEach(function(k){if(counts[k]>1)dupes+=counts[k]-1});
+ var issues=blank+missing+dupes;document.getElementById('zdAuditCount').textContent=issues?issues+'개 확인':'정상';document.getElementById('zdAuditDetails').innerHTML='전체 <b>'+rows.length+'</b>개 · 빈 주소 <b>'+blank+'</b>개 · 중복 번지 <b>'+dupes+'</b>개 · 좌표 누락 <b>'+missing+'</b>개'+(issues?'<div style="color:#b45309;margin-top:4px">저장된 주소와 좌표를 확인해 주세요.</div>':'<div style="color:#047857;margin-top:4px">기본 점검에서 발견된 오류가 없습니다.</div>');
+}
+async function zdLoadRequests(){
+ try{var snap=await db.collection('fixRequests').get(),items=snap.docs.map(function(d){return Object.assign({docId:d.id},d.data())}),open=items.filter(function(x){return !x.status||x.status==='미처리'}),working=items.filter(function(x){return x.status==='처리중'||x.status==='수정 중'||x.status==='진행중'}),done=items.filter(function(x){return x.status==='완료'||x.status==='처리완료'});document.getElementById('zdPendingCount').textContent=open.length;document.getElementById('zdReqOpen').textContent=open.length;document.getElementById('zdReqWorking').textContent=working.length;document.getElementById('zdReqDone').textContent=done.length;
+ var recent=items.sort(function(a,b){return Number(b.createdAt||b.timestamp||b.updatedAt||0)-Number(a.createdAt||a.timestamp||a.updatedAt||0)}).slice(0,5);document.getElementById('zdRecentRequests').innerHTML=recent.length?recent.map(function(x){return '<div class="zd-recent-item"><b>'+escHtml(x.areaName||((x.areaId||'?')+'번 구역'))+' · '+escHtml(x.addr||x.address||'주소 미지정')+'</b>'+escHtml(x.status||'미처리')+' · '+escHtml(x.memo||x.description||x.type||'수정 요청')+'</div>'}).join(''):'<div class="zd-empty">등록된 수정요청이 없습니다.</div>';
+ }catch(e){document.getElementById('zdPendingCount').textContent='—';document.getElementById('zdRecentRequests').innerHTML='<div class="zd-empty">요청 현황을 불러오지 못했습니다.</div>'}
+}
 </script>
 </body>
 </html>
