@@ -1347,17 +1347,24 @@ async function editStatMemo(colName, docId) {
 async function deleteStatItem(colName, docId) {
   try {
     var doc = await db.collection(colName).doc(docId).get();
-    if(!doc.exists) { showToast('이미 삭제된 항목입니다'); return; }
-    var r = doc.data();
+    if(!doc.exists) { showToast('이미 삭제된 항목입니다'); loadStatsList(); return; }
+    var r = doc.data() || {};
     var clearMemo = confirm('방문 카드의 메모도 함께 삭제하시겠습니까?\n확인: 메모 삭제  /  취소: 상태만 초기화');
-    await db.collection(colName).doc(docId).delete();
-    var visitId = String(r.areaId) + '_' + (r.addr||'').replace(/\s/g,'_') + '_' + (r.round||1);
-    var update = {status: 'none', updatedAt: firebase.firestore.FieldValue.serverTimestamp()};
+    var update = {status:'none', updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
     if(clearMemo) update.memo = '';
-    await db.collection('visits').doc(visitId).set(update, {merge:true}).catch(function(){});
-    showToast('삭제했습니다');
-    loadStatsList();
-  } catch(e) { showToast('오류가 발생했습니다'); }
+    var visits = await db.collection('visits')
+      .where('areaId','==',String(r.areaId))
+      .where('addr','==',String(r.addr || '')).get();
+    var batch = db.batch();
+    visits.docs.forEach(function(vd) {
+      if(!r.round || Number((vd.data() || {}).round || 1) === Number(r.round)) batch.update(vd.ref, update);
+    });
+    await db.collection(colName).doc(docId).delete();
+    if(visits.docs.length) await batch.commit();
+    showToast(clearMemo ? '기록과 메모를 삭제했습니다.' : '상태를 초기화했습니다. 메모는 유지했습니다.');
+    await loadStatsList();
+    loadHomeStats();
+  } catch(e) { showToast('삭제/동기화 실패: ' + (e && e.message ? e.message : e)); }
 }
 
 async function loadStatsList() {
