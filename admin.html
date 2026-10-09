@@ -197,6 +197,12 @@ button:active{transform:translateY(1px)}
 @media(min-width:1100px){.tab-content.active{max-width:1600px;margin:0 auto}.stat-grid{gap:12px}.stat-card{padding:16px}}
 @media(max-width:700px){.tab-content{padding:9px!important}.tab-bar{gap:4px!important}.tab-btn{font-size:12px!important;padding:9px 8px!important}.card{border-radius:10px!important}}
 
+.zd-recent-item{cursor:pointer;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin:7px 0;background:#fff;transition:background .15s,border-color .15s}
+.zd-recent-item:hover{background:#f5f0ff;border-color:#a78bfa}
+.zd-recent-item button{margin-top:7px;background:#7c3aed;color:white;border:0;border-radius:7px;padding:7px 10px;font-weight:800;cursor:pointer}
+.zd-inline-request-card{border:1px solid #c4b5fd;background:#faf8ff;border-radius:12px;padding:12px}
+.zd-inline-request-card .zd-inline-title{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.zd-inline-request-card .zd-inline-title button{border:1px solid #c4b5fd;border-radius:7px;padding:7px 10px;background:white;color:#5b21b6;font-weight:800}
 /* Strong, explicit tab palette override: ensure selected tabs are visibly purple */
 .tab-bar .tab-btn{background:#fff!important;color:#555!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:8px 8px 0 0!important}
 .tab-bar .tab-btn.active{background:#EEEDFE!important;color:#5B21B6!important;border-bottom:3px solid #7c3aed!important;box-shadow:inset 0 -1px 0 #7c3aed!important;font-weight:900!important}
@@ -283,7 +289,7 @@ button:active{transform:translateY(1px)}
     <div class="zd-main">
       <section class="zd-panel zd-map-panel"><div class="zd-panel-head"><div><h3>🗺 구역 지도</h3><p>핀을 선택하면 해당 번지가 목록에서 강조됩니다.</p></div><select id="zdAreaSelect" onchange="zdLoadArea(this.value)"><option value="">구역 선택</option></select></div><div id="zdMap" role="application" aria-label="구역 번지 지도"></div><div class="zd-map-foot"><span><i class="zd-dot blue"></i> 주소 위치</span><span><i class="zd-dot orange"></i> 선택한 번지</span><button onclick="zdFitMap()">지도 위치 맞춤</button></div></section>
       <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div><div class="zd-list-actions"><button onclick="document.getElementById('addressAreaSelect').value=document.getElementById('zdAreaSelect').value;loadAddressManager();switchTab('addresses',null)">전체 번지 편집 열기 →</button></div></section>
-      <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
+      <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
     </div>
     <div class="zd-bottom-grid"><section class="zd-panel"><h3>🔎 주소 오류 검사</h3><p>선택한 구역의 빈 주소와 중복 주소를 검사합니다.</p><div id="zdAuditDetails" class="zd-audit-details">구역을 선택하세요.</div><button class="zd-secondary" onclick="zdRunAudit()">다시 검사</button></section><section class="zd-panel"><h3>↩️ 안전한 변경 관리</h3><p>기존 편집 기능에서 저장하기 전에 내용을 확인하세요. 삭제·좌표 변경은 저장 전 다시 확인하는 것을 권장합니다.</p><button class="zd-secondary" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">변경 기록 열기</button></section></div>
   </section>
@@ -3722,7 +3728,41 @@ function zdCreateMap(){
     var sel=document.getElementById('zdAreaSelect');sel.value=String(v.area.id);zdLoadArea(String(v.area.id));
   },false)});
  }else{
-  valid.forEach(function(r){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdNumberOverlay(pos,r.number,function(){zdSelectRow(r,true)},zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi)});
+  valid.forEach(function(r){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdNumberOverlay(pos,r.number,function(){zdSelectRow(r,true)},zasync function zdOpenRequest(docId){
+ var box=document.getElementById('zdInlineRequestCard');
+ if(!box)return;
+ box.style.display='block';
+ box.innerHTML='<div class="zd-empty">수정요청과 구역 카드를 불러오는 중...</div>';
+ try{
+  var snap=await db.collection('fixRequests').doc(String(docId)).get();
+  if(!snap.exists)throw new Error('이 수정요청을 찾을 수 없습니다.');
+  var data=snap.data()||{};
+  activeFixRequest={docId:String(docId),data:data};activeFixHouseLocation=null;
+  var areaId=String(data.areaId||'');if(!areaId)throw new Error('요청에 구역 번호가 없습니다.');
+  var areaSnap=await db.collection('areas').doc(areaId).get();if(!areaSnap.exists)throw new Error('해당 구역 카드를 찾을 수 없습니다.');
+  var blocks=addressNormalizeBlocks(areaSnap.data().blocks||[]),addr=String(data.addr||data.address||'').trim(),found=null;
+  blocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){
+   if(!found&&addr&&[h.addr,h.num].some(function(v){return String(v||'').trim()===addr;}))found={bi:bi,si:si,hi:hi,oldAddr:String(h.addr||h.num||'')};
+  });});});
+  activeFixHouseLocation=found;
+  box.innerHTML='<div class="zd-inline-title"><div><b>'+escHtml(areaId+'번 구역 · '+String(data.addr||data.address||'주소 미지정'))+'</b><div style="font-size:13px;color:#6b21a8;margin-top:4px">요청: '+escHtml(data.memo||data.description||data.type||'수정 내용 확인')+'</div></div><button type="button" onclick="zdCloseInlineRequest()">닫기</button></div><div style="font-size:13px;color:#64748b;margin-bottom:8px">아래에서 구역 카드의 번지·메모·위치를 확인하고 편집할 수 있어요. 저장 전 변경 내용을 확인하세요.</div><div id="zdInlineFullCardContent"></div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" onclick="saveFixFullCardEditor()" style="background:#7c3aed;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:900">카드 수정 저장</button><button type="button" onclick="zdCloseInlineRequest()" style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 14px">닫기</button></div>';
+  fixFullCardAreaId=areaId;
+  var raw=areaSnap.data().blocks||[];if(!Array.isArray(raw))raw=Object.values(raw);
+  fixFullCardBlocks=JSON.parse(JSON.stringify(raw));
+  fixRequestSelectedHouse=found?{bi:found.bi,si:found.si,hi:found.hi}:null;
+  // Reuse the existing full-card editor without opening a separate modal.
+  var content=document.getElementById('fixFullCardContent'),inline=document.getElementById('zdInlineFullCardContent');
+  if(content){content.id='zdInlineFullCardContent';}
+  renderFixFullCardEditor();
+  var rendered=document.getElementById('fixFullCardContent');
+  if(rendered&&rendered!==inline){inline.innerHTML=rendered.innerHTML;rendered.innerHTML='';}
+  box.scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(e){box.innerHTML='<div style="color:#b91c1c;padding:10px">'+escHtml(e.message||e)+'</div>';}
+}
+function zdCloseInlineRequest(){
+ var box=document.getElementById('zdInlineRequestCard');if(box){box.style.display='none';box.innerHTML='';}
+}
+dSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi)});
  }
  if(valid.length>1)zdFitMap();else if(valid.length===1)zdMap.setCenter(new kakao.maps.LatLng(valid[0].lat,valid[0].lng));
  setTimeout(function(){if(zdMap)zdMap.relayout()},100);
@@ -3739,7 +3779,7 @@ function zdFitMap(){
 }
 async function zdLoadRequests(){
  try{var snap=await db.collection('fixRequests').get(),items=snap.docs.map(function(d){return Object.assign({docId:d.id},d.data())}),open=items.filter(function(x){return !x.status||x.status==='미처리'}),working=items.filter(function(x){return x.status==='처리중'||x.status==='수정 중'||x.status==='진행중'}),done=items.filter(function(x){return x.status==='완료'||x.status==='처리완료'});document.getElementById('zdPendingCount').textContent=open.length;document.getElementById('zdReqOpen').textContent=open.length;document.getElementById('zdReqWorking').textContent=working.length;document.getElementById('zdReqDone').textContent=done.length;
- var recent=items.sort(function(a,b){return Number(b.createdAt||b.timestamp||b.updatedAt||0)-Number(a.createdAt||a.timestamp||a.updatedAt||0)}).slice(0,5);document.getElementById('zdRecentRequests').innerHTML=recent.length?recent.map(function(x){return '<div class="zd-recent-item"><b>'+escHtml(x.areaName||((x.areaId||'?')+'번 구역'))+' · '+escHtml(x.addr||x.address||'주소 미지정')+'</b>'+escHtml(x.status||'미처리')+' · '+escHtml(x.memo||x.description||x.type||'수정 요청')+'</div>'}).join(''):'<div class="zd-empty">등록된 수정요청이 없습니다.</div>';
+ var recent=items.sort(function(a,b){return Number(b.createdAt||b.timestamp||b.updatedAt||0)-Number(a.createdAt||a.timestamp||a.updatedAt||0)}).slice(0,8);document.getElementById('zdRecentRequests').innerHTML=recent.length?recent.map(function(x){return '<div class="zd-recent-item" role="button" tabindex="0" onclick="zdOpenRequest(\''+escAttr(x.docId)+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();zdOpenRequest(\''+escAttr(x.docId)+'\')}"><b>'+escHtml(x.areaName||((x.areaId||'?')+'번 구역'))+' · '+escHtml(x.addr||x.address||'주소 미지정')+'</b><div>'+escHtml(x.status||'미처리')+' · '+escHtml(x.memo||x.description||x.type||'수정 요청')+'</div><button type="button" onclick="event.stopPropagation();zdOpenRequest(\''+escAttr(x.docId)+'\')">이 화면에서 카드 열기 →</button></div>'}).join(''):'<div class="zd-empty">등록된 수정요청이 없습니다.</div>';
  }catch(e){document.getElementById('zdPendingCount').textContent='—';document.getElementById('zdRecentRequests').innerHTML='<div class="zd-empty">요청 현황을 불러오지 못했습니다.</div>'}
 }
 </script>
