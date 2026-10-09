@@ -4866,19 +4866,39 @@ var _scrollLockCount = 0;
 function isTouchLayout() {
   return window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 }
+var _scrollLockY = 0;
 function lockScroll() {
   _scrollLockCount++;
-  if(!isTouchLayout()) return;
+  if(!isTouchLayout() || _scrollLockCount > 1) return;
+  // iOS/Android에서 body를 fixed로 만들 때 현재 스크롤 위치를 고정하지 않으면
+  // 페이지가 맨 위로 튀는 현상이 생길 수 있어 위치를 저장해 함께 고정한다.
+  _scrollLockY = window.scrollY || window.pageYOffset || 0;
   document.body.style.overflow = 'hidden';
   document.body.style.position = 'fixed';
+  document.body.style.top = (-_scrollLockY) + 'px';
+  document.body.style.left = '0';
+  document.body.style.right = '0';
   document.body.style.width = '100%';
 }
 function unlockScroll() {
   _scrollLockCount = Math.max(0, _scrollLockCount - 1);
   if (_scrollLockCount === 0 || !isTouchLayout()) {
-    document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.width = '';
+    if(isTouchLayout()) {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      window.scrollTo(0, _scrollLockY);
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+    }
   }
 }
 
