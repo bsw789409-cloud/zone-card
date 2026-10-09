@@ -4131,11 +4131,13 @@ async function deleteEditWaitingSignup() {
     }
 
     todaySignups = (todaySignups || []).filter(function(s) {
-      return s !== p && !(s.id && s.id === id) && String(s.name || '') !== name;
+      if(p.id || s.id) return s !== p && String(s.id || '') !== id;
+      return s !== p && String(s.name || '') !== name;
     });
     carGroups = (carGroups || []).map(function(group) {
       return group.filter(function(m) {
-        return m !== p && !(m.id && m.id === id) && String(m.name || '') !== name;
+        if(p.id || m.id) return m !== p && String(m.id || '') !== id;
+        return m !== p && String(m.name || '') !== name;
       });
     });
     carGroups = carGroups.filter(function(group){ return group.length > 0; });
