@@ -197,6 +197,13 @@ button:active{transform:translateY(1px)}
 @media(min-width:1100px){.tab-content.active{max-width:1600px;margin:0 auto}.stat-grid{gap:12px}.stat-card{padding:16px}}
 @media(max-width:700px){.tab-content{padding:9px!important}.tab-bar{gap:4px!important}.tab-btn{font-size:12px!important;padding:9px 8px!important}.card{border-radius:10px!important}}
 
+/* Strong, explicit tab palette override: ensure selected tabs are visibly purple */
+.tab-bar .tab-btn{background:#fff!important;color:#555!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:8px 8px 0 0!important}
+.tab-bar .tab-btn.active{background:#EEEDFE!important;color:#5B21B6!important;border-bottom:3px solid #7c3aed!important;box-shadow:inset 0 -1px 0 #7c3aed!important;font-weight:900!important}
+.tab-bar .tab-btn:hover{background:#f5f0ff!important;color:#6d28d9!important}
+.tab-bar{background:#fff!important}
+.btn-primary,.btn-sm.btn-primary{background:#7c3aed!important;color:#fff!important;border:1px solid #6d28d9!important}
+
 /* Keep dashboard accents close to the original purple admin controls */
 .zd-eyebrow{color:#7c3aed}
 .zd-primary{background:#7c3aed;box-shadow:0 5px 12px rgba(124,58,237,.18)}
@@ -3644,44 +3651,91 @@ window.saveCardEdit=saveAreaEditor;
 
 
 /* Dashboard bindings use the existing Firebase data and address structure. */
-var zdMap=null,zdMarkers=[],zdSelectedHouse=null,zdDashboardBlocks=[],zdDashboardRows=[];
+var zdMap=null,zdMarkers=[],zdSelectedHouse=null,zdDashboardBlocks=[],zdDashboardRows=[],zdMapMode='overview';
 function zdInit(){
  var sel=document.getElementById('zdAreaSelect');if(!sel)return;
- sel.innerHTML='<option value="">구역 선택</option>'+areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).map(function(a){return '<option value="'+escAttr(a.id)+'">'+escHtml(a.id+'번 · '+(a.name||'구역'))+'</option>'}).join('');
+ sel.innerHTML='<option value="">전체 구역 보기</option>'+areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).map(function(a){return '<option value="'+escAttr(a.id)+'">'+escHtml(a.id+'번 · '+(a.name||'구역'))+'</option>'}).join('');
  var total=0;areas.forEach(function(a){(a.blocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){total+=(st.houses||[]).length})})});
  document.getElementById('zdAreaCount').textContent=areas.length;document.getElementById('zdHouseCount').textContent=total;
- zdLoadRequests();if(areas.length){sel.value=String(areas[0].id);zdLoadArea(sel.value)}
+ zdLoadRequests();sel.value='';zdLoadArea('');
 }
-async function zdLoadArea(id){
- zdDashboardBlocks=[];zdDashboardRows=[];zdSelectedHouse=null;zdClearMarkers();
+function zdGetAreaRows(area){
+ var rows=[],blocks=addressNormalizeBlocks((area&&area.blocks)||[]);
+ blocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){
+ var lat=Number(h.lat),lng=Number(h.lng);
+ if(Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)>0&&Math.abs(lng)>0) rows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:lat,lng:lng,number:rows.length+1});
+});});});
+ return rows;
+}
+function zdAreaCenter(area){
+ var rows=zdGetAreaRows(area);if(!rows.length)return null;
+ var lat=0,lng=0;rows.forEach(function(r){lat+=r.lat;lng+=r.lng});
+ return {lat:lat/rows.length,lng:lng/rows.length};
+}
+function zdLoadArea(id){
+ zdSelectedHouse=null;zdClearMarkers();
  var list=document.getElementById('zdAddressList'),caption=document.getElementById('zdListCaption');
- if(!id){list.innerHTML='<div class="zd-empty">먼저 구역을 선택하세요.</div>';caption.textContent='구역을 선택하면 주소가 표시됩니다.';document.getElementById('zdAuditCount').textContent='선택 필요';document.getElementById('zdAuditDetails').textContent='구역을 선택하세요.';return}
- list.innerHTML='<div class="zd-empty">번지 목록 불러오는 중...</div>';
- try{var snap=await db.collection('areas').doc(String(id)).get();if(!snap.exists)throw new Error('구역을 찾을 수 없습니다.');zdDashboardBlocks=addressNormalizeBlocks(snap.data().blocks||[]);zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1})})})});
- caption.textContent=zdDashboardRows.length+'개 번지 · '+id+'번 구역';zdRenderList();zdRunAudit();zdCreateMap();}catch(e){list.innerHTML='<div class="zd-empty">불러오지 못했습니다: '+escHtml(e.message||e)+'</div>'}
+ document.getElementById('zdSearch').value='';
+ if(!id){
+  zdMapMode='overview';zdDashboardBlocks=[];zdDashboardRows=[];
+  list.innerHTML='<div class="zd-empty">지도에서 구역 번호를 누르면 해당 구역 카드의 번지 번호가 표시됩니다.</div>';
+  caption.textContent='전체 구역 보기 · 번호 핀을 선택하세요.';
+  document.getElementById('zdAuditCount').textContent='선택 필요';
+  document.getElementById('zdAuditDetails').textContent='구역을 선택하면 주소 오류를 검사할 수 있습니다.';
+  zdCreateMap();return;
+ }
+ zdMapMode='area';list.innerHTML='<div class="zd-empty">번지 목록 불러오는 중...</div>';
+ db.collection('areas').doc(String(id)).get().then(function(snap){
+  if(!snap.exists)throw new Error('구역을 찾을 수 없습니다.');
+  zdDashboardBlocks=addressNormalizeBlocks(snap.data().blocks||[]);zdDashboardRows=[];
+  zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1})})})});
+  caption.textContent=zdDashboardRows.length+'개 번지 · '+id+'번 구역';
+  zdRenderList();zdRunAudit();zdCreateMap();
+ }).catch(function(e){list.innerHTML='<div class="zd-empty">불러오지 못했습니다: '+escHtml(e.message||e)+'</div>'});
 }
 function zdClearMarkers(){zdMarkers.forEach(function(m){m.setMap(null)});zdMarkers=[]}
+function zdNumberOverlay(position,label,onClick,active){
+ var pin=document.createElement('button');pin.type='button';pin.textContent=String(label);
+ pin.setAttribute('aria-label',String(label)+'번 핀');
+ pin.style.cssText='min-width:32px;height:32px;padding:0 5px;border-radius:17px;border:2px solid #fff;box-shadow:0 2px 8px #0008;background:'+(active?'#ea580c':'#2563eb')+';color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap';
+ pin.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();onClick()});
+ var overlay=new kakao.maps.CustomOverlay({position:position,content:pin,yAnchor:.5,xAnchor:.5,zIndex:active?20:5});
+ overlay.setMap(zdMap);zdMarkers.push(overlay);return overlay;
+}
 function zdCreateMap(){
- var el=document.getElementById('zdMap');if(!el||!window.kakao||!kakao.maps){el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return}
- zdClearMarkers();var valid=zdDashboardRows.filter(function(r){return Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0});
- var center=valid.length?new kakao.maps.LatLng(valid[0].lat,valid[0].lng):new kakao.maps.LatLng(35.5487,126.7216);
- zdMap=new kakao.maps.Map(el,{center:center,level:4});
- valid.forEach(function(r){var marker=new kakao.maps.Marker({map:zdMap,position:new kakao.maps.LatLng(r.lat,r.lng),title:r.road+' '+r.addr});marker.__zdRow=r;kakao.maps.event.addListener(marker,'click',function(){zdSelectRow(r,true)});zdMarkers.push(marker)});
- if(valid.length>1)zdFitMap();else if(valid.length===1)zdMap.setCenter(center);
+ var el=document.getElementById('zdMap');if(!el||!window.kakao||!kakao.maps){if(el)el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return}
+ el.innerHTML='';zdClearMarkers();
+ var center=new kakao.maps.LatLng(35.5487,126.7216),valid=[];
+ if(zdMapMode==='overview'){
+  areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).forEach(function(a){
+   var c=zdAreaCenter(a);if(c)valid.push({area:a,lat:c.lat,lng:c.lng});
+  });
+ }else{
+  valid=zdDashboardRows.filter(function(r){return Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0});
+  if(valid.length)center=new kakao.maps.LatLng(valid[0].lat,valid[0].lng);
+ }
+ zdMap=new kakao.maps.Map(el,{center:center,level:zdMapMode==='overview'?7:4});
+ if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)zdMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
+ else if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.SKYVIEW)zdMap.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
+ if(zdMapMode==='overview'){
+  valid.forEach(function(v){var pos=new kakao.maps.LatLng(v.lat,v.lng);zdNumberOverlay(pos,v.area.id,function(){
+    var sel=document.getElementById('zdAreaSelect');sel.value=String(v.area.id);zdLoadArea(String(v.area.id));
+  },false)});
+ }else{
+  valid.forEach(function(r){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdNumberOverlay(pos,r.number,function(){zdSelectRow(r,true)},zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi)});
+ }
+ if(valid.length>1)zdFitMap();else if(valid.length===1)zdMap.setCenter(new kakao.maps.LatLng(valid[0].lat,valid[0].lng));
+ setTimeout(function(){if(zdMap)zdMap.relayout()},100);
 }
-function zdFitMap(){if(!zdMap||!window.kakao)return;var bounds=new kakao.maps.LatLngBounds();var count=0;zdDashboardRows.forEach(function(r){if(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0){bounds.extend(new kakao.maps.LatLng(r.lat,r.lng));count++}});if(count)zdMap.setBounds(bounds)}
-function zdRenderList(){
- var root=document.getElementById('zdAddressList'),q=String(document.getElementById('zdSearch').value||'').trim().toLowerCase();
- var rows=zdDashboardRows.filter(function(r){return !q||(r.addr+' '+r.road+' '+r.note+' '+r.number).toLowerCase().includes(q)});
- if(!rows.length){root.innerHTML='<div class="zd-empty">검색 결과가 없습니다.</div>';return}
- root.innerHTML=rows.map(function(r){var active=zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi;return '<button class="zd-address-row'+(active?' selected':'')+'" onclick="zdSelectByIndex('+r.bi+','+r.si+','+r.hi+',true)"><span class="zd-number">'+r.number+'</span><span class="zd-address-copy"><b>'+escHtml(r.road||'도로명 미지정')+' · '+escHtml(r.addr||'주소 없음')+'</b><small>'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'좌표 등록됨':'좌표 없음')+'</small></span></button>'}).join('');
-}
-function zdSelectByIndex(bi,si,hi,move){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi});if(r)zdSelectRow(r,move)}
-function zdSelectRow(r,move){zdSelectedHouse=r;zdRenderList();if(move&&zdMap&&Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0){var pos=new kakao.maps.LatLng(r.lat,r.lng);zdMap.panTo(pos);zdMap.setLevel(2)}zdMarkers.forEach(function(m){var x=m.__zdRow;if(x.bi===r.bi&&x.si===r.si&&x.hi===r.hi){m.setZIndex(20)}else m.setZIndex(1)})}
-function zdRunAudit(){
- var rows=zdDashboardRows,blank=rows.filter(function(r){return !r.addr.trim()}).length,missing=rows.filter(function(r){return !Number.isFinite(r.lat)||!Number.isFinite(r.lng)||!Math.abs(r.lat)||!Math.abs(r.lng)}).length,counts={},dupes=0;
- rows.forEach(function(r){var key=(r.road+' '+r.addr).replace(/\s+/g,' ').trim().toLowerCase();if(key)counts[key]=(counts[key]||0)+1});Object.keys(counts).forEach(function(k){if(counts[k]>1)dupes+=counts[k]-1});
- var issues=blank+missing+dupes;document.getElementById('zdAuditCount').textContent=issues?issues+'개 확인':'정상';document.getElementById('zdAuditDetails').innerHTML='전체 <b>'+rows.length+'</b>개 · 빈 주소 <b>'+blank+'</b>개 · 중복 번지 <b>'+dupes+'</b>개 · 좌표 누락 <b>'+missing+'</b>개'+(issues?'<div style="color:#b45309;margin-top:4px">저장된 주소와 좌표를 확인해 주세요.</div>':'<div style="color:#047857;margin-top:4px">기본 점검에서 발견된 오류가 없습니다.</div>');
+function zdFitMap(){
+ if(!zdMap||!window.kakao)return;
+ var bounds=new kakao.maps.LatLngBounds(),count=0;
+ if(zdMapMode==='overview'){
+  areas.forEach(function(a){var c=zdAreaCenter(a);if(c){bounds.extend(new kakao.maps.LatLng(c.lat,c.lng));count++}});
+ }else{
+  zdDashboardRows.forEach(function(r){if(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0){bounds.extend(new kakao.maps.LatLng(r.lat,r.lng));count++}});
+ }
+ if(count)zdMap.setBounds(bounds);
 }
 async function zdLoadRequests(){
  try{var snap=await db.collection('fixRequests').get(),items=snap.docs.map(function(d){return Object.assign({docId:d.id},d.data())}),open=items.filter(function(x){return !x.status||x.status==='미처리'}),working=items.filter(function(x){return x.status==='처리중'||x.status==='수정 중'||x.status==='진행중'}),done=items.filter(function(x){return x.status==='완료'||x.status==='처리완료'});document.getElementById('zdPendingCount').textContent=open.length;document.getElementById('zdReqOpen').textContent=open.length;document.getElementById('zdReqWorking').textContent=working.length;document.getElementById('zdReqDone').textContent=done.length;
