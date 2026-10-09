@@ -503,6 +503,12 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
   </div>
 </div>
 
+<!-- Dedicated fix-request popup -->
+<div id="fixRequestOverlay" onclick="closeFixRequestEditor()" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:12000;padding:18px;align-items:center;justify-content:center">
+<div onclick="event.stopPropagation()" style="width:min(100%,520px);max-height:88vh;overflow:auto;background:#fff;border-radius:18px">
+<div style="padding:18px 20px;background:#fff7ed;border-radius:18px 18px 0 0"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;font-weight:800;color:#c2410c">수정요청 전용</div><div id="fixRequestTitle" style="font-size:20px;font-weight:900;color:#7c2d12;margin-top:4px">수정요청 처리</div></div><button onclick="closeFixRequestEditor()">닫기</button></div><div id="fixRequestAreaLabel" style="font-size:12px;color:#9a3412;margin-top:8px"></div></div>
+<div style="padding:20px;display:grid;gap:14px"><div><b>전도인이 보낸 요청 내용</b><div id="fixRequestMemo" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:6px;min-height:48px"></div></div><div><label for="fixRequestAddrInput">해당 번지</label><input id="fixRequestAddrInput" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:800"></div><div><label for="fixRequestNoteInput">카드 메모 / 수정할 내용</label><textarea id="fixRequestNoteInput" rows="3" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px"></textarea></div><div style="font-size:12px;color:#64748b">기존 카드 편집기와 분리된 수정요청 전용 화면입니다. 저장 전 완료 여부를 확인합니다.</div></div>
+<div style="padding:14px 20px 20px;display:flex;gap:10px"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1266,7 +1272,75 @@ function setFixFilter(filter, el) {
   loadFixList();
 }
 
-async function loadFixList() {
+async var activeFixRequest = null;
+var activeFixHouseLocation = null;
+function closeFixRequestEditor() {
+  var el=document.getElementById('fixRequestOverlay');
+  if(el) el.style.display='none';
+  activeFixRequest=null; activeFixHouseLocation=null;
+}
+async function openFixRequestEditor(docId) {
+  try {
+    var snap=await db.collection('fixRequests').doc(String(docId)).get();
+    if(!snap.exists) { showToast('이 수정요청은 이미 삭제되었거나 처리되었습니다.'); await loadFixList(); return; }
+    var r=snap.data()||{};
+    if(r.status && r.status!=='미처리') { showToast('이미 처리된 수정요청입니다.'); await loadFixList(); return; }
+    var areaDoc=await db.collection('areas').doc(String(r.areaId)).get();
+    if(!areaDoc.exists) { showToast('해당 구역 카드를 찾을 수 없습니다.'); return; }
+    var blocks=areaDoc.data().blocks||[];
+    if(!Array.isArray(blocks)) blocks=Object.values(blocks);
+    var found=null, wanted=String(r.addr||'').trim();
+    blocks.forEach(function(blk,bi){ (blk.subTopics||[]).forEach(function(sub,si){ (sub.houses||[]).forEach(function(h,hi){
+      var addr=String(h.addr||h.num||'').trim(), subName=String(sub.name||'').trim();
+      var full=subName ? subName+' '+addr : addr;
+      if(!found && (addr===wanted || full===wanted || full.replace(/\s+/g,'')===wanted.replace(/\s+/g,''))) found={bi:bi,si:si,hi:hi,oldAddr:addr};
+    }); }); });
+    if(!found && r.type!=='parking') { showToast('요청 번지를 카드에서 찾지 못했습니다. 주소가 이미 변경됐을 수 있습니다.'); return; }
+    activeFixRequest={docId:String(docId),data:r}; activeFixHouseLocation=found;
+    document.getElementById('fixRequestTitle').textContent=(r.addr||'번지 미지정')+' 수정요청';
+    document.getElementById('fixRequestAreaLabel').textContent=String(r.areaId||'')+'번 구역 · '+String(r.areaName||'');
+    document.getElementById('fixRequestMemo').textContent=String(r.memo||'요청 내용 없음');
+    document.getElementById('fixRequestAddrInput').value=found?found.oldAddr:String(r.addr||'');
+    var h=found?blocks[found.bi].subTopics[found.si].houses[found.hi]:null;
+    document.getElementById('fixRequestNoteInput').value=h?String(h.note||h.memo||''):String(r.memo||'');
+    document.getElementById('fixRequestOverlay').style.display='flex';
+  } catch(e) { showToast('수정요청을 열지 못했습니다: '+(e&&e.message?e.message:e)); }
+}
+async function saveFixRequestEditor() {
+  if(!activeFixRequest) return;
+  var req=activeFixRequest, loc=activeFixHouseLocation;
+  var newAddr=String(document.getElementById('fixRequestAddrInput').value||'').trim();
+  var newNote=String(document.getElementById('fixRequestNoteInput').value||'').trim();
+  if(!confirm('수정 내용을 저장하고 이 수정요청을 완료 처리하시겠습니까?')) return;
+  showLoader();
+  try {
+    if(loc) {
+      if(!newAddr) { showToast('번지를 입력해 주세요.'); hideLoader(); return; }
+      var docRef=db.collection('areas').doc(String(req.data.areaId));
+      var fresh=await docRef.get();
+      if(!fresh.exists) throw new Error('구역 카드를 찾을 수 없습니다.');
+      var blocks=fresh.data().blocks||[];
+      if(!Array.isArray(blocks)) blocks=Object.values(blocks);
+      var bi=loc.bi,si=loc.si,hi=loc.hi;
+      if(!blocks[bi]||!blocks[bi].subTopics||!blocks[bi].subTopics[si]||!blocks[bi].subTopics[si].houses||!blocks[bi].subTopics[si].houses[hi]) throw new Error('대상 번지 정보가 바뀌었습니다. 수정요청을 다시 열어 주세요.');
+      blocks[bi].subTopics[si].houses[hi].addr=newAddr;
+      blocks[bi].subTopics[si].houses[hi].note=newNote;
+      await docRef.update({blocks:blocks});
+      var idx=areas.findIndex(function(a){return String(a.id)===String(req.data.areaId);});
+      if(idx>=0) areas[idx].blocks=blocks;
+    }
+    await db.collection('fixRequests').doc(req.docId).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolvedAddr:newAddr});
+    if(req.data.addr && req.data.type!=='parking') {
+      var vs=await db.collection('visits').where('areaId','==',String(req.data.areaId)).where('addr','==',String(req.data.addr)).where('status','==','fix').get();
+      if(!vs.empty) { var batch=db.batch(); vs.docs.forEach(function(v){batch.update(v.ref,{status:'visited',memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}); await batch.commit(); }
+    }
+    closeFixRequestEditor(); showToast('수정 내용을 저장하고 해당 요청만 완료 처리했습니다.');
+    await loadFixList(); loadHomeStats(); loadAreaList();
+  } catch(e) { showToast('저장 실패: '+(e&&e.message?e.message:e)); }
+  hideLoader();
+}
+
+function loadFixList() {
   var list = document.getElementById('fixList');
   list.innerHTML = '<div style="text-align:center;color:#aaa;padding:20px">불러오는 중...</div>';
   try {
@@ -1289,7 +1363,7 @@ async function loadFixList() {
         '</div>' +
         '<div class="fix-btns">' +
           '<button onclick="resolveFixRequest(\'' + d.id + '\')" class="btn-sm btn-success">처리완료</button>' +
-          '<button onclick="openEditCard(\'' + r.areaId + '\', \'' + String(r.addr||'').replace(/'/g, "\\'") + '\')" class="btn-sm btn-primary">카드 수정</button>' +
+          '<button onclick="openFixRequestEditor(\'' + d.id + '\')" class="btn-sm btn-primary">요청 확인·수정</button>' +
         '</div>';
       list.appendChild(div);
     });
