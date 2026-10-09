@@ -1674,11 +1674,6 @@ function makeRow(h) {
     '</div>' +
     '<div class="h-status '+st+'">'+stLabel[st]+'</div>' +
     '<button class="h-more-btn">⋯</button>';
-  var addrEl = row.querySelector('.h-addr');
-  if(addrEl) addrEl.addEventListener('click', function(e) {
-    // 주소 텍스트 터치는 행 전체의 방문상태 변경/재렌더링으로 이어지지 않게 한다.
-    e.stopPropagation();
-  });
   row.querySelector('.h-more-btn').onclick = function(e) { e.stopPropagation(); openDetail(h); };
   return row;
 }
