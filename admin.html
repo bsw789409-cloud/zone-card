@@ -1540,13 +1540,13 @@ function renderFixFullCardEditor() {
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
 }
-function moveFixFullCardItem(type,bi,si,dir) {
+function moveFixFullCardItem(type,bi,si,hi,dir) {
   syncFixFullCardInputs();
-  var arr,index;
-  if(type==='block'){arr=fixFullCardBlocks;index=bi;}
-  else if(type==='sub'){arr=fixFullCardBlocks[bi].subTopics;index=si;}
-  else {var hi=dir;dir=arguments[5];arr=fixFullCardBlocks[bi].subTopics[si].houses;index=hi;}
-  var next=index+dir;if(!arr||next<0||next>=arr.length)return;
+  var arr,index,delta;
+  if(type==='block'){arr=fixFullCardBlocks;index=bi;delta=si;}
+  else if(type==='sub'){arr=fixFullCardBlocks[bi].subTopics;index=si;delta=hi;}
+  else {arr=fixFullCardBlocks[bi].subTopics[si].houses;index=hi;delta=dir;}
+  var next=index+delta;if(!arr||next<0||next>=arr.length)return;
   var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;renderFixFullCardEditor();
 }
 function removeFixFullCardItem(type,bi,si,hi) {
