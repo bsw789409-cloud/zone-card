@@ -237,6 +237,8 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
     <div style="font-size:14px;font-weight:700;color:#1a1040">구역 목록</div>
     <button onclick="openAddArea()" class="btn-sm btn-primary">+ 새 구역 추가</button>
   </div>
+  <button onclick="cleanupPhoneAndEmptyAreas()" class="btn-full" style="background:#fff7ed;color:#9a3412;border:1px solid #fdba74;margin-bottom:10px">🧹 전화 태그·빈 구역 카드 정리</button>
+  <div style="font-size:11px;color:#9a3412;margin:-4px 0 10px;line-height:1.5">전화 유형으로 태그된 구역과 256~300번 중 이름·주소·주차 정보가 모두 없는 빈 카드만 미리 확인 후 삭제합니다.</div>
   <input id="areaSearchInput" oninput="setAreaSearch(this.value)" placeholder="구역 번호/이름/인도자 검색" style="width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;background:#f8f8f8;color:#1a1040;margin-bottom:10px" />
   <div class="filter-wrap" id="areaFaceFilter">
     <div class="chip active" onclick="setAreaFaceFilter('전체',this)">전체</div>
@@ -774,6 +776,54 @@ function setAreaFaceFilter(face, el) {
 function setAreaSearch(value) {
   areaSearch = String(value || '').trim().toLowerCase();
   renderAreaList();
+}
+
+async function cleanupPhoneAndEmptyAreas() {
+  if(!confirm('Firebase에서 전화 태그가 붙은 구역 카드와 256~300번 사이의 완전히 빈 카드만 찾아 삭제 대상 목록을 확인할까요?')) return;
+  showLoader();
+  try {
+    var snap=await db.collection('areas').get();
+    var phoneDocs=[],emptyDocs=[];
+    snap.docs.forEach(function(doc){
+      var d=doc.data()||{};
+      var id=Number(d.id!==undefined&&d.id!==null?d.id:doc.id);
+      var type=String(d.type||d.tag||d.category||'');
+      var blocks=d.blocks||[];
+      if(!Array.isArray(blocks)) blocks=Object.values(blocks);
+      var addressCount=0,hasParking=false;
+      blocks.forEach(function(b){
+        if(!b||typeof b!=='object')return;
+        if(String(b.parking||'').trim())hasParking=true;
+        var roads=b.subTopics||b.subs||[];
+        if(!Array.isArray(roads))roads=Object.values(roads);
+        roads.forEach(function(r){
+          if(!r||typeof r!=='object')return;
+          var houses=r.houses||[];
+          if(!Array.isArray(houses))houses=Object.values(houses);
+          houses.forEach(function(h){if(h&&String(h.addr||h.num||'').trim())addressCount++;});
+        });
+        var direct=b.houses||[];
+        if(!Array.isArray(direct))direct=Object.values(direct);
+        direct.forEach(function(h){if(h&&String(h.addr||h.num||'').trim())addressCount++;});
+      });
+      if(type.indexOf('전화')>=0) phoneDocs.push({ref:doc.ref,id:id,docId:doc.id,type:type});
+      else if(id>=256&&id<=300&&addressCount===0&&!hasParking&&!String(d.name||'').trim()) emptyDocs.push({ref:doc.ref,id:id,docId:doc.id,type:type});
+    });
+    var all=phoneDocs.concat(emptyDocs);
+    if(!all.length){showToast('삭제 대상 전화 카드나 완전히 빈 256~300번 카드가 없습니다.');return;}
+    var labels=all.map(function(x){return (x.id||x.docId)+'번'+(x.type?' · '+x.type:'')+(phoneDocs.indexOf(x)>=0?' (전화 태그)':' (빈 카드)');});
+    var msg='다음 구역 카드 문서만 삭제합니다. 일반 주소가 있는 카드는 제외됩니다.\n\n'+labels.join('\n')+'\n\n삭제를 진행할까요?';
+    if(!confirm(msg))return;
+    for(var i=0;i<all.length;i+=450){
+      var batch=db.batch();
+      all.slice(i,i+450).forEach(function(x){batch.delete(x.ref);});
+      await batch.commit();
+    }
+    areas=areas.filter(function(a){return !all.some(function(x){return String(a.id)===String(x.id)||String(a.id)===String(x.docId);});});
+    loadAreaList();loadHomeStats();
+    showToast(all.length+'개 구역 카드 문서를 삭제했습니다. 방문 기록·수정요청 기록은 보존했습니다.');
+  } catch(e){showToast('정리 실패: '+(e&&e.message?e.message:e));}
+  finally{hideLoader();}
 }
 
 function loadAreaList() { renderAreaList(); }
