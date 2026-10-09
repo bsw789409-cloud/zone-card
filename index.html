@@ -596,7 +596,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   </div>
   <input class="memo-inp" id="memoInp" placeholder="메모 (선택)" />
   <button class="d-save" onclick="saveDetail()">저장</button>
-  <button type="button" onclick="deleteHouseInfo()" style="display:block;width:100%;margin-top:9px;padding:13px;border:1px solid #fecaca;border-radius:12px;background:#fff1f2;color:#b91c1c;font-size:15px;font-weight:800;cursor:pointer">삭제하기</button>
 </div>
 
 <div id="carResultOverlay" onclick="closeCarResult()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:40"></div>
@@ -1994,103 +1993,6 @@ async function saveDetail() {
     showToast('저장 실패: ' + (e && e.message ? e.message : e));
   }
 }
-async function deleteHouseInfo() {
-  if(!dHouseKey || !dAreaId) return;
-  var addr = String(dHouseKey.addr || '');
-  var areaId = String(dAreaId);
-  var houseKey = String(dHouseKey._key || dHouseKey.houseId || addr);
-  var subName = String(dHouseKey._sub || '');
-  if(!confirm('정말 삭제할까요?\n\n' + addr + '\n\n이 주소 정보와 이 주소의 방문 기록이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.')) return;
-  try {
-    var areaRef = db.collection('areas').doc(areaId);
-    await db.runTransaction(async function(tx) {
-      var snap = await tx.get(areaRef);
-      if(!snap.exists) throw new Error('구역 정보를 찾을 수 없습니다.');
-      var data = snap.data() || {};
-      var blocks = JSON.parse(JSON.stringify(data.blocks || []));
-      var removed = 0;
-      blocks.forEach(function(block, bi) {
-        var topics = block.subTopics || block.subs || [];
-        if(topics.length) {
-          topics.forEach(function(sub, si) {
-            if(subName && String(sub.name || '') !== subName) return;
-            var houses = sub.houses || [];
-            var kept = houses.filter(function(h, hi) {
-              var key = String(h.houseId || (bi + '_' + si + '_' + hi));
-              var match = h.houseId
-                ? String(h.houseId) === String(dHouseKey.houseId || dHouseKey._key)
-                : (key === houseKey && String(h.addr || '') === addr);
-              if(match && removed === 0) { removed++; return false; }
-              return true;
-            });
-            sub.houses = kept;
-          });
-        } else {
-          var houses = block.houses || [];
-          block.houses = houses.filter(function(h, hi) {
-            var key = String(h.houseId || (bi + '_0_' + hi));
-            var match = h.houseId
-              ? String(h.houseId) === String(dHouseKey.houseId || dHouseKey._key)
-              : (key === houseKey && String(h.addr || '') === addr);
-            if(match && removed === 0) { removed++; return false; }
-            return true;
-          });
-        }
-      });
-      if(!removed) throw new Error('삭제할 주소를 정확히 찾지 못했습니다. 새로고침 후 다시 시도해 주세요.');
-      tx.set(areaRef, {blocks: blocks, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true});
-      return blocks;
-    }).then(function(updatedBlocks) {
-      currentAreaData = updatedBlocks;
-      var cachedArea = areas.find(function(a){ return String(a.id) === areaId; });
-      if(cachedArea) cachedArea.blocks = updatedBlocks;
-      assignHouseKeys(currentAreaData);
-    });
-
-    // 해당 주소에 연결된 상태/메모 기록만 정리한다.
-    var collections = ['visits','rejects','interests','vacants'];
-    for(var ci=0; ci<collections.length; ci++) {
-      var col = db.collection(collections[ci]);
-      var byAddr = await col.where('areaId','==',areaId).where('addr','==',addr).get();
-      var refs = byAddr.docs.map(function(doc){ return doc.ref; });
-      var byKey = await col.where('areaId','==',areaId).where('key','==',houseKey).get();
-      byKey.docs.forEach(function(doc){ if(!refs.some(function(r){return r.path===doc.ref.path;})) refs.push(doc.ref); });
-      for(var ri=0; ri<refs.length; ri+=400) {
-        var batch = db.batch();
-        refs.slice(ri,ri+400).forEach(function(ref){ batch.delete(ref); });
-        await batch.commit();
-      }
-    }
-    var fixSnap = await db.collection('fixRequests').where('areaId','==',areaId).where('addr','==',addr).get();
-    for(var fi=0; fi<fixSnap.docs.length; fi+=400) {
-      var fixBatch = db.batch();
-      fixSnap.docs.slice(fi,fi+400).forEach(function(doc){ fixBatch.delete(doc.ref); });
-      await fixBatch.commit();
-    }
-
-    if(!statusData[areaId]) statusData[areaId] = {};
-    if(!memoData[areaId]) memoData[areaId] = {};
-    delete statusData[areaId][houseKey];
-    delete statusData[areaId][addr];
-    delete memoData[areaId][houseKey];
-    delete memoData[areaId][addr];
-    delete dirtyVisitKeys[areaId + '|' + houseKey];
-    delete dirtyVisitKeys[areaId + '|' + addr];
-
-    closeDetail();
-    showToast('주소 정보가 삭제되었습니다.');
-    // Firestore 구역 스냅샷이 목록을 갱신하며, 리더 화면에서는 즉시 다시 렌더링한다.
-    if(openSheetAreaId) {
-      renderCsGrid(areaId);
-      refreshCurrentMapPinsPreserveViewport();
-    } else {
-      renderFieldBlocks(areaId);
-    }
-  } catch(e) {
-    showToast('삭제 실패: ' + (e && e.message ? e.message : e));
-  }
-}
-
 function triggerSmartSave() {
   if(smartSaveTimer) clearTimeout(smartSaveTimer);
   smartSaveTimer = setTimeout(executeSave, 300);
