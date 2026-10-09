@@ -3152,15 +3152,13 @@ function renderAreaEditor(){
   var hasAddress=roads.some(function(r){return r&&Array.isArray(r.houses)&&r.houses.length});
   var html='';
 
-  html+='<div class="area-stage">';
-  html+='<div class="area-stage-title">① 구역 번호</div>';
+  html+='<div class="area-stage"><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">';
+  html+='<div><div class="area-stage-title">① 구역 번호</div>';
   html+='<input id="areaEditorId" class="inp" type="number" inputmode="numeric" value="'+escAttr(areaEditorData.id||'')+'" oninput="areaEditorIdChanged()" placeholder="구역 번호">';
-  html+='<div class="area-mini-note">새 구역은 현재 가장 큰 번호 + 1로 자동 입력됩니다. 필요하면 직접 수정할 수 있습니다.</div>';
-  if(idFilled){
-    html+='<div style="margin-top:12px"><div class="area-stage-title">② 구역명</div>';
-    html+='<input id="areaEditorName" class="inp" value="'+escAttr(areaEditorData.name||'')+'" oninput="areaEditorNameChanged()" placeholder="예: 줄포 중심가"></div>';
-  }
-  html+='</div>';
+  html+='<div class="area-mini-note">새 구역은 현재 가장 큰 번호 + 1로 자동 입력됩니다.</div></div>';
+  html+='<div><div class="area-stage-title">② 구역명</div>';
+  html+='<input id="areaEditorName" class="inp" value="'+escAttr(areaEditorData.name||'')+'" oninput="areaEditorNameChanged()" placeholder="예: 줄포 중심가">';
+  html+='</div></div></div>';
 
   if(idFilled&&nameFilled){
     html+='<div class="area-stage"><div class="area-stage-title">③ 지도</div>';
@@ -3171,27 +3169,27 @@ function renderAreaEditor(){
     html+='<div class="area-mini-note">주차/주소 입력 단계에서는 지도를 눌러 위치를 선택할 수 있습니다.</div>';
     html+='</div>';
 
-    html+='<div class="area-stage"><div class="area-stage-title">④ 블럭</div>';
-    html+='<div class="area-block-chips">';
+    html+='<div class="area-stage"><div class="area-stage-title">④ 블럭 · ⑤ 주차 위치 · ⑥ 도로명</div>';
+    html+='<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start">';
+    html+='<div><div class="area-mini-note" style="margin-bottom:6px">④ 블럭 선택</div><div class="area-block-chips">';
     blocks.forEach(function(x,i){html+='<button class="area-block-chip '+(i===areaEditorBlockIdx?'active':'')+'" onclick="selectAreaEditorBlock('+i+')">'+(i+1)+'블럭</button>';});
     html+='</div>';
     if(!blocks.length || (b&&hasAddress)) html+='<button class="area-add-block" onclick="addAreaEditorBlock()">+ 블럭 생성</button>';
-    else if(!blocks.length) html+='<button class="area-add-block" onclick="addAreaEditorBlock()">+ 블럭 생성</button>';
     html+='</div>';
-
     if(b){
-      html+='<div class="area-stage"><div class="area-stage-title">⑤ 주차 위치</div>';
+      html+='<div><div class="area-stage-title" style="margin-bottom:6px">⑤ 주차 위치</div>';
       html+='<input id="areaParkingInput" class="inp area-parking-input" readonly value="'+escAttr(b.parking||'')+'" placeholder="지도를 눌러 주차 위치 선택" onclick="startAreaParkingPick()">';
       if(b.parking) html+='<div class="area-mini-note">현재 주차 위치를 다시 누르면 지도에서 변경할 수 있습니다.</div>';
-      html+='</div>';
-
       if(hasParking){
-        html+='<div class="area-stage"><div class="area-stage-title">⑥ 도로명</div>';
+        html+='<div style="margin-top:12px"><div class="area-stage-title" style="margin-bottom:6px">⑥ 도로명</div>';
         html+='<div class="area-road-chips">';
         roads.forEach(function(r,i){html+='<button class="area-road-chip '+(i===areaEditorRoadIdx?'active':'')+'" onclick="selectAreaEditorRoad('+i+')">'+escHtml(r.name||'도로명 없음')+'</button>';});
         html+='<button class="area-road-chip" onclick="addAreaEditorRoad()">+ 도로명 추가</button></div>';
         html+='<div class="area-mini-note">한 블럭에 여러 도로명을 추가할 수 있습니다.</div></div>';
       }
+      html+='</div>';
+    }
+    html+='</div></div>';
 
       if(hasParking&&hasRoad){
         if(areaEditorRoadIdx>=roads.length) areaEditorRoadIdx=0;
