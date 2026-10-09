@@ -248,7 +248,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 .cs-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .cs-title{font-size:16px;font-weight:700;color:white}
 .cs-close{font-size:13px;color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.1);border:none;border-radius:8px;padding:5px 12px;cursor:pointer}
-.cs-body{flex:1;overflow-y:auto;padding-bottom:20px}
+/* 카드 시트는 지도/탭 영역을 고정하고 주소 목록만 단독 스크롤한다.
+   부모와 #csGrid가 동시에 스크롤되는 중첩 구조는 모바일에서 튐을 유발한다. */
+.cs-body{flex:1;min-height:0;overflow:hidden;padding-bottom:0}
+#csGrid{min-height:0;overflow-y:auto!important;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;flex:1 1 auto}
 
 .block-tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 16px;background:white;border-bottom:0.5px solid #eee;flex-shrink:0}
 .block-tab-btn{padding:6px 14px;border-radius:999px;font-size:13px;font-weight:600;border:1.5px solid #ddd;background:white;color:#888;cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -5425,8 +5428,7 @@ function updateCsMap(blk, areaId) {
 function renderCsGrid(aId) {
   var grid = document.getElementById('csGrid');
   if (!grid) return;
-  // 실제 주소 목록의 스크롤 요소는 csGrid 자체다.
-  // 부모 요소의 scrollTop을 저장하면 복원 대상이 달라져 목록이 맨 위로 튈 수 있다.
+  // CSS에서 cs-body의 스크롤은 막고 csGrid만 스크롤하도록 통일한다.
   var oldTop = grid.scrollTop;
   renderBlocksInto(grid, aId, window._csBlockIdx === undefined ? -1 : window._csBlockIdx, window._csSlideDir);
 
