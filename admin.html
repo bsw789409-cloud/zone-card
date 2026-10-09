@@ -623,7 +623,7 @@ function showToast(msg) {
 }
 
 // ── 탭 전환 ──
-var adminTabOrder = ['home','area','addresses','fix','stats','record','settings'];
+var adminTabOrder = ['home','area','fix','stats','record','settings'];
 var adminCurrentTab = 'home';
 var adminSwipeStartX = 0;
 var adminSwipeStartY = 0;
@@ -1559,7 +1559,7 @@ function moveFixFullCardItem(type,bi,si,hi,dir) {
   var next=index+delta;if(!arr||next<0||next>=arr.length)return;
   var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;
   if(type==='block'){
-    arr.forEach(function(blk,i){var name=String(blk.name||'').trim();if(!name||/^\\d+\\s*블럭$/.test(name))blk.name=(i+1)+'블럭';});
+    arr.forEach(function(blk,i){var name=String(blk.name||'').trim();if(!name||/^\d+\s*블럭$/.test(name))blk.name=(i+1)+'블럭';});
   }
   renderFixFullCardEditor();
 }
@@ -1619,8 +1619,19 @@ async function saveFixRequestEditor() {
     }
     await db.collection('fixRequests').doc(req.docId).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolvedAddr:newAddr});
     if(req.data.addr && req.data.type!=='parking') {
-      var vs=await db.collection('visits').where('areaId','==',String(req.data.areaId)).where('addr','==',String(req.data.addr)).where('status','==','fix').get();
-      if(!vs.empty) { var batch=db.batch(); vs.docs.forEach(function(v){batch.update(v.ref,{status:'visited',memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});}); await batch.commit(); }
+      // 요청에 도로명까지 포함된 주소와 카드의 실제 주소가 다를 수 있어 두 형태 모두 정리한다.
+      var addrCandidates=[String(req.data.addr||'').trim(),String(loc&&loc.oldAddr||'').trim()].filter(Boolean);
+      var uniqueVisitDocs={};
+      for(var ai=0;ai<addrCandidates.length;ai++){
+        var vs=await db.collection('visits').where('areaId','==',String(req.data.areaId)).where('addr','==',addrCandidates[ai]).where('status','==','fix').get();
+        vs.docs.forEach(function(v){uniqueVisitDocs[v.id]=v;});
+      }
+      var visitDocs=Object.keys(uniqueVisitDocs).map(function(k){return uniqueVisitDocs[k];});
+      for(var vi=0;vi<visitDocs.length;vi+=450){
+        var batch=db.batch();
+        visitDocs.slice(vi,vi+450).forEach(function(v){batch.update(v.ref,{status:'visited',memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()});});
+        await batch.commit();
+      }
     }
     closeFixRequestEditor(); showToast('수정 내용을 저장하고 해당 요청만 완료 처리했습니다.');
     await loadFixList(); loadHomeStats(); loadAreaList();
@@ -3219,7 +3230,20 @@ function initAreaEditorMap(){
   if(!areaEditorPlaces) areaEditorPlaces=new kakao.maps.services.Places();
   var b=areaEditorData.blocks[areaEditorBlockIdx];
   var center=new kakao.maps.LatLng(35.5487,126.7216);
-  var target=b&&Number.isFinite(Number(b.parkingLat))?new kakao.maps.LatLng(Number(b.parkingLat),Number(b.parkingLng)):null;
+  var target=b&&Number.isFinite(Number(b.parkingLat))&&Number.isFinite(Number(b.parkingLng))?new kakao.maps.LatLng(Number(b.parkingLat),Number(b.parkingLng)):null;
+  if(!target){
+    var blocks=areaEditorData.blocks||[];
+    for(var bi=0;bi<blocks.length&&!target;bi++){
+      var roads=blocks[bi].subTopics||[];
+      for(var si=0;si<roads.length&&!target;si++){
+        var houses=roads[si].houses||[];
+        for(var hi=0;hi<houses.length;hi++){
+          var h=houses[hi];
+          if(h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng))){target=new kakao.maps.LatLng(Number(h.lat),Number(h.lng));break;}
+        }
+      }
+    }
+  }
   if(target)center=target;
   if(areaEditorViewCenter&&Number.isFinite(Number(areaEditorViewCenter.lat))&&Number.isFinite(Number(areaEditorViewCenter.lng))){
     center=new kakao.maps.LatLng(Number(areaEditorViewCenter.lat),Number(areaEditorViewCenter.lng));
