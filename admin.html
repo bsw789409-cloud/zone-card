@@ -294,27 +294,7 @@ button:active{transform:translateY(1px)}
       <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div><div class="zd-list-actions"><button onclick="document.getElementById('addressAreaSelect').value=document.getElementById('zdAreaSelect').value;loadAddressManager();switchTab('addresses',null)">전체 번지 편집 열기 →</button></div></section>
       <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
     </div>
-    <div class="zd-bottom-grid"><section class="zd-panel"><h3>🔎 주소 오류 검사</h3><p>선택한 구역의 빈 주소와 중복 주소를 검사합니다.</p><div id="zdAuditDetails" class="zd-audit-details">구역을 선택하세요.</div><button class="zd-secondary" onclick="zdRunAudit()">다시 검사</button></section><section class="zd-panel"><h3>↩️ 안전한 변경 관리</h3><p>기존 편집 기능에서 저장하기 전에 내용을 확인하세요. 삭제·좌표 변경은 저장 전 다시 확인하는 것을 권장합니다.</p><button class="zd-secondary" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">변경 기록 열기</button></section></div>
-  </section>
-  </section>
-  <div class="stat-grid">
-    <div class="stat-card"><div class="stat-num" id="statTotal">-</div><div class="stat-lbl">전체 구역</div></div>
-    <div class="stat-card purple"><div class="stat-num" id="statAssigned">-</div><div class="stat-lbl">배정중</div></div>
-    <div class="stat-card green"><div class="stat-num" id="statDone">-</div><div class="stat-lbl">완료</div></div>
-    <div class="stat-card blue"><div class="stat-num" id="statUnassigned">-</div><div class="stat-lbl">미배정</div></div>
-    <div class="stat-card red"><div class="stat-num" id="statReject">-</div><div class="stat-lbl">거절</div></div>
-    <div class="stat-card yellow"><div class="stat-num" id="statInterest">-</div><div class="stat-lbl">관심자</div></div>
-    
-    
-  </div>
-
-  <div class="card">
-    <div class="card-title">오늘 봉사 참여자</div>
-    <div id="todayList" style="display:flex;flex-wrap:wrap;gap:6px">
-      <div style="font-size:13px;color:#aaa">불러오는 중...</div>
-    </div>
-  </div>
-</div>
+>
 
 <!-- ══════════ 구역관리 탭 ══════════ -->
 <div class="tab-content" id="tab-area">
@@ -1089,13 +1069,15 @@ async function doDeleteArea(type) {
 var editingFixMemos = {}; // addr → memo
 var editingFixRequestDocs = [];
 var editingFixFocusAddr = '';
+var editingFixTargetAddr = '';
 
 async function openEditCard(aId, focusAddr) {
   lockScroll();
   editingAreaId = aId;
   editingFixMemos = {};
   editingFixRequestDocs = [];
-  editingFixFocusAddr = String(focusAddr || '');
+  editingFixFocusAddr = String(focusAddr || '').trim();
+  editingFixTargetAddr = editingFixFocusAddr;
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
   var overlay = document.getElementById('editCardOverlay');
   var sheet = document.getElementById('editCardSheet');
@@ -1145,6 +1127,8 @@ async function openEditCard(aId, focusAddr) {
 }
 
 function closeEditCard() {
+  editingFixTargetAddr = '';
+  editingFixFocusAddr = '';
   unlockScroll();
   document.getElementById('editCardOverlay').classList.remove('open');
   var sheet = document.getElementById('editCardSheet');
@@ -1240,6 +1224,7 @@ function renderCardEditor() {
   body.innerHTML = '';
   try {
     editingBlocks = normalizeEditingBlocksForEditor(editingBlocks);
+    if(editingFixTargetAddr) body.innerHTML = '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:11px 12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + '<div style="font-size:11px;font-weight:600;margin-top:4px">아래 주황색으로 표시된 주소를 확인하고 수정하세요.</div></div>';
     if(!editingBlocks.length) {
       body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
@@ -1265,7 +1250,7 @@ function renderCardEditor() {
           var addr = h.addr || h.num || '';
           var memo = h.note || h.memo || '';
           var _fullAddr = (sub.name ? sub.name + ' ' + addr : addr);
-          var _focusAddr = String(editingFixFocusAddr || '').trim();
+          var _focusAddr = String(editingFixTargetAddr || editingFixFocusAddr || '').trim();
           var _isFixTarget = !!_focusAddr && (String(addr).trim() === _focusAddr || String(_fullAddr).trim() === _focusAddr || String(_fullAddr).replace(/\\s+/g,'') === _focusAddr.replace(/\\s+/g,''));
           var fixInfo = editingFixMemos[_fullAddr];
           if(fixInfo && usedFixDocIds[fixInfo.docId]) fixInfo = null;
