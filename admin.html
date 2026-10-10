@@ -1224,9 +1224,9 @@ function renderCardEditor() {
   body.innerHTML = '';
   try {
     editingBlocks = normalizeEditingBlocksForEditor(editingBlocks);
-    if(editingFixTargetAddr) body.innerHTML = '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:11px 12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + '<div style="font-size:11px;font-weight:600;margin-top:4px">아래 주황색으로 표시된 주소를 확인하고 수정하세요.</div></div>';
+    var fixTargetBanner = editingFixTargetAddr ? '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:11px 12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + '<div style="font-size:11px;font-weight:600;margin-top:4px">아래 주황색으로 표시된 주소를 확인하고 수정하세요.</div></div>' : '';
     if(!editingBlocks.length) {
-      body.innerHTML = '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
+      body.innerHTML = fixTargetBanner + '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
     }
     var html = '', usedFixDocIds = {};
@@ -1276,7 +1276,7 @@ function renderCardEditor() {
       html += '</div>';
     });
     html += '<button onclick="addBlock()" style="width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px">+ \uBE14\uB7ED \uCD94\uAC00</button>';
-    body.innerHTML = html;
+    body.innerHTML = fixTargetBanner + html;
     body.scrollTop = 0;
   } catch(e) {
     body.innerHTML = '<div style="text-align:center;color:#dc2626;padding:28px 16px;font-size:13px;font-weight:800;line-height:1.7">\uCE74\uB4DC \uC218\uC815 \uD654\uBA74\uC744 \uADF8\uB9AC\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4<br><span style="font-size:11px;color:#888;font-weight:500">' + escHtml(e && e.message ? e.message : '') + '</span><br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
@@ -1758,16 +1758,14 @@ async function loadFixList() {
       var r = d.data();
       var div = document.createElement('div');
       div.className = 'fix-item';
+      div.style.cssText = 'border:1px solid #fed7aa;border-left:5px solid #f97316;border-radius:14px;background:linear-gradient(135deg,#fff7ed,#ffffff);padding:14px;margin-bottom:12px;box-shadow:0 3px 12px rgba(154,52,18,.06)';
+      var safeId = String(d.id).replace(/[^a-zA-Z0-9_-]/g,'');
       div.innerHTML =
-        '<div class="fix-area">' + (r.areaId||'') + '번 · ' + (r.areaName||'') + '</div>' +
-        '<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px">' +
-          '<span class="fix-addr">' + (r.addr||'') + '</span>' +
-          '<span style="font-size:11px;background:#e65100;color:white;padding:2px 8px;border-radius:999px">수정요청</span>' +
-          '<span class="fix-memo">' + (r.memo||'') + '</span>' +
-        '</div>' +
-        '<div class="fix-btns">' +
-          '<button onclick="resolveFixRequest(\'' + d.id + '\')" class="btn-sm btn-success">처리완료</button>' +
-          '<button onclick="openFixRequestEditor(&quot;' + d.id + '&quot;)" class="btn-sm btn-primary">요청 확인·수정</button>' +
+        '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px"><div><div style="font-size:11px;color:#9a3412;font-weight:800;margin-bottom:4px">구역 '+escHtml(r.areaId||'?')+' · '+escHtml(r.areaName||'구역명 없음')+'</div><div style="font-size:17px;font-weight:900;color:#431407;line-height:1.4">'+escHtml(r.addr||r.address||'번지 미지정')+'</div></div><span style="white-space:nowrap;font-size:11px;font-weight:900;background:#ffedd5;color:#c2410c;padding:5px 8px;border-radius:999px">● 미처리</span></div>' +
+        '<div style="font-size:13px;line-height:1.6;color:#57534e;background:#fff;border:1px solid #fed7aa;border-radius:10px;padding:10px;margin-bottom:12px;white-space:pre-wrap">'+escHtml(r.memo||r.description||'요청 내용이 입력되지 않았습니다.')+'</div>' +
+        '<div class="fix-btns" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:8px">' +
+          '<button onclick="resolveFixRequest(\'' + safeId + '\')" class="btn-sm btn-success" style="min-height:42px;border-radius:9px">✓ 처리완료</button>' +
+          '<button onclick="openFixRequestEditor(\'' + safeId + '\')" class="btn-sm btn-primary" style="min-height:42px;border-radius:9px;background:#ea580c!important;border-color:#c2410c!important">요청 상세 보기 →</button>' +
         '</div>';
       list.appendChild(div);
     });
