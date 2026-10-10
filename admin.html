@@ -3240,7 +3240,7 @@ function renderAreaEditorAddressGroups(){
       if(areaEditorEditMode) html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
       html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
       html+='<button class="area-address-edit" style="background:'+(swapSelected?'#f59e0b':'#e0f2fe')+';color:'+(swapSelected?'#fff':'#075985')+'" onclick="selectAreaHouseForSwap(\''+escAttr(h.houseId)+'\')">'+(swapSelected?'선택됨':'번호 교환')+'</button>';
-      html+='<button class="area-address-edit" onclick="editAreaHouse('+ri+','+hi+')">✎</button>';
+      html+='<button type="button" class="area-address-edit" title="이 주소 편집" aria-label="'+escAttr((h.addr||'주소')+' 편집')+'" onclick="event.preventDefault();event.stopPropagation();editAreaHouse('+ri+','+hi+');return false;">편집</button>';
       html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button>';
       html+='</div>';
     });
@@ -3528,10 +3528,17 @@ function confirmAreaPending(){
 
 function cancelAreaPending(){areaEditorPending=null;renderAreaEditor();}
 function editAreaHouse(ri,hi){
-  var h=areaEditorData.blocks[areaEditorBlockIdx].subTopics[ri].houses[hi];
-  areaEditorRoadIdx=ri;
-  areaEditorPending={addr:h.addr||'',lat:Number(h.lat),lng:Number(h.lng),editing:true,ri:ri,hi:hi};
-  renderAreaEditor();
+  try{
+    var b=areaEditorData&&areaEditorData.blocks&&areaEditorData.blocks[areaEditorBlockIdx];
+    var road=b&&b.subTopics&&b.subTopics[ri];
+    var h=road&&road.houses&&road.houses[hi];
+    if(!h){showToast('편집할 주소를 찾을 수 없습니다.');return;}
+    areaEditorRoadIdx=ri;
+    areaEditorPending={addr:String(h.addr||''),lat:Number.isFinite(Number(h.lat))?Number(h.lat):null,lng:Number.isFinite(Number(h.lng))?Number(h.lng):null,editing:true,ri:ri,hi:hi,houseId:h.houseId||''};
+    areaEditorPickMode='';
+    renderAreaEditor();
+    setTimeout(function(){var input=document.getElementById('areaPendingAddr');if(input){input.focus();input.select();}},50);
+  }catch(e){showToast('주소 편집기를 열지 못했습니다: '+(e&&e.message?e.message:e));}
 }
 function deleteAreaHouse(ri,hi){
   var b=areaEditorData.blocks[areaEditorBlockIdx];
