@@ -1072,6 +1072,7 @@ var editingFixRequestDocs = [];
 var editingFixFocusAddr = '';
 var editingFixTargetAddr = '';
 var editingActiveFixRequestDocId = '';
+var editingActiveFixRequestData = null;
 
 async function openEditCard(aId, focusAddr, requestDocId) {
   lockScroll();
@@ -1081,6 +1082,7 @@ async function openEditCard(aId, focusAddr, requestDocId) {
   editingFixFocusAddr = String(focusAddr || '').trim();
   editingFixTargetAddr = editingFixFocusAddr;
   editingActiveFixRequestDocId = String(requestDocId || '').trim();
+  editingActiveFixRequestData = null;
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
   var overlay = document.getElementById('editCardOverlay');
   var sheet = document.getElementById('editCardSheet');
@@ -1102,6 +1104,10 @@ async function openEditCard(aId, focusAddr, requestDocId) {
       .where('areaId','==',String(aId))
       .where('status','==','\uBBF8\uCC98\uB9AC').get();
     editingFixRequestDocs = fixSnap.docs.map(function(d) { return {docId:d.id, data:d.data() || {}}; });
+    if(editingActiveFixRequestDocId) {
+      var selectedFixDoc = editingFixRequestDocs.find(function(item) { return item.docId === editingActiveFixRequestDocId; });
+      editingActiveFixRequestData = selectedFixDoc ? selectedFixDoc.data : null;
+    }
     fixSnap.docs.forEach(function(d) {
       var r = d.data() || {};
       if(r.addr) editingFixMemos[r.addr] = {memo: r.memo || '', docId: d.id};
@@ -1131,6 +1137,7 @@ async function openEditCard(aId, focusAddr, requestDocId) {
 
 function closeEditCard() {
   editingActiveFixRequestDocId = '';
+  editingActiveFixRequestData = null;
   editingFixTargetAddr = '';
   editingFixFocusAddr = '';
   unlockScroll();
@@ -1228,7 +1235,8 @@ function renderCardEditor() {
   body.innerHTML = '';
   try {
     editingBlocks = normalizeEditingBlocksForEditor(editingBlocks);
-    var fixTargetBanner = editingFixTargetAddr ? '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:11px 12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + '<div style="font-size:11px;font-weight:600;margin-top:4px">아래 주황색으로 표시된 주소를 확인하고 수정하세요.</div></div>' : '';
+    var fixTargetMemo = editingActiveFixRequestData ? String(editingActiveFixRequestData.memo || editingActiveFixRequestData.description || '').trim() : '';
+    var fixTargetBanner = editingFixTargetAddr ? '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + (fixTargetMemo ? '<div style="margin-top:8px;padding:9px;background:#fffaf5;border:1px solid #fed7aa;border-radius:7px;font-size:12px;font-weight:700;line-height:1.5;white-space:pre-wrap">요청 내용: ' + escHtml(fixTargetMemo) + '</div>' : '') + '<div style="font-size:11px;font-weight:600;margin-top:7px">주황색 주소를 확인해 수정한 뒤 저장하세요. 이 요청에서 저장하면 선택한 요청만 완료 처리됩니다.</div></div>' : '';
     if(!editingBlocks.length) {
       body.innerHTML = fixTargetBanner + '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
