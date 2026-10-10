@@ -676,25 +676,35 @@ function getAreaFace(id) {
 window.onload = async function() {
   showLoader();
   var loaded = false;
-  for(var attempt=0; attempt<3 && !loaded; attempt++) {
-    try {
-      var snap = await db.collection('areas').orderBy('id').get();
-      areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
-      loaded = true;
-    } catch(e) {
-      if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 700 * (attempt + 1)); });
+  try {
+    for(var attempt=0; attempt<3 && !loaded; attempt++) {
+      try {
+        // Firestore 요청이 응답하지 않을 때 로딩 화면이 영원히 남지 않도록 제한 시간을 둔다.
+        var snap = await Promise.race([
+          db.collection('areas').orderBy('id').get(),
+          new Promise(function(_, reject) {
+            setTimeout(function() { reject(new Error('데이터 요청 시간 초과')); }, 8000);
+          })
+        ]);
+        areas = snap.docs.map(d => ({docId: d.id, ...d.data()}));
+        loaded = true;
+      } catch(e) {
+        if(attempt < 2) await new Promise(function(resolve){ setTimeout(resolve, 700 * (attempt + 1)); });
+      }
     }
+  } finally {
+    // 초기 데이터 요청이 실패하거나 지연돼도 관리자 화면 자체는 열어 둔다.
+    hideLoader();
   }
-  hideLoader();
-  loadHomeStats();
-  loadAreaList();
-  populateAddressAreaSelect();
-  loadFixList();
-  loadStatsList();
-  loadRecordList();
-  loadSettings();
-  zdInit();
-  if(!loaded) showToast('구역 데이터를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침해 주세요.');
+  try { loadHomeStats(); } catch(e) { console.error('loadHomeStats failed', e); }
+  try { loadAreaList(); } catch(e) { console.error('loadAreaList failed', e); }
+  try { populateAddressAreaSelect(); } catch(e) { console.error('populateAddressAreaSelect failed', e); }
+  try { loadFixList(); } catch(e) { console.error('loadFixList failed', e); }
+  try { loadStatsList(); } catch(e) { console.error('loadStatsList failed', e); }
+  try { loadRecordList(); } catch(e) { console.error('loadRecordList failed', e); }
+  try { loadSettings(); } catch(e) { console.error('loadSettings failed', e); }
+  try { zdInit(); } catch(e) { console.error('zdInit failed', e); }
+  if(!loaded) showToast('구역 데이터를 불러오지 못했습니다. 연결 상태를 확인해 주세요. 관리자 화면은 열려 있습니다.');
 };
 
 function showLoader() { document.getElementById('loader').classList.add('show'); }
