@@ -3744,9 +3744,8 @@ async function saveAreaEditor(){
   hideLoader();
 }
 
-// 기존 구역 편집 저장 버튼과 충돌하지 않도록 새 에디터가 전부 처리한다.
-window.closeEditCard=closeAreaEditor;
-window.saveCardEdit=saveAreaEditor;
+// 두 에디터는 각각의 버튼에서 전용 함수를 직접 호출한다.
+// 전역 함수 이름을 덮어쓰면 수정요청 카드 편집기의 저장/닫기가 새 구역 에디터로 잘못 연결된다.
 
 
 /* Dashboard bindings use the existing Firebase data and address structure. */
