@@ -604,7 +604,7 @@ button:active{transform:translateY(1px)}
 <div onclick="event.stopPropagation()" style="width:min(100%,520px);max-height:88vh;overflow:auto;background:#fff;border-radius:18px">
 <div style="padding:18px 20px;background:#fff7ed;border-radius:18px 18px 0 0"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;font-weight:800;color:#c2410c">수정요청 전용</div><div id="fixRequestTitle" style="font-size:20px;font-weight:900;color:#7c2d12;margin-top:4px">수정요청 처리</div></div><button onclick="closeFixRequestEditor()">닫기</button></div><div id="fixRequestAreaLabel" style="font-size:12px;color:#9a3412;margin-top:8px"></div></div>
 <div style="padding:20px;display:grid;gap:14px"><div><b>전도인이 보낸 요청 내용</b><div id="fixRequestMemo" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:6px;min-height:48px"></div></div><div><label for="fixRequestAddrInput">해당 번지</label><input id="fixRequestAddrInput" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px;font-weight:800"></div><div><label for="fixRequestNoteInput">카드 메모 / 수정할 내용</label><textarea id="fixRequestNoteInput" rows="3" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:10px;font-size:14px"></textarea></div><div style="font-size:12px;color:#64748b">기존 카드 편집기와 분리된 수정요청 전용 화면입니다. 저장 전 완료 여부를 확인합니다.</div></div>
-<div style="padding:14px 20px 20px;display:flex;gap:10px;flex-wrap:wrap"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="openFixRequestFullCard()" style="flex:1;padding:12px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:10px;font-weight:900">전체 카드 보기 · 한꺼번에 수정</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
+<div style="padding:14px 20px 20px;display:flex;gap:10px;flex-wrap:wrap"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px">취소</button><button onclick="openFixRequestCardEditor()" style="flex:1;padding:12px;background:#2563eb;color:white;border:0;border-radius:10px;font-weight:900">전체 카드 수정하기</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#ea580c;color:white;border:0;border-radius:10px;font-weight:900">저장 및 처리완료</button></div></div></div>
 <!-- 수정요청에서 여는 해당 구역 전체 카드 보기 -->
 <div id="fixFullCardOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:13000;padding:12px;align-items:center;justify-content:center" onclick="closeFixRequestFullCard()">
   <div onclick="event.stopPropagation()" style="width:min(100%,900px);max-height:92vh;overflow:auto;background:#f8fafc;border-radius:16px;padding:16px">
@@ -3780,19 +3780,22 @@ async function zdOpenRequest(docId){
  await openFixRequestEditor(docId);
 }
 async function zdOpenRequestCardEditor(docId){
- try{
-  var snap=await db.collection('fixRequests').doc(String(docId)).get();
-  if(!snap.exists){showToast('수정요청을 찾을 수 없습니다.');await zdLoadRequests();return;}
-  var req=snap.data()||{};
-  if(req.status && req.status!=='미처리'){showToast('미처리 요청만 바로 수정할 수 있습니다.');return;}
-  var areaId=String(req.areaId||'');
-  if(!areaId){showToast('요청에 구역 번호가 없습니다.');return;}
-  var area=areas.find(function(a){return String(a.id)===areaId;});
-  if(!area){var areaSnap=await db.collection('areas').doc(areaId).get();if(!areaSnap.exists){showToast('구역 카드를 찾을 수 없습니다.');return;}area=Object.assign({id:areaId},areaSnap.data());areas.push(area);}
-  closeFixRequestEditor();
-  closeFixRequestFullCard();
-  openEditCard(areaId,String(req.addr||req.address||'').trim());
- }catch(e){showToast('요청 편집기를 열지 못했습니다: '+(e&&e.message?e.message:e));}
+  try{
+   var snap=await db.collection('fixRequests').doc(String(docId)).get();
+   if(!snap.exists){showToast('수정요청을 찾을 수 없습니다.');await zdLoadRequests();return;}
+   var req=snap.data()||{};
+   if(req.status && req.status!=='미처리'){showToast('미처리 요청만 바로 수정할 수 있습니다.');return;}
+   var areaId=String(req.areaId||'');
+   if(!areaId){showToast('요청에 구역 번호가 없습니다.');return;}
+   var areaSnap=await db.collection('areas').doc(areaId).get();
+   if(!areaSnap.exists){showToast('구역 카드를 찾을 수 없습니다.');return;}
+   var freshArea=Object.assign({id:areaId,docId:areaSnap.id},areaSnap.data());
+   var areaIndex=areas.findIndex(function(a){return String(a.id)===areaId;});
+   if(areaIndex>=0)areas[areaIndex]=freshArea;else areas.push(freshArea);
+   closeFixRequestEditor();
+   closeFixRequestFullCard();
+   openEditCard(areaId,String(req.addr||req.address||'').trim());
+  }catch(e){showToast('요청 편집기를 열지 못했습니다: '+(e&&e.message?e.message:e));}
 }
 function zdCloseInlineRequest(){
  var box=document.getElementById('zdInlineRequestCard');if(box){box.style.display='none';box.innerHTML='';}
@@ -3809,7 +3812,7 @@ function zdFitMap(){
 }
 async function zdLoadRequests(){
  try{var snap=await db.collection('fixRequests').get(),items=snap.docs.map(function(d){return Object.assign({docId:d.id},d.data())}),open=items.filter(function(x){return !x.status||x.status==='미처리'}),working=items.filter(function(x){return x.status==='처리중'||x.status==='수정 중'||x.status==='진행중'}),done=items.filter(function(x){return x.status==='완료'||x.status==='처리완료'});document.getElementById('zdPendingCount').textContent=open.length;document.getElementById('zdReqOpen').textContent=open.length;document.getElementById('zdReqWorking').textContent=working.length;document.getElementById('zdReqDone').textContent=done.length;
- var recent=items.sort(function(a,b){return Number(b.createdAt||b.timestamp||b.updatedAt||0)-Number(a.createdAt||a.timestamp||a.updatedAt||0)}).slice(0,8);document.getElementById('zdRecentRequests').innerHTML=recent.length?recent.map(function(x){return '<div class="zd-recent-item" role="button" tabindex="0" onclick="zdOpenRequest(\''+escAttr(x.docId)+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();zdOpenRequest(\''+escAttr(x.docId)+'\')}"><b>'+escHtml(x.areaName||((x.areaId||'?')+'번 구역'))+' · '+escHtml(x.addr||x.address||'주소 미지정')+'</b><div>'+escHtml(x.status||'미처리')+' · '+escHtml(x.memo||x.description||x.type||'수정 요청')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><button type="button" onclick="event.stopPropagation();zdOpenRequest(\''+escAttr(x.docId)+'\')">요청 확인</button><button type="button" style="background:#2563eb" onclick="event.stopPropagation();zdOpenRequestCardEditor(\''+escAttr(x.docId)+'\')">수정하기</button></div></div>'}).join(''):'<div class="zd-empty">등록된 수정요청이 없습니다.</div>';
+ var recent=items.sort(function(a,b){return Number(b.createdAt||b.timestamp||b.updatedAt||0)-Number(a.createdAt||a.timestamp||a.updatedAt||0)}).slice(0,8);document.getElementById('zdRecentRequests').innerHTML=recent.length?recent.map(function(x){return '<div class="zd-recent-item" role="button" tabindex="0" onclick="zdOpenRequest(\''+escAttr(x.docId)+'\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();zdOpenRequest(\''+escAttr(x.docId)+'\')}"><b>'+escHtml(x.areaName||((x.areaId||'?')+'번 구역'))+' · '+escHtml(x.addr||x.address||'주소 미지정')+'</b><div>'+escHtml(x.status||'미처리')+' · '+escHtml(x.memo||x.description||x.type||'수정 요청')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><button type="button" onclick="event.stopPropagation();zdOpenRequest(\''+escAttr(x.docId)+'\')">요청 확인</button><button type="button" style="display:inline-block!important;visibility:visible!important;background:#2563eb;color:white;padding:8px 12px;border:0;border-radius:8px;font-weight:900;cursor:pointer" onclick="event.stopPropagation();zdOpenRequestCardEditor(\''+escAttr(x.docId)+'\')">수정하기</button></div></div>'}).join(''):'<div class="zd-empty">등록된 수정요청이 없습니다.</div>';
  }catch(e){document.getElementById('zdPendingCount').textContent='—';document.getElementById('zdRecentRequests').innerHTML='<div class="zd-empty">요청 현황을 불러오지 못했습니다.</div>'}
 }
 </script>
