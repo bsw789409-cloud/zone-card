@@ -3480,15 +3480,32 @@ function confirmAreaPending(){
     var oldAddr=String(h.addr||'').trim();
     h.addr=addr;
     if(oldAddr!==addr && areaEditorGeocoder){
+      // 주소 변경 시 주소 검색을 우선하고, 실패하면 장소 검색으로 보완한다.
+      // 검색에 실패한 경우 기존 좌표를 새 주소의 위치로 오인하지 않도록 비운다.
       areaEditorGeocoder.addressSearch(addr,function(result,status){
         if(status===kakao.maps.services.Status.OK&&result&&result[0]){
           h.lat=Number(result[0].y); h.lng=Number(result[0].x);
-        }else{
-          h.lat=null; h.lng=null;
+          areaEditorPending=null;renderAreaEditor();
+          if(areaEditorMap){areaEditorMap.setCenter(new kakao.maps.LatLng(h.lat,h.lng));areaEditorMap.setLevel(3);}
+          showToast('주소와 지도 위치를 변경했습니다. 저장 전 핀 위치를 확인해 주세요.');
+          return;
         }
-        areaEditorPending=null;
-        renderAreaEditor();
-        showToast(status===kakao.maps.services.Status.OK?'주소와 핀 위치를 함께 변경했습니다':'주소는 변경됐지만 지도 위치를 찾지 못했습니다');
+        if(areaEditorPlaces){
+          areaEditorPlaces.keywordSearch(addr,function(places,placeStatus){
+            if(placeStatus===kakao.maps.services.Status.OK&&places&&places[0]&&places[0].y&&places[0].x){
+              h.lat=Number(places[0].y);h.lng=Number(places[0].x);
+              areaEditorPending=null;renderAreaEditor();
+              if(areaEditorMap){areaEditorMap.setCenter(new kakao.maps.LatLng(h.lat,h.lng));areaEditorMap.setLevel(3);}
+              showToast('장소 검색으로 위치를 찾았습니다. 저장 전 핀 위치를 확인해 주세요.');
+              return;
+            }
+            h.lat=null;h.lng=null;areaEditorPending=null;renderAreaEditor();
+            showToast('주소는 변경했지만 위치를 찾지 못했습니다. 지도 검색 또는 지도 직접 선택으로 핀을 지정해 주세요.');
+          });
+        }else{
+          h.lat=null;h.lng=null;areaEditorPending=null;renderAreaEditor();
+          showToast('주소는 변경했지만 위치를 찾지 못했습니다. 지도 검색 또는 지도 직접 선택으로 핀을 지정해 주세요.');
+        }
       });
       return;
     }
