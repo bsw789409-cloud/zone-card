@@ -3862,11 +3862,11 @@ function zdCreateMap(){
  setTimeout(function(){if(zdMap)zdMap.relayout();},100);
 }
 
-async function zdOpenRequest(docId){
+async async function zdOpenRequest(docId){
  // 홈 화면의 요청 카드도 구역관리와 수정요청 탭에서 사용하는 동일한 카드 편집기를 연다.
  await zdOpenRequestCardEditor(docId);
 }
-async function zdOpenRequestCardEditor(docId){
+async async function zdOpenRequestCardEditor(docId){
   try{
    var snap=await db.collection('fixRequests').doc(String(docId)).get();
    if(!snap.exists){showToast('수정요청을 찾을 수 없습니다.');await zdLoadRequests();return;}
