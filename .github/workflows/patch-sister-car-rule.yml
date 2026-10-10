@@ -1,4 +1,9 @@
-name: Patch sister car assignment rule and deploy
+name: Deploy Firebase Hosting (single canonical workflow)
+
+# Prevent overlapping releases to the same Firebase live channel.
+concurrency:
+  group: firebase-hosting-live
+  cancel-in-progress: false
 
 on:
   push:
