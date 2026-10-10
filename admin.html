@@ -114,6 +114,8 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 .bottom-sheet{display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-radius:20px 20px 0 0;padding:20px 16px 40px;z-index:901;max-height:90vh;overflow-y:auto}
 .bottom-sheet.open{display:block}
 #editCardSheet.open{display:flex;flex-direction:column;height:90vh;overflow:hidden;padding-bottom:18px}
+/* 수정요청에서 연 경우 기존 아래쪽 시트가 아니라 구역 카드 전체를 화면에 펼쳐 편집한다. */
+#editCardSheet.request-fullscreen.open{top:0;bottom:0;left:0;right:0;width:100vw;height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;border-radius:0;padding:14px 14px 18px;box-sizing:border-box;z-index:950}
 #editCardBody{flex:1;min-height:0;max-height:none;overflow-y:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
 .edit-card-actions{flex-shrink:0;display:flex;gap:8px;margin-top:12px}
 .sheet-handle{width:36px;height:4px;background:#ddd;border-radius:999px;margin:0 auto 16px}
@@ -1082,6 +1084,9 @@ async function openEditCard(aId, focusAddr, requestDocId) {
   editingFixFocusAddr = String(focusAddr || '').trim();
   editingFixTargetAddr = editingFixFocusAddr;
   editingActiveFixRequestDocId = String(requestDocId || '').trim();
+  var requestMode = !!editingActiveFixRequestDocId;
+  var requestSheet = document.getElementById('editCardSheet');
+  if(requestSheet) requestSheet.classList.toggle('request-fullscreen', requestMode);
   editingActiveFixRequestData = null;
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
   var overlay = document.getElementById('editCardOverlay');
@@ -1136,6 +1141,8 @@ async function openEditCard(aId, focusAddr, requestDocId) {
 }
 
 function closeEditCard() {
+  var requestSheet = document.getElementById('editCardSheet');
+  if(requestSheet) requestSheet.classList.remove('request-fullscreen');
   editingActiveFixRequestDocId = '';
   editingActiveFixRequestData = null;
   editingFixTargetAddr = '';
