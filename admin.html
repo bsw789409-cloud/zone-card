@@ -1071,14 +1071,16 @@ var editingFixMemos = {}; // addr → memo
 var editingFixRequestDocs = [];
 var editingFixFocusAddr = '';
 var editingFixTargetAddr = '';
+var editingActiveFixRequestDocId = '';
 
-async function openEditCard(aId, focusAddr) {
+async function openEditCard(aId, focusAddr, requestDocId) {
   lockScroll();
   editingAreaId = aId;
   editingFixMemos = {};
   editingFixRequestDocs = [];
   editingFixFocusAddr = String(focusAddr || '').trim();
   editingFixTargetAddr = editingFixFocusAddr;
+  editingActiveFixRequestDocId = String(requestDocId || '').trim();
   var a = areas.find(function(x) { return String(x.id) === String(aId); });
   var overlay = document.getElementById('editCardOverlay');
   var sheet = document.getElementById('editCardSheet');
@@ -1128,6 +1130,7 @@ async function openEditCard(aId, focusAddr) {
 }
 
 function closeEditCard() {
+  editingActiveFixRequestDocId = '';
   editingFixTargetAddr = '';
   editingFixFocusAddr = '';
   unlockScroll();
@@ -1346,7 +1349,11 @@ function editBlkParking(bi) {
 }
 
 async function saveCardEdit() {
-  var pendingFixes = editingFixRequestDocs.slice();
+  // 수정요청에서 진입했다면 현재 요청 한 건만 완료 대상으로 삼는다.
+  // 일반 구역 편집에서만 기존처럼 미처리 요청 전체 완료 여부를 묻는다.
+  var pendingFixes = editingActiveFixRequestDocId
+    ? editingFixRequestDocs.filter(function(item) { return item.docId === editingActiveFixRequestDocId; })
+    : editingFixRequestDocs.slice();
   var completeFixes = false;
   if(pendingFixes.length) completeFixes = confirm('카드 수정 내용을 저장하시겠습니까?\n\n확인을 누르면 이 구역의 수정요청 ' + pendingFixes.length + '건도 처리 완료로 표시됩니다.');
   showLoader();
@@ -1578,7 +1585,7 @@ async function openFixRequestCardEditor() {
   var requestOverlay = document.getElementById('fixRequestOverlay');
   if(requestOverlay) requestOverlay.style.display = 'none';
   // 구역 관리에서 구역을 눌렀을 때 사용하는 기존 지도 편집기를 그대로 연다.
-  openEditCard(areaId, addr);
+  openEditCard(areaId, addr, activeFixRequest.docId);
 }
 
 var fixFullCardAreaId = '';
@@ -3867,7 +3874,7 @@ async function zdOpenRequestCardEditor(docId){
    if(areaIndex>=0)areas[areaIndex]=freshArea;else areas.push(freshArea);
    closeFixRequestEditor();
    closeFixRequestFullCard();
-   openEditCard(areaId,String(req.addr||req.address||'').trim());
+   openEditCard(areaId,String(req.addr||req.address||'').trim(),String(docId));
   }catch(e){showToast('요청 편집기를 열지 못했습니다: '+(e&&e.message?e.message:e));}
 }
 function zdCloseInlineRequest(){
