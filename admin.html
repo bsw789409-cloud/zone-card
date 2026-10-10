@@ -3657,6 +3657,47 @@ function reorderAreaHouse(sri,shi,tri,thi){
   var arr=b.subTopics[sri].houses,item=arr.splice(shi,1)[0];if(shi<thi)thi--;arr.splice(thi,0,item);
 }
 
+function areaEditorResolveHouseCoordinates(h){
+  return new Promise(function(resolve){
+    if(!h||!String(h.addr||'').trim()){resolve(false);return;}
+    var addr=String(h.addr).trim();
+    function apply(lat,lng){
+      var y=Number(lat),x=Number(lng);
+      if(Number.isFinite(y)&&Number.isFinite(x)&&y!==0&&x!==0){h.lat=y;h.lng=x;resolve(true);}
+      else resolve(false);
+    }
+    function placesFallback(){
+      if(!areaEditorPlaces){resolve(false);return;}
+      areaEditorPlaces.keywordSearch(addr,function(results,status){
+        if(status===kakao.maps.services.Status.OK&&results&&results[0]&&results[0].y&&results[0].x)apply(results[0].y,results[0].x);
+        else resolve(false);
+      });
+    }
+    if(areaEditorGeocoder){
+      areaEditorGeocoder.addressSearch(addr,function(results,status){
+        if(status===kakao.maps.services.Status.OK&&results&&results[0]&&results[0].y&&results[0].x)apply(results[0].y,results[0].x);
+        else placesFallback();
+      });
+    }else placesFallback();
+  });
+}
+
+async function areaEditorRefreshCoordinates(){
+  var houses=[];
+  (areaEditorData.blocks||[]).forEach(function(block){
+    (block.subTopics||[]).forEach(function(road){
+      (road.houses||[]).forEach(function(h){if(h&&String(h.addr||'').trim())houses.push(h);});
+    });
+  });
+  var unresolved=[];
+  for(var i=0;i<houses.length;i++){
+    var h=houses[i];
+    var ok=await areaEditorResolveHouseCoordinates(h);
+    if(!ok)unresolved.push(String(h.addr||''));
+  }
+  return {total:houses.length,unresolved:unresolved};
+}
+
 async function saveAreaEditor(){
   var id=String(areaEditorData.id||'').trim(),name=String(areaEditorData.name||'').trim();
   if(!id){showToast('구역 번호를 입력해 주세요');return;}
@@ -3666,6 +3707,8 @@ async function saveAreaEditor(){
   if(duplicate){showToast(id+'번 구역이 이미 있습니다');return;}
   showLoader();
   try{
+    showToast('주소별 지도 좌표를 확인하고 있습니다…');
+    var coordinateCheck=await areaEditorRefreshCoordinates();
     var payload=areaEditorClone(areaEditorData);
     delete payload.docId;
     payload.id=id;payload.name=name;
@@ -3683,7 +3726,11 @@ async function saveAreaEditor(){
     var snap=await db.collection('areas').orderBy('id').get();
     areas=snap.docs.map(function(d){return Object.assign({docId:d.id},d.data())});
     closeAreaEditor();renderAreaList();loadHomeStats();
-    showToast('✅ 구역 정보가 저장됐습니다');
+    if(coordinateCheck.unresolved.length){
+      showToast('구역은 저장됐지만 '+coordinateCheck.unresolved.length+'개 주소의 좌표를 찾지 못했습니다. 지도에서 핀 위치를 지정해 주세요.');
+    }else{
+      showToast('✅ 구역과 '+coordinateCheck.total+'개 주소의 지도 좌표가 저장됐습니다');
+    }
   }catch(e){showToast('저장 오류: '+e.message)}
   hideLoader();
 }
