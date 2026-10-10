@@ -167,6 +167,9 @@ body{width:100%;min-height:100vh;height:auto!important;position:static;display:f
 .area-map-edit-toggle.active{background:#b45309}
 .area-address-handle{width:26px;height:30px;display:flex;align-items:center;justify-content:center;color:#aaa;background:#f7f7f7;border-radius:7px;touch-action:none;user-select:none;cursor:grab;flex-shrink:0}
 .area-address-text{flex:1;min-width:0;font-size:12px;color:#333;line-height:1.35}
+.area-address-inline-edit{display:flex;align-items:center;gap:6px}
+.area-address-inline-edit .inp{min-width:0;width:100%;padding:7px 8px;font-size:12px;box-sizing:border-box}
+
 .area-address-edit{border:0;background:#EEEDFE;color:#7c3aed;border-radius:7px;padding:6px 8px;font-size:11px;cursor:pointer}
 .area-pending{background:#fff9e8;border:1px solid #f3d58a;border-radius:10px;padding:10px;margin-top:10px}
 .area-editor-footer{position:absolute;left:0;right:0;bottom:0;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid #eee;display:flex;gap:8px;z-index:10}
@@ -3209,10 +3212,10 @@ function renderAreaEditor(){
         html+='<button class="btn-full '+(areaEditorPickMode==='address'?'btn-purple':'btn-outline')+'" onclick="startAreaAddressPick()" style="flex:1">'+(areaEditorPickMode==='address'?'지도에서 주소 선택 중…':'🗺 지도에서 주소 추가')+'</button>';
         html+='<button class="btn-full btn-outline" onclick="startManualAreaAddress()" style="flex:1">✍ 주소 직접 입력</button></div>';
         html+='<div class="area-mini-note">주소 입력·수정·삭제와 번호 순서 변경은 언제든지 할 수 있습니다. 지도에서 새 주소를 추가하거나 위치를 옮길 때는 지도 수정 모드를 사용하세요.</div>';
-        if(areaEditorPending && (areaEditorPending.manual || areaEditorPending.editing)){
-          html+='<div class="area-pending"><div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px">'+(areaEditorPending.editing?'주소 수정':'추가할 주소')+'</div>';
+        if(areaEditorPending && areaEditorPending.manual && !areaEditorPending.editing){
+          html+='<div class="area-pending"><div style="font-size:12px;font-weight:800;color:#92400e;margin-bottom:6px">추가할 주소</div>';
           html+='<input id="areaPendingAddr" class="inp" value="'+escAttr(areaEditorPending.addr||'')+'" placeholder="주소/지번" style="margin-bottom:7px">';
-          html+='<div style="display:flex;gap:6px"><button class="btn-sm btn-outline" style="flex:1" onclick="cancelAreaPending()">취소</button><button class="btn-sm btn-primary" style="flex:1" onclick="confirmAreaPending()">'+(areaEditorPending.editing?'수정':'추가')+'</button></div></div>';
+          html+='<div style="display:flex;gap:6px"><button class="btn-sm btn-outline" style="flex:1" onclick="cancelAreaPending()">취소</button><button class="btn-sm btn-primary" style="flex:1" onclick="confirmAreaPending()">추가</button></div></div>';
         }
         html+=renderAreaEditorAddressGroups();
         html+='</div>';
@@ -3238,10 +3241,17 @@ function renderAreaEditorAddressGroups(){
       var swapSelected=!!(areaEditorSwapSelection&&areaEditorSwapSelection===h.houseId);
       html+='<div class="area-address-row '+(swapSelected?'swap-selected':'')+'" data-ari="'+ri+'" data-ahi="'+hi+'">';
       if(areaEditorEditMode) html+='<div class="area-address-handle" onmousedown="startAreaHouseMouseDrag(event,this)" ontouchstart="startAreaHouseTouchDrag(event,this)">☰</div>';
-      html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
-      html+='<button class="area-address-edit" style="background:'+(swapSelected?'#f59e0b':'#e0f2fe')+';color:'+(swapSelected?'#fff':'#075985')+'" onclick="selectAreaHouseForSwap(\''+escAttr(h.houseId)+'\')">'+(swapSelected?'선택됨':'번호 교환')+'</button>';
-      html+='<button type="button" class="area-address-edit" title="이 주소 편집" aria-label="'+escAttr((h.addr||'주소')+' 편집')+'" onclick="event.preventDefault();event.stopPropagation();editAreaHouse('+ri+','+hi+');return false;">편집</button>';
-      html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button>';
+      var inlineEditing=!!(areaEditorPending&&areaEditorPending.editing&&Number(areaEditorPending.ri)===ri&&Number(areaEditorPending.hi)===hi);
+      if(inlineEditing){
+        html+='<div class="area-address-text area-address-inline-edit"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> <input id="areaPendingAddr" class="inp" value="'+escAttr(areaEditorPending.addr||'')+'" aria-label="번지수 주소 수정" onkeydown="if(event.key===\'Enter\'){event.preventDefault();confirmAreaPending()}if(event.key===\'Escape\'){event.preventDefault();cancelAreaPending()}"></div>';
+        html+='<button type="button" class="area-address-edit" onclick="confirmAreaPending()">저장</button>';
+        html+='<button type="button" class="area-address-edit" onclick="cancelAreaPending()">취소</button>';
+      }else{
+        html+='<div class="area-address-text"><b style="color:'+AREA_PIN_COLORS[areaEditorBlockIdx%AREA_PIN_COLORS.length]+'">'+n+'.</b> '+escHtml(h.addr||'')+'</div>';
+        html+='<button class="area-address-edit" style="background:'+(swapSelected?'#f59e0b':'#e0f2fe')+';color:'+(swapSelected?'#fff':'#075985')+'" onclick="selectAreaHouseForSwap(\''+escAttr(h.houseId)+'\')">'+(swapSelected?'선택됨':'번호 교환')+'</button>';
+        html+='<button type="button" class="area-address-edit" title="이 주소 편집" aria-label="'+escAttr((h.addr||'주소')+' 편집')+'" onclick="event.preventDefault();event.stopPropagation();editAreaHouse('+ri+','+hi+');return false;">편집</button>';
+        html+='<button class="area-address-edit" style="color:#ef4444;margin-left:2px" onclick="deleteAreaHouse('+ri+','+hi+')">×</button>';
+      }
       html+='</div>';
     });
     html+='</div>';
@@ -3486,8 +3496,7 @@ function confirmAreaPending(){
         if(status===kakao.maps.services.Status.OK&&result&&result[0]){
           h.lat=Number(result[0].y); h.lng=Number(result[0].x);
           areaEditorPending=null;renderAreaEditor();
-          if(areaEditorMap){areaEditorMap.setCenter(new kakao.maps.LatLng(h.lat,h.lng));areaEditorMap.setLevel(3);}
-          showToast('주소와 지도 위치를 변경했습니다. 저장 전 핀 위치를 확인해 주세요.');
+          showToast('주소와 핀 위치를 변경했습니다. 지도 화면은 그대로 유지됩니다.');
           return;
         }
         if(areaEditorPlaces){
@@ -3495,8 +3504,7 @@ function confirmAreaPending(){
             if(placeStatus===kakao.maps.services.Status.OK&&places&&places[0]&&places[0].y&&places[0].x){
               h.lat=Number(places[0].y);h.lng=Number(places[0].x);
               areaEditorPending=null;renderAreaEditor();
-              if(areaEditorMap){areaEditorMap.setCenter(new kakao.maps.LatLng(h.lat,h.lng));areaEditorMap.setLevel(3);}
-              showToast('장소 검색으로 위치를 찾았습니다. 저장 전 핀 위치를 확인해 주세요.');
+              showToast('장소 검색으로 위치를 변경했습니다. 지도 화면은 그대로 유지됩니다.');
               return;
             }
             h.lat=null;h.lng=null;areaEditorPending=null;renderAreaEditor();
