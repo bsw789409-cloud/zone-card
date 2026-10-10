@@ -1769,7 +1769,10 @@ async function loadFixList() {
         '</div>';
       list.appendChild(div);
     });
-  } catch(e) {}
+  } catch(e) {
+    console.error('loadFixList failed', e);
+    list.innerHTML = '<div style="text-align:center;color:#b91c1c;padding:20px;background:#fff;border-radius:10px">수정요청을 불러오지 못했습니다.<br><small>' + escHtml((e && (e.code || e.message)) || e) + '</small></div>';
+  }
 }
 
 async function resolveFixRequest(docId) {
@@ -1872,7 +1875,10 @@ async function loadStatsList() {
         '<button onclick="deleteStatItem(\'' + colMap[statsFilter] + '\',\'' + doc.id + '\')" style="background:#fff0f0;border:none;border-radius:8px;padding:5px 9px;font-size:11px;color:#dc2626;cursor:pointer;margin-left:6px">삭제</button>';
       list.appendChild(div);
     });
-  } catch(e) {}
+  } catch(e) {
+    console.error('loadStatsList failed', e);
+    list.innerHTML = '<div style="text-align:center;color:#b91c1c;padding:20px;background:#fff;border-radius:10px">통계를 불러오지 못했습니다.<br><small>' + escHtml((e && (e.code || e.message)) || e) + '</small></div>';
+  }
 }
 
 // ══════════════════════════
