@@ -1,4 +1,4 @@
-﻿{
+{
   "hosting": {
     "public": ".",
     "ignore": [
@@ -6,6 +6,17 @@
       "**/.*",
       "**/node_modules/**",
       "**/*.bat"
+    ],
+    "headers": [
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, max-age=0, must-revalidate"
+          }
+        ]
+      }
     ],
     "rewrites": [
       {
