@@ -1896,7 +1896,6 @@ function renderFixFullCardEditor() {
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);mainColumn.appendChild(card);
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};mainColumn.appendChild(add);
-  mainColumn.appendChild(add);
     var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
   var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
   var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도 위치 수정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
