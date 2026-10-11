@@ -1789,7 +1789,7 @@ function renderFixFullCardEditor() {
   actionCard.innerHTML='<div style="font-size:16px;font-weight:900;color:#1e293b;margin-bottom:10px">⑥ 수정 요청 처리</div><div style="padding:10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.5;margin-bottom:10px">수정 내용을 저장한 뒤, 확인이 끝나면 별도로 요청 처리를 완료하세요.</div><label style="display:block;font-size:12px;font-weight:800;margin-bottom:6px">처리 메모 (선택)</label><textarea id="fixFullCardResolutionMemo" rows="4" placeholder="처리 내용이나 특이사항을 입력하세요." style="'+inp+';resize:vertical"></textarea><button onclick="saveFixFullCardEditor()" style="width:100%;padding:11px;margin-top:10px;border:1px solid #2563eb;border-radius:9px;background:white;color:#2563eb;font-weight:900">✓ 수정 내용 저장</button><button onclick="completeFixRequestFromCard()" style="width:100%;padding:11px;margin-top:8px;border:0;border-radius:9px;background:#1672e8;color:white;font-weight:900">◎ 요청 처리 완료</button>';
   sideColumn.appendChild(actionCard);
   var historyCard=document.createElement('section');historyCard.style.cssText='background:white;border:1px solid #dbe3ee;border-radius:12px;padding:14px';
-  historyCard.innerHTML='<div style="font-size:15px;font-weight:900;margin-bottom:10px">변경 이력</div><div style="font-size:12px;color:#64748b;line-height:1.8">• 수정 요청 접수<br>• 수정 내용 저장은 요청 완료와 별도로 기록됩니다.</div>';
+  var editWhen='아직 수정 저장 기록이 없습니다.';if(reqData.lastEditedAt){var editDate=reqData.lastEditedAt.toDate?reqData.lastEditedAt.toDate():(reqData.lastEditedAt.seconds?new Date(reqData.lastEditedAt.seconds*1000):null);if(editDate)editWhen=editDate.toLocaleString('ko-KR');}var resolvedWhen='';if(reqData.resolvedAt){var resolvedDate=reqData.resolvedAt.toDate?reqData.resolvedAt.toDate():(reqData.resolvedAt.seconds?new Date(reqData.resolvedAt.seconds*1000):null);if(resolvedDate)resolvedWhen=resolvedDate.toLocaleString('ko-KR');}historyCard.innerHTML='<div style="font-size:15px;font-weight:900;margin-bottom:10px">변경 이력</div><div style="font-size:12px;color:#64748b;line-height:1.8"><div style="padding:8px 0;border-bottom:1px solid #e2e8f0"><b>요청 접수</b><br>'+(reqData.createdAt?escHtml(String(reqData.createdAt.toDate?reqData.createdAt.toDate().toLocaleString('ko-KR'):reqData.createdAt.seconds?new Date(reqData.createdAt.seconds*1000).toLocaleString('ko-KR'):'접수 시간 기록 없음')):'접수 시간 기록 없음')+'</div><div style="padding:8px 0"><b>최근 수정 저장</b><br>'+escHtml(editWhen)+'<br>'+escHtml(String(reqData.lastEditSummary||''))+(reqData.lastEditAddressCount!=null?'<br>변경 감지 항목: '+escHtml(String(reqData.lastEditAddressCount))+'개':'')+'</div>'+(resolvedWhen?'<div style="padding:8px 0;border-top:1px solid #e2e8f0"><b>처리 완료</b><br>'+escHtml(resolvedWhen)+'<br>'+escHtml(String(reqData.resolutionMemo||''))+'</div>':'')+'</div>';
   sideColumn.appendChild(historyCard);
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
   fixFullCardBlocks.forEach(function(blk,bi) {
@@ -1884,6 +1884,11 @@ async function saveFixFullCardEditor() {
     }
     (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){delete h._fixManualMapMove;});});});
     await ref.update({blocks:fixFullCardBlocks});
+    // 요청 문서에도 마지막 수정 기록을 남겨 재진입 시 변경 이력을 확인할 수 있게 한다.
+    var changedAddressCount=0;
+    (fixFullCardBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){var prior=(fixFullCardOriginalBlocks[bi]&&fixFullCardOriginalBlocks[bi].subTopics&&fixFullCardOriginalBlocks[bi].subTopics[si]&&fixFullCardOriginalBlocks[bi].subTopics[si].houses||[])[hi];if(!prior||String(prior.addr||prior.num||'').trim()!==String(h.addr||h.num||'').trim()||Number(prior.lat)!==Number(h.lat)||Number(prior.lng)!==Number(h.lng))changedAddressCount++;});});});
+    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'주소/지도/블럭 편집 저장',lastEditAddressCount:changedAddressCount});
+    if(activeFixRequest&&activeFixRequest.data){activeFixRequest.data.lastEditSummary='주소/지도/블럭 편집 저장';activeFixRequest.data.lastEditAddressCount=changedAddressCount;}
     var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
     fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(fixFullCardBlocks));
     showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+(failed.length?' — 실패한 항목은 지도에서 위치를 다시 지정해 주세요.':'.')) : '구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');
@@ -1895,7 +1900,7 @@ async function completeFixRequestFromCard(){
   if(!confirm('이 수정요청을 처리 완료로 변경할까요? 먼저 수정 내용을 저장했는지 확인해 주세요.'))return;
   var memoEl=document.getElementById('fixFullCardResolutionMemo'),memo=String(memoEl&&memoEl.value||'').trim();
   try{
-    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo});
+    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo,lastResolutionSummary:'요청 처리 완료'});
     showToast('수정요청을 처리 완료했습니다.');
     closeFixRequestFullCard();closeFixRequestEditor();await loadFixList();loadHomeStats();
   }catch(e){showToast('처리 실패: '+(e&&e.message?e.message:e));}
