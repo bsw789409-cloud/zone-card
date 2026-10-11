@@ -1812,7 +1812,8 @@ function renderFixFullCardEditor() {
     });
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);mainColumn.appendChild(card);
   });
-  var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
+  var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};mainColumn.appendChild(add);
+  content.appendChild(mainColumn);content.appendChild(sideColumn);
   initFixRequestMap();
 }
 function moveFixFullCardItem(type,bi,si,hi,dir) {
