@@ -1725,6 +1725,7 @@ async function openFixRequestCardEditor() {
 }
 
 var fixFullCardAreaId = '';
+var fixFullCardMeta = {name:'',leader:'',memo:''};
 var fixFullCardBlocks = [];
 var fixFullCardOriginalBlocks = [];
 var fixRequestMap=null,fixRequestMapOverlays=[],fixRequestSelectedHouse=null;
@@ -1748,6 +1749,9 @@ function syncFixFullCardInputs() {
   var inlineContent=document.getElementById('zdInlineFullCardContent');
   var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent');
   if(!content) return;
+  var metaName=document.getElementById('fixFullCardMetaName');if(metaName)fixFullCardMeta.name=metaName.value;
+  var metaLeader=document.getElementById('fixFullCardMetaLeader');if(metaLeader)fixFullCardMeta.leader=metaLeader.value;
+  var metaMemo=document.getElementById('fixFullCardMetaMemo');if(metaMemo)fixFullCardMeta.memo=metaMemo.value;
   content.querySelectorAll('[data-fix-field]').forEach(function(el) {
     var bi=Number(el.getAttribute('data-bi')), si=Number(el.getAttribute('data-si')), hi=Number(el.getAttribute('data-hi')), field=el.getAttribute('data-fix-field');
     if(!fixFullCardBlocks[bi]) return;
@@ -1800,6 +1804,17 @@ function renderFixFullCardEditor() {
     });
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);content.appendChild(card);
   });
+  // 구역 카드 정보도 주소/지도와 같은 저장 흐름에서 편집한다.
+  var metaCard=document.createElement('section');metaCard.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:12px 0';
+  metaCard.innerHTML='<div style="font-weight:900;font-size:15px;margin-bottom:10px">🗂️ 카드 정보 수정</div>';
+  var metaGrid=document.createElement('div');metaGrid.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px';
+  var nameWrap=document.createElement('label');nameWrap.style.cssText='display:block;font-size:12px;font-weight:800;color:#475569';nameWrap.textContent='구역명';
+  var nameInput=document.createElement('input');nameInput.id='fixFullCardMetaName';nameInput.value=String(fixFullCardMeta.name||'');nameInput.placeholder='구역명';nameInput.style.cssText=inp+';margin-top:5px';nameWrap.appendChild(nameInput);metaGrid.appendChild(nameWrap);
+  var leaderWrap=document.createElement('label');leaderWrap.style.cssText='display:block;font-size:12px;font-weight:800;color:#475569';leaderWrap.textContent='담당 전도인';
+  var leaderInput=document.createElement('input');leaderInput.id='fixFullCardMetaLeader';leaderInput.value=String(fixFullCardMeta.leader||'');leaderInput.placeholder='담당 전도인';leaderInput.style.cssText=inp+';margin-top:5px';leaderWrap.appendChild(leaderInput);metaGrid.appendChild(leaderWrap);
+  var memoWrap=document.createElement('label');memoWrap.style.cssText='display:block;font-size:12px;font-weight:800;color:#475569;grid-column:1/-1';memoWrap.textContent='카드 메모';
+  var memoInput=document.createElement('textarea');memoInput.id='fixFullCardMetaMemo';memoInput.value=String(fixFullCardMeta.memo||'');memoInput.placeholder='구역 카드 메모';memoInput.rows=3;memoInput.style.cssText=inp+';margin-top:5px;resize:vertical';memoWrap.appendChild(memoInput);metaGrid.appendChild(memoWrap);
+  metaCard.appendChild(metaGrid);content.appendChild(metaCard);
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
   initFixRequestMap();
 }
@@ -1866,8 +1881,8 @@ async function saveFixFullCardEditor() {
       await Promise.all(jobs);
     }
     (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){delete h._fixManualMapMove;});});});
-    await ref.update({blocks:fixFullCardBlocks});
-    var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
+    await ref.update({blocks:fixFullCardBlocks,name:String(fixFullCardMeta.name||'').trim(),leader:String(fixFullCardMeta.leader||'').trim(),memo:String(fixFullCardMeta.memo||'').trim()});
+    var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0){areas[idx].blocks=fixFullCardBlocks;areas[idx].name=String(fixFullCardMeta.name||'').trim();areas[idx].leader=String(fixFullCardMeta.leader||'').trim();areas[idx].memo=String(fixFullCardMeta.memo||'').trim();}
     fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(fixFullCardBlocks));
     showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+(failed.length?' — 실패한 항목은 지도에서 위치를 다시 지정해 주세요.':'.')) : '구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');
     loadAreaList();loadHomeStats();closeFixRequestFullCard();
@@ -1879,7 +1894,7 @@ async function openFixRequestFullCard() {
   overlay.style.display='flex';content.innerHTML='<div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div>';
   try {
     fixFullCardAreaId=String(activeFixRequest.data.areaId||'');var snap=await db.collection('areas').doc(fixFullCardAreaId).get();if(!snap.exists)throw new Error('해당 구역 카드를 찾을 수 없습니다.');
-    var data=snap.data()||{};subtitle.textContent=fixFullCardAreaId+'번 구역 · '+String(data.name||activeFixRequest.data.areaName||'')+' · 모든 항목 편집 가능';
+    var data=snap.data()||{};fixFullCardMeta={name:String(data.name||''),leader:String(data.leader||''),memo:String(data.memo||'')};subtitle.textContent=fixFullCardAreaId+'번 구역 · '+String(data.name||activeFixRequest.data.areaName||'')+' · 모든 항목 편집 가능';
     var blocks=data.blocks||[];if(!Array.isArray(blocks))blocks=Object.values(blocks);fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(blocks));fixFullCardBlocks=JSON.parse(JSON.stringify(blocks));fixRequestSelectedHouse=activeFixHouseLocation?{bi:activeFixHouseLocation.bi,si:activeFixHouseLocation.si,hi:activeFixHouseLocation.hi}:null;renderFixFullCardEditor();
   } catch(e){content.innerHTML='<div style="padding:16px;color:#b91c1c;background:white;border-radius:10px">카드 내용을 불러오지 못했습니다: '+escHtml(e&&e.message?e.message:e)+'</div>';}
 }
