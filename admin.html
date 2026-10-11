@@ -1768,9 +1768,10 @@ function renderFixFullCardEditor() {
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
   var reqData=activeFixRequest&&activeFixRequest.data?activeFixRequest.data:{};
   var reqLoc=activeFixHouseLocation;
-  content.style.display='grid';content.style.gridTemplateColumns='minmax(0,1.7fr) minmax(280px,0.8fr)';content.style.alignItems='start';content.style.gap='12px';
+  var fixEditorMobile=window.innerWidth<=760;
+  content.style.display='grid';content.style.gridTemplateColumns=fixEditorMobile?'minmax(0,1fr)':'minmax(0,1.7fr) minmax(280px,0.8fr)';content.style.alignItems='start';content.style.gap='12px';
   var mainColumn=document.createElement('div');mainColumn.style.cssText='min-width:0';
-  var sideColumn=document.createElement('aside');sideColumn.style.cssText='min-width:0;position:sticky;top:70px;display:flex;flex-direction:column;gap:12px';
+  var sideColumn=document.createElement('aside');sideColumn.style.cssText='min-width:0;'+(fixEditorMobile?'':'position:sticky;top:70px;')+'display:flex;flex-direction:column;gap:12px';
   var notice=document.createElement('div');
   notice.style.cssText='padding:12px;border:2px solid #f97316;background:#fff7ed;border-radius:10px;color:#7c2d12;margin-bottom:12px';
   var requestedNewAddr=String(reqData.newAddr||reqData.requestedAddr||reqData.afterAddr||reqData.changeTo||'').trim();
