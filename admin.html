@@ -316,6 +316,40 @@ button:active{transform:translateY(1px)}
 .zd-bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.zd-bottom-grid p{margin:6px 0}.zd-audit-details{font-size:12px;line-height:1.8;color:#51677f;margin-top:8px}
 @media(max-width:1150px){.zd-main{grid-template-columns:minmax(0,1fr) minmax(260px,.75fr)}.zd-requests-panel{grid-column:1/-1}.zd-recent{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}#zdMap{height:390px}}
 @media(max-width:760px){.zd-heading{align-items:flex-start;flex-direction:column}.zd-heading h2{font-size:21px}.zd-primary{width:100%}.zd-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.zd-stats>div{padding:11px}.zd-stats b{font-size:20px}.zd-main,.zd-bottom-grid{grid-template-columns:1fr}.zd-requests-panel{grid-column:auto}.zd-recent{display:block}#zdMap{height:310px;min-height:260px}.zd-panel{padding:11px}.zd-panel-head select{max-width:125px}}
+
+/* VISUAL CONCEPT v2 — style the first dialog users actually see from 수정요청 > 요청 상세 보기. */
+#fixRequestOverlay{padding:0!important;background:rgba(13,31,52,.62)!important;align-items:stretch!important;justify-content:stretch!important}
+#fixRequestOverlay>div:first-child{width:100%!important;max-width:none!important;height:100%!important;max-height:100%!important;overflow:auto!important;border-radius:0!important;background:#f3f6fb!important;display:flex!important;flex-direction:column!important;box-sizing:border-box!important}
+#fixRequestOverlay>div:first-child>div:first-child{background:linear-gradient(130deg,#173c67,#28689b)!important;color:white!important;border-radius:0!important;padding:20px 24px!important;flex-shrink:0!important}
+#fixRequestOverlay #fixRequestTitle{color:#fff!important;font-size:25px!important;letter-spacing:-.5px}
+#fixRequestOverlay #fixRequestAreaLabel{color:#dceafa!important;font-size:13px!important}
+#fixRequestOverlay>div:first-child>div:nth-child(2){width:100%!important;max-width:1120px!important;box-sizing:border-box!important;margin:0 auto!important;padding:24px!important;display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-content:start!important;gap:16px!important}
+#fixRequestOverlay>div:first-child>div:nth-child(2)>div:first-child{grid-column:1/-1!important}
+#fixRequestOverlay>div:first-child>div:nth-child(2)>div{background:#fff!important;border:1px solid #dce6f0!important;border-radius:14px!important;padding:16px!important;box-shadow:0 4px 14px rgba(24,52,82,.04)}
+#fixRequestOverlay>div:first-child>div:nth-child(2)>div>b{display:block!important;font-size:14px!important;color:#1e3d5e!important;margin-bottom:8px!important}
+#fixRequestOverlay #fixRequestMemo{background:#f7f9fc!important;border-color:#e1e9f2!important;color:#334e68!important;min-height:80px!important;line-height:1.7!important}
+#fixRequestOverlay label{display:block!important;font-size:12px!important;font-weight:800!important;color:#59718a!important;margin-bottom:7px!important}
+#fixRequestOverlay #fixRequestAddrInput,#fixRequestOverlay #fixRequestNoteInput{width:100%!important;box-sizing:border-box!important;border:1px solid #cfdae7!important;border-radius:10px!important;background:#fbfdff!important;color:#1c344d!important;outline-color:#4388c7!important}
+#fixRequestOverlay>div:first-child>div:nth-child(2)>div:nth-child(4){grid-column:1/-1!important;background:#eef4fa!important;color:#526b85!important;font-size:12px!important;line-height:1.6!important}
+#fixRequestOverlay>div:first-child>div:last-child{margin-top:auto!important;position:sticky!important;bottom:0!important;background:#fff!important;border-top:1px solid #dce6f0!important;padding:14px 22px!important;box-shadow:0 -5px 18px rgba(24,52,82,.05)!important}
+#fixRequestOverlay>div:first-child>div:last-child button{min-height:46px!important;border-radius:10px!important;font-weight:800!important}
+#fixRequestOverlay>div:first-child>div:last-child button[onclick*="openFixRequestCardEditor"]{background:#edf3f9!important;color:#254c73!important;border:1px solid #d6e2ee!important}
+#fixRequestOverlay>div:first-child>div:last-child button[onclick*="saveFixRequestEditor"]{background:#236bb2!important;color:#fff!important}
+#fixFullCardOverlay{padding:0!important;background:rgba(13,31,52,.62)!important}
+#fixFullCardOverlay>div:first-child{width:100%!important;max-width:none!important;height:100%!important;max-height:100%!important;box-sizing:border-box!important;overflow:auto!important;border-radius:0!important;padding:0 24px 24px!important;background:#f3f6fb!important}
+#fixFullCardOverlay>div:first-child>div:first-child{position:sticky!important;top:0!important;background:#f3f6fb!important;padding:18px 0!important;border-bottom:1px solid #dce6f0!important}
+#fixFullCardOverlay>div:first-child>div:first-child>div:first-child>div:first-child{font-size:24px!important;color:#193b5d!important}
+#fixFullCardContent{max-width:1240px!important;margin:18px auto!important}
+@media(max-width:680px){
+ #fixRequestOverlay>div:first-child>div:first-child{padding:16px!important}
+ #fixRequestOverlay #fixRequestTitle{font-size:21px!important}
+ #fixRequestOverlay>div:first-child>div:nth-child(2){grid-template-columns:minmax(0,1fr)!important;padding:14px!important;gap:11px!important}
+ #fixRequestOverlay>div:first-child>div:nth-child(2)>div:first-child,#fixRequestOverlay>div:first-child>div:nth-child(2)>div:nth-child(4){grid-column:auto!important}
+ #fixRequestOverlay>div:first-child>div:last-child{padding:10px!important;gap:7px!important}
+ #fixRequestOverlay>div:first-child>div:last-child button{font-size:12px!important;padding:10px 7px!important}
+ #fixFullCardOverlay>div:first-child{padding:0 12px 16px!important}
+}
+
 </style>
 </head>
 <body>
