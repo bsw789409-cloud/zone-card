@@ -1711,18 +1711,16 @@ async function openFixRequestEditor(docId) {
   } catch(e) { showToast('수정요청을 열지 못했습니다: '+(e&&e.message?e.message:e)); }
 }
 
-// 수정요청 대상이 표시된 실제 카드 편집기로 이동
+// 수정요청에서 전체 카드 편집 화면을 직접 연다.
+// 기존 openEditCard()로 빠지면 수정요청 전용 지도/주소 번호 UI가 보이지 않으므로
+// 이 버튼은 fix-request 카드 편집기로 연결한다.
 async function openFixRequestCardEditor() {
   if(!activeFixRequest) { showToast('먼저 수정요청을 열어 주세요.'); return; }
   var req = activeFixRequest.data || {};
-  var areaId = String(req.areaId || '');
-  if(!areaId) { showToast('요청에 구역 번호가 없어 카드를 열 수 없습니다.'); return; }
-  var addr = String(req.addr || '').trim();
-  closeFixRequestFullCard();
+  if(!String(req.areaId || '')) { showToast('요청에 구역 번호가 없어 카드를 열 수 없습니다.'); return; }
   var requestOverlay = document.getElementById('fixRequestOverlay');
   if(requestOverlay) requestOverlay.style.display = 'none';
-  // 구역 관리에서 구역을 눌렀을 때 사용하는 기존 지도 편집기를 그대로 연다.
-  openEditCard(areaId, addr, activeFixRequest.docId);
+  await openFixRequestFullCard();
 }
 
 var fixFullCardAreaId = '';
