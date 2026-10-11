@@ -1838,7 +1838,7 @@ function removeFixFullCardItem(type,bi,si,hi) {
   if(type==='block')fixFullCardBlocks.splice(bi,1);else if(type==='sub')fixFullCardBlocks[bi].subTopics.splice(si,1);else fixFullCardBlocks[bi].subTopics[si].houses.splice(hi,1);
   renderFixFullCardEditor();
 }
-async async function saveFixFullCardEditor() {
+async function saveFixFullCardEditor() {
   if(!fixFullCardAreaId)return;syncFixFullCardInputs();
   if(!confirm('이 구역 카드의 전체 수정 내용을 저장할까요? 삭제하거나 순서를 바꾼 항목도 반영됩니다. 주소가 바뀐 항목은 지도 위치도 다시 검색합니다.'))return;
   showLoader();
@@ -1903,8 +1903,17 @@ async async function saveFixFullCardEditor() {
     loadAreaList();loadHomeStats();closeFixRequestFullCard();
   } catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}hideLoader();
 }
+function isFixFullCardDirty(){
+  syncFixFullCardInputs();
+  function clean(value){return JSON.parse(JSON.stringify(value||[]),function(key,val){return key==='_fixManualMapMove'?undefined:val;});}
+  return JSON.stringify(clean(fixFullCardBlocks))!==JSON.stringify(clean(fixFullCardOriginalBlocks));
+}
 async function completeFixRequestFromCard(){
   if(!activeFixRequest)return;
+  if(isFixFullCardDirty()){
+    showToast('저장하지 않은 수정 내용이 있습니다. 먼저 “수정 내용 저장”을 눌러 주세요.');
+    return;
+  }
   if(!confirm('이 수정요청을 처리 완료로 변경할까요? 먼저 수정 내용을 저장했는지 확인해 주세요.'))return;
   var memoEl=document.getElementById('fixFullCardResolutionMemo'),memo=String(memoEl&&memoEl.value||'').trim();
   try{
