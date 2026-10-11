@@ -353,11 +353,18 @@ button:active{transform:translateY(1px)}
 
 
 /* NEXT PASS — make the full-card editor read like editable territory cards, not a raw form. */
-#fixFullCardContent{display:flex!important;flex-direction:column!important;gap:14px!important}
-#fixFullCardContent>section{margin:0!important;border-radius:16px!important;box-shadow:0 5px 18px rgba(24,52,82,.055)!important;padding:16px!important}
-#fixFullCardContent>section:first-child{border:1px solid #d5e3f1!important;background:#fff!important}
-#fixFullCardContent>section:first-child>div:first-child{font-size:16px!important;color:#1e4267!important}
-#fixFullCardContent>section:not(:first-child)>div:first-child{padding-bottom:10px!important;border-bottom:1px solid #e7edf4!important}
+/* 수정요청 전체 카드 편집기: 카드 내용과 처리 패널을 실제 2열 편집 작업공간으로 배치 */
+#fixFullCardContent{display:grid!important;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr)!important;align-items:start!important;gap:16px!important;max-width:1440px!important}
+#fixFullCardContent>div:first-child{min-width:0!important}
+#fixFullCardContent>aside{min-width:0!important;position:sticky!important;top:76px!important}
+#fixFullCardContent section{margin:0!important;border-radius:15px!important;box-shadow:0 4px 16px rgba(24,52,82,.06)!important}
+#fixFullCardContent>div:first-child>section{margin:0 0 14px!important;padding:16px!important}
+#fixFullCardContent>div:first-child>section:first-child{border:1px solid #d5e3f1!important;background:#fff!important}
+#fixFullCardContent>div:first-child>section:first-child>div:first-child{font-size:16px!important;color:#1e4267!important}
+#fixFullCardContent aside>section{padding:16px!important}
+#fixFullCardContent aside>section>div:first-child{padding-bottom:10px!important;border-bottom:1px solid #e7edf4!important}
+#fixFullCardContent>div:first-child>section:not(:first-child){border-color:#d5e0ec!important}
+#fixFullCardContent>div:first-child>section:not(:first-child)>div:first-child{margin-bottom:10px!important}
 #fixFullCardContent input[data-fix-field],#fixFullCardContent textarea[data-fix-field]{min-height:42px!important;border-radius:9px!important;border-color:#d4dfeb!important}
 #fixFullCardContent input[data-fix-field="addr"]{font-weight:800!important}
 #fixFullCardContent textarea[data-fix-field="note"]{min-height:64px!important}
@@ -367,12 +374,16 @@ button:active{transform:translateY(1px)}
 #fixFullCardContent button:focus-visible,#fixFullCardContent input:focus-visible,#fixFullCardContent textarea:focus-visible{outline:2px solid #3985c6!important;outline-offset:2px!important}
 #fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)!important;align-items:start!important;gap:10px!important;padding:12px!important;margin-top:8px!important}
 #fixFullCardContent .fix-house-row>div:first-child{grid-column:1/-1!important;padding-bottom:2px!important}
+@media(max-width:760px){
+ #fixFullCardContent{grid-template-columns:minmax(0,1fr)!important;gap:12px!important}
+ #fixFullCardContent>aside{position:static!important;top:auto!important}
+}
 @media(max-width:680px){
  #fixFullCardOverlay>div:first-child{padding:0 10px 14px!important}
  #fixFullCardOverlay>div:first-child>div:first-child{gap:8px!important;align-items:flex-start!important}
  #fixFullCardOverlay>div:first-child>div:first-child>div:last-child{flex-shrink:0!important}
  #fixFullCardOverlay>div:first-child>div:first-child button{padding:9px 10px!important;font-size:12px!important}
- #fixFullCardContent>section{padding:11px!important}
+ #fixFullCardContent>div:first-child>section,#fixFullCardContent aside>section{padding:11px!important}
  #fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr)!important;padding:9px!important;gap:7px!important}
  #fixFullCardContent .fix-house-row>div:first-child{grid-column:auto!important}
  #fixFullCardContent #fixRequestMap{height:270px!important}
