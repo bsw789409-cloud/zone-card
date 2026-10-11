@@ -530,7 +530,23 @@ button:active{transform:translateY(1px)}
     <div class="zd-stats"><div><span>전체 구역</span><b id="zdAreaCount">-</b></div><div><span>전체 번지</span><b id="zdHouseCount">-</b></div><div><span>미처리 요청</span><b id="zdPendingCount">-</b></div><div><span>주소 점검</span><b id="zdAuditCount">선택 필요</b></div></div>
     <div class="zd-main">
       <section class="zd-panel zd-map-panel"><div class="zd-panel-head"><div><h3>🗺 구역 지도</h3><p>핀을 선택하면 해당 번지가 목록에서 강조됩니다.</p></div><select id="zdAreaSelect" onchange="zdLoadArea(this.value)"><option value="">구역 선택</option></select></div><div id="zdMap" role="application" aria-label="구역 번지 지도"></div><div class="zd-map-foot"><span><i class="zd-dot blue"></i> 주소 위치</span><span><i class="zd-dot orange"></i> 선택한 번지</span><button onclick="zdFitMap()">지도 위치 맞춤</button></div></section>
-      <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div><div class="zd-list-actions"><button onclick="document.getElementById('addressAreaSelect').value=document.getElementById('zdAreaSelect').value;loadAddressManager();switchTab('addresses',null)">전체 번지 편집 열기 →</button></div></section>
+      <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div>
+        <div id="zdInlineAddressEditor" class="zd-inline-request-card" style="display:none;margin-top:10px">
+          <div class="zd-inline-title"><b id="zdInlineEditorTitle">선택한 주소 편집</b><span id="zdInlineEditorState" style="font-size:11px;color:#64748b">주소 번호를 먼저 선택하세요.</span></div>
+          <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">선택한 주소</label>
+          <input id="zdInlineAddressInput" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="주소를 수정하려면 수정 버튼을 누르세요" readonly>
+          <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">변경 후 내용</label>
+          <input id="zdInlineRequestedAfter" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="요청한 변경 후 주소 (선택)">
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="btn-sm btn-primary" onclick="zdInlineToggleEdit()">수정</button>
+            <button type="button" class="btn-sm btn-danger" onclick="zdInlineDeleteSelected()">삭제</button>
+            <button type="button" class="btn-sm btn-primary" onclick="zdInlineEnableMapPick()">지도</button>
+            <button type="button" class="btn-sm btn-success" onclick="zdInlineSave()">저장</button>
+            <button type="button" class="btn-sm btn-success" onclick="zdInlineCompleteRequest()">요청 완료</button>
+          </div>
+          <div id="zdInlineEditorHint" style="font-size:11px;line-height:1.5;color:#64748b;margin-top:8px">수정요청을 선택하면 해당 구역 지도와 주소가 연결됩니다. 주소를 먼저 선택한 뒤 작업하세요.</div>
+        </div>
+        <div class="zd-list-actions"><button onclick="zdInlineClearRequest()">선택 요청 해제</button></div></section>
       <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
     </div>
   </section>
@@ -4241,6 +4257,7 @@ async function saveAreaEditor(){
 
 /* Dashboard bindings use the existing Firebase data and address structure. */
 var zdMap=null,zdMarkers=[],zdSelectedHouse=null,zdDashboardBlocks=[],zdDashboardRows=[],zdMapMode='overview';
+var zdActiveRequest=null,zdInlineEditEnabled=false,zdInlineMapPickMode=false;
 function zdInit(){
  var sel=document.getElementById('zdAreaSelect');if(!sel)return;
  sel.innerHTML='<option value="">전체 구역 보기</option>'+areas.slice().sort(function(a,b){return Number(a.id)-Number(b.id)}).map(function(a){return '<option value="'+escAttr(a.id)+'">'+escHtml(a.id+'번 · '+(a.name||'구역'))+'</option>'}).join('');
@@ -4261,25 +4278,38 @@ function zdAreaCenter(area){
  var lat=0,lng=0;rows.forEach(function(r){lat+=r.lat;lng+=r.lng});
  return {lat:lat/rows.length,lng:lng/rows.length};
 }
-function zdLoadArea(id){
- zdSelectedHouse=null;zdClearMarkers();
+function zdLoadArea(id, requestData){
+ zdSelectedHouse=null;zdClearMarkers();zdInlineEditEnabled=false;zdInlineMapPickMode=false;
+ if(requestData){zdActiveRequest={docId:String(requestData.docId||''),data:requestData};}
+ else if(!zdActiveRequest || String(zdActiveRequest.data.areaId||'')!==String(id||'')){zdActiveRequest=null;}
  var list=document.getElementById('zdAddressList'),caption=document.getElementById('zdListCaption');
  document.getElementById('zdSearch').value='';
+ var editor=document.getElementById('zdInlineAddressEditor');
+ if(editor)editor.style.display=id?'block':'none';
  if(!id){
   zdMapMode='overview';zdDashboardBlocks=[];zdDashboardRows=[];
   list.innerHTML='<div class="zd-empty">지도에서 구역 번호를 누르면 해당 구역 카드의 번지 번호가 표시됩니다.</div>';
   caption.textContent='전체 구역 보기 · 번호 핀을 선택하세요.';
   document.getElementById('zdAuditCount').textContent='선택 필요';
   document.getElementById('zdAuditDetails').textContent='구역을 선택하면 주소 오류를 검사할 수 있습니다.';
-  zdCreateMap();return;
+  zdInlineClearRequest();zdCreateMap();return;
  }
  zdMapMode='area';list.innerHTML='<div class="zd-empty">번지 목록 불러오는 중...</div>';
- db.collection('areas').doc(String(id)).get().then(function(snap){
-  if(!snap.exists)throw new Error('구역을 찾을 수 없습니다.');
+ return db.collection('areas').doc(String(id)).get().then(function(snap){
+  if(!snap.exists)throw new Error('구역 카드를 찾을 수 없습니다.');
   zdDashboardBlocks=addressNormalizeBlocks(snap.data().blocks||[]);zdDashboardRows=[];
-  zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1})})})});
+  zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1});})})});
   caption.textContent=zdDashboardRows.length+'개 번지 · '+id+'번 구역';
   zdRenderList();zdRunAudit();zdCreateMap();
+  if(zdActiveRequest && String(zdActiveRequest.data.areaId||'')===String(id)){
+    var wanted=String(zdActiveRequest.data.addr||zdActiveRequest.data.address||'').trim();
+    var target=zdDashboardRows.find(function(r){
+      var full=(r.road+' '+r.addr).trim();
+      return String(r.addr).trim()===wanted || full===wanted || full.replace(/\s+/g,'')===wanted.replace(/\s+/g,'');
+    });
+    if(target)zdSelectRow(target,true);
+    else {zdRenderInlineEditor();showToast('요청 대상 주소를 목록에서 찾지 못했습니다. 주소를 직접 선택해 주세요.');}
+  }else{zdRenderInlineEditor();}
  }).catch(function(e){list.innerHTML='<div class="zd-empty">불러오지 못했습니다: '+escHtml(e.message||e)+'</div>'});
 }
 function zdRenderList(){
@@ -4294,9 +4324,83 @@ function zdRenderList(){
 }
 function zdSelectRowByIndex(bi,si,hi){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi;});if(r)zdSelectRow(r,true);}
 function zdSelectRow(r,centerMap){
- if(!r)return;zdSelectedHouse={bi:r.bi,si:r.si,hi:r.hi};zdRenderList();
+ if(!r)return;zdSelectedHouse={bi:r.bi,si:r.si,hi:r.hi};zdRenderList();zdRenderInlineEditor();
  if(centerMap&&zdMap&&Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0)zdMap.panTo(new kakao.maps.LatLng(r.lat,r.lng));
  zdCreateMap();
+}
+function zdGetSelectedRow(){return zdSelectedHouse&&zdDashboardRows.find(function(r){return r.bi===zdSelectedHouse.bi&&r.si===zdSelectedHouse.si&&r.hi===zdSelectedHouse.hi;})||null;}
+function zdRenderInlineEditor(){
+ var box=document.getElementById('zdInlineAddressEditor');if(!box)return;
+ box.style.display=(zdActiveRequest||zdMapMode==='area')?'block':'none';
+ var row=zdGetSelectedRow(),input=document.getElementById('zdInlineAddressInput'),title=document.getElementById('zdInlineEditorTitle'),state=document.getElementById('zdInlineEditorState'),hint=document.getElementById('zdInlineEditorHint');
+ if(!row){
+  if(title)title.textContent=zdActiveRequest?'요청 대상 주소 선택':'선택한 주소 편집';
+  if(state)state.textContent='주소 번호를 먼저 선택하세요';
+  if(input){input.value='';input.readOnly=true;}
+  if(hint)hint.textContent=zdActiveRequest?'요청 대상 주소를 목록이나 지도 핀에서 선택한 뒤 수정·삭제·지도 작업을 하세요.':'주소 번호를 선택하면 편집 도구가 활성화됩니다.';
+  return;
+ }
+ if(title)title.textContent=(zdActiveRequest?'수정 요청 편집':'주소 편집')+' · '+(row.number||'')+'번 주소';
+ if(state)state.textContent=zdInlineMapPickMode?'지도 위치 선택 중':(zdInlineEditEnabled?'주소 수정 중':'주소 선택됨');
+ if(input){if(!zdInlineEditEnabled)input.value=row.addr;input.readOnly=!zdInlineEditEnabled;}
+ if(hint)hint.textContent=zdInlineMapPickMode?'지도에서 새 위치를 한 번 클릭하세요. 일반 지도 클릭으로는 주소 위치가 바뀌지 않습니다.':(zdActiveRequest?'선택한 구역과 요청 대상이 연결되어 있습니다. 저장 후 요청 완료를 누르면 완료 처리됩니다.':'주소를 수정하거나 지도 위치를 지정할 수 있습니다.');
+}
+function zdInlineRequireSelection(){var row=zdGetSelectedRow();if(!row){showToast('먼저 주소 번호를 선택해 주세요.');return null;}return row;}
+function zdInlineToggleEdit(){
+ var row=zdInlineRequireSelection();if(!row)return;
+ zdInlineEditEnabled=!zdInlineEditEnabled;
+ var input=document.getElementById('zdInlineAddressInput');
+ if(input){input.readOnly=!zdInlineEditEnabled;if(zdInlineEditEnabled){input.value=row.addr;input.focus();input.select();}else input.value=row.addr;}
+ zdRenderInlineEditor();
+ if(zdInlineEditEnabled)showToast('선택한 주소만 수정할 수 있습니다. 입력 후 저장을 눌러 주세요.');
+}
+function zdInlineEnableMapPick(){if(!zdInlineRequireSelection())return;zdInlineMapPickMode=true;zdInlineEditEnabled=false;zdRenderInlineEditor();showToast('지도 위치 선택 모드입니다. 지도에서 원하는 위치를 한 번 클릭하세요.');}
+async function zdInlineSave(){
+ var row=zdInlineRequireSelection();if(!row)return;
+ var input=document.getElementById('zdInlineAddressInput'),after=document.getElementById('zdInlineRequestedAfter');
+ var nextAddr=String(input&&input.value||row.addr||'').trim();
+ if(zdInlineEditEnabled&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
+ if(zdInlineEditEnabled)row.house.addr=nextAddr;
+ var newAfter=String(after&&after.value||'').trim();
+ showLoader();
+ try{
+  await db.collection('areas').doc(String(document.getElementById('zdAreaSelect').value)).update({blocks:zdDashboardBlocks});
+  var ai=areas.findIndex(function(a){return String(a.id)===String(document.getElementById('zdAreaSelect').value);});if(ai>=0)areas[ai].blocks=zdDashboardBlocks;
+  if(zdActiveRequest){await db.collection('fixRequests').doc(zdActiveRequest.docId).update({newAddr:newAfter,lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'홈 화면에서 주소/지도 편집 저장'});zdActiveRequest.data.newAddr=newAfter;}
+  zdDashboardRows.forEach(function(r){r.addr=String(r.house.addr||r.house.num||'');r.lat=Number(r.house.lat);r.lng=Number(r.house.lng);});
+  zdInlineEditEnabled=false;zdInlineMapPickMode=false;zdRenderList();zdRunAudit();zdCreateMap();zdRenderInlineEditor();showToast('주소·지도 수정 내용을 저장했습니다.');
+ }catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}
+ hideLoader();
+}
+async function zdInlineDeleteSelected(){
+ var row=zdInlineRequireSelection();if(!row)return;
+ if(!confirm('선택한 '+row.number+'번 주소를 삭제할까요?'))return;
+ var houses=zdDashboardBlocks[row.bi]&&zdDashboardBlocks[row.bi].subTopics[row.si]&&zdDashboardBlocks[row.bi].subTopics[row.bi===undefined?row.si:row.si].houses;
+ if(!houses||!houses[row.hi]){showToast('주소 위치를 찾지 못했습니다.');return;}
+ houses.splice(row.hi,1);zdSelectedHouse=null;showLoader();
+ try{
+  await db.collection('areas').doc(String(document.getElementById('zdAreaSelect').value)).update({blocks:zdDashboardBlocks});
+  var ai=areas.findIndex(function(a){return String(a.id)===String(document.getElementById('zdAreaSelect').value);});if(ai>=0)areas[ai].blocks=zdDashboardBlocks;
+  zdDashboardRows=[];zdDashboardBlocks.forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){zdDashboardRows.push({bi:bi,si:si,hi:hi,house:h,road:String(sub.name||''),addr:String(h.addr||h.num||''),lat:Number(h.lat),lng:Number(h.lng),number:zdDashboardRows.length+1});});});});
+  zdInlineEditEnabled=false;zdRenderList();zdRunAudit();zdCreateMap();zdRenderInlineEditor();showToast('선택한 주소를 삭제했습니다.');
+ }catch(e){showToast('삭제 저장 실패: '+(e&&e.message?e.message:e));}
+ hideLoader();
+}
+async function zdInlineCompleteRequest(){
+ if(!zdActiveRequest){showToast('먼저 홈 화면에서 수정 요청을 선택해 주세요.');return;}
+ if(!confirm('선택한 수정 요청을 완료 처리할까요?'))return;
+ showLoader();
+ try{
+  var after=document.getElementById('zdInlineRequestedAfter');
+  await db.collection('fixRequests').doc(zdActiveRequest.docId).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolvedAddr:String(after&&after.value||'').trim(),newAddr:String(after&&after.value||'').trim()});
+  showToast('수정 요청을 완료 처리했습니다.');zdActiveRequest=null;zdInlineEditEnabled=false;zdInlineMapPickMode=false;zdLoadRequests();zdRenderInlineEditor();
+ }catch(e){showToast('완료 처리 실패: '+(e&&e.message?e.message:e));}
+ hideLoader();
+}
+function zdInlineClearRequest(){
+ zdActiveRequest=null;zdInlineEditEnabled=false;zdInlineMapPickMode=false;zdSelectedHouse=null;
+ var after=document.getElementById('zdInlineRequestedAfter');if(after)after.value='';
+ zdRenderList();zdRenderInlineEditor();
 }
 function zdRunAudit(){
  var count=document.getElementById('zdAuditCount'),details=document.getElementById('zdAuditDetails');
@@ -4331,6 +4435,14 @@ function zdCreateMap(){
   if(valid.length)center=new kakao.maps.LatLng(valid[0].lat,valid[0].lng);
  }
  zdMap=new kakao.maps.Map(el,{center:center,level:zdMapMode==='overview'?7:4});
+ kakao.maps.event.addListener(zdMap,'click',function(e){
+  if(!zdInlineMapPickMode)return;
+  var row=zdInlineRequireSelection();if(!row){zdInlineMapPickMode=false;zdRenderInlineEditor();return;}
+  var p=e.latLng;row.house.lat=p.getLat();row.house.lng=p.getLng();row.lat=p.getLat();row.lng=p.getLng();
+  row.house._fixManualMapMove=true;zdInlineMapPickMode=false;
+  zdDashboardRows.forEach(function(r){if(r.bi===row.bi&&r.si===row.si&&r.hi===row.hi){r.lat=row.house.lat;r.lng=row.house.lng;}});
+  zdRenderList();zdRenderInlineEditor();zdCreateMap();showToast('선택한 주소의 지도 위치를 바꿨습니다. 저장을 눌러 반영하세요.');
+ });
  if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)zdMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
  else if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.SKYVIEW)zdMap.setMapTypeId(kakao.maps.MapTypeId.SKYVIEW);
  if(zdMapMode==='overview'){
@@ -4353,27 +4465,22 @@ function zdCreateMap(){
  setTimeout(function(){if(zdMap)zdMap.relayout();},100);
 }
 
-async function zdOpenRequest(docId){
- // 홈 화면의 요청 카드도 구역관리와 수정요청 탭에서 사용하는 동일한 카드 편집기를 연다.
- await zdOpenRequestCardEditor(docId);
-}
+async function zdOpenRequest(docId){await zdOpenRequestCardEditor(docId);}
 async function zdOpenRequestCardEditor(docId){
-  try{
-   var snap=await db.collection('fixRequests').doc(String(docId)).get();
-   if(!snap.exists){showToast('수정요청을 찾을 수 없습니다.');await zdLoadRequests();return;}
-   var req=snap.data()||{};
-   if(req.status && req.status!=='미처리'){showToast('미처리 요청만 바로 수정할 수 있습니다.');return;}
-   var areaId=String(req.areaId||'');
-   if(!areaId){showToast('요청에 구역 번호가 없습니다.');return;}
-   var areaSnap=await db.collection('areas').doc(areaId).get();
-   if(!areaSnap.exists){showToast('구역 카드를 찾을 수 없습니다.');return;}
-   var freshArea=Object.assign({id:areaId,docId:areaSnap.id},areaSnap.data());
-   var areaIndex=areas.findIndex(function(a){return String(a.id)===areaId;});
-   if(areaIndex>=0)areas[areaIndex]=freshArea;else areas.push(freshArea);
-   closeFixRequestEditor();
-   closeFixRequestFullCard();
-   openEditCard(areaId,String(req.addr||req.address||'').trim(),String(docId));
-  }catch(e){showToast('요청 편집기를 열지 못했습니다: '+(e&&e.message?e.message:e));}
+ try{
+  var snap=await db.collection('fixRequests').doc(String(docId)).get();
+  if(!snap.exists){showToast('수정요청을 찾을 수 없습니다.');await zdLoadRequests();return;}
+  var req=Object.assign({docId:String(docId)},snap.data()||{});
+  if(req.status==='완료'||req.status==='처리완료'){showToast('이미 완료된 요청입니다.');return;}
+  var areaId=String(req.areaId||'');
+  if(!areaId){showToast('요청에 구역 번호가 없습니다.');return;}
+  var sel=document.getElementById('zdAreaSelect');if(sel)sel.value=areaId;
+  var after=document.getElementById('zdInlineRequestedAfter');if(after)after.value=String(req.newAddr||'');
+  await zdLoadArea(areaId,req);
+  var panel=document.getElementById('zdInlineAddressEditor');if(panel)panel.style.display='block';
+  var mapPanel=document.querySelector('.zd-map-panel');if(mapPanel)mapPanel.scrollIntoView({behavior:'smooth',block:'start'});
+  showToast(String(req.areaName||areaId+'번 구역')+' 수정 요청을 홈 화면에서 열었습니다.');
+ }catch(e){showToast('요청을 불러오지 못했습니다: '+(e&&e.message?e.message:e));}
 }
 function zdCloseInlineRequest(){
  var box=document.getElementById('zdInlineRequestCard');if(box){box.style.display='none';box.innerHTML='';}
