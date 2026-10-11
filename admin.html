@@ -1825,12 +1825,17 @@ function renderFixFullCardEditor() {
 }
 function moveFixFullCardItem(type,bi,si,hi,dir) {
   syncFixFullCardInputs();
+  function getHouse(loc){var b=loc&&fixFullCardBlocks[loc.bi],st=b&&b.subTopics&&b.subTopics[loc.si],hs=st&&st.houses;return hs&&hs[loc.hi]||null;}
+  var selectedHouse=getHouse(fixRequestSelectedHouse),requestedHouse=getHouse(activeFixHouseLocation);
   var arr,index,delta;
   if(type==='block'){arr=fixFullCardBlocks;index=bi;delta=si;}
   else if(type==='sub'){arr=fixFullCardBlocks[bi].subTopics;index=si;delta=hi;}
   else {arr=fixFullCardBlocks[bi].subTopics[si].houses;index=hi;delta=dir;}
   var next=index+delta;if(!arr||next<0||next>=arr.length)return;
   var tmp=arr[index];arr[index]=arr[next];arr[next]=tmp;
+  function findHouse(house){if(!house)return null;for(var b=0;b<fixFullCardBlocks.length;b++)for(var st=0;st<(fixFullCardBlocks[b].subTopics||[]).length;st++)for(var h=0;h<(fixFullCardBlocks[b].subTopics[st].houses||[]).length;h++)if(fixFullCardBlocks[b].subTopics[st].houses[h]===house)return {bi:b,si:st,hi:h};return null;}
+  if(selectedHouse)fixRequestSelectedHouse=findHouse(selectedHouse);
+  if(requestedHouse)activeFixHouseLocation=findHouse(requestedHouse);
   if(type==='block'){
     arr.forEach(function(blk,i){var name=String(blk.name||'').trim();if(!name||/^\d+\s*블럭$/.test(name))blk.name=(i+1)+'블럭';});
   }
