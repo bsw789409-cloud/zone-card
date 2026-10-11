@@ -1896,7 +1896,8 @@ async function saveFixFullCardEditor() {
       if(addressChangesWithoutGeocoder.length)throw new Error('지도 주소 검색 기능을 사용할 수 없어 저장을 중단했습니다. 지도 서비스가 준비된 뒤 다시 시도해 주세요.');
     }
     (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){delete h._fixManualMapMove;});});});
-    await ref.update({blocks:fixFullCardBlocks});
+    // 카드 내용과 수정요청 이력을 한 번에 저장해, 한쪽만 저장되는 부분 성공을 방지한다.
+    // 변경 개수는 아래에서 계산한 뒤 두 문서를 같은 batch로 커밋한다.
     // 요청 문서에도 마지막 수정 기록을 남겨 재진입 시 변경 이력을 확인할 수 있게 한다.
     // 변경 개수는 배열 위치가 아니라 주소 항목 ID를 우선 비교한다.
     // 순서만 바뀐 경우에는 주소 전체가 변경된 것으로 잘못 집계하지 않는다.
@@ -1906,7 +1907,10 @@ async function saveFixFullCardEditor() {
     Object.keys(newAddressCounts).forEach(function(addr){var added=newAddressCounts[addr],available=oldAddressCounts[addr]||0;changedAddressCount+=Math.max(0,added-available);});
     // 삭제된 항목도 변경된 주소 항목으로 집계한다.
     var oldTotal=0,newTotal=0;(fixFullCardOriginalBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){oldTotal+=(st.houses||[]).length;});});(fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){newTotal+=(st.houses||[]).length;});});changedAddressCount+=Math.max(0,oldTotal-newTotal);
-    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'주소/지도/블럭 편집 저장',lastEditAddressCount:changedAddressCount});
+    var batch=db.batch(),requestRef=db.collection('fixRequests').doc(String(activeFixRequest.docId));
+    batch.update(ref,{blocks:fixFullCardBlocks});
+    batch.update(requestRef,{lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'주소/지도/블럭 편집 저장',lastEditAddressCount:changedAddressCount});
+    await batch.commit();
     if(activeFixRequest&&activeFixRequest.data){activeFixRequest.data.lastEditSummary='주소/지도/블럭 편집 저장';activeFixRequest.data.lastEditAddressCount=changedAddressCount;}
     var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
     fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(fixFullCardBlocks));
