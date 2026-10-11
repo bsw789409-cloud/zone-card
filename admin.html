@@ -227,6 +227,23 @@ button:active{transform:translateY(1px)}
 .area-map-edit-toggle{background:#7c3aed!important;color:#fff!important}
 .area-map-edit-toggle.active{background:#b45309!important}
 
+
+/* Request editor visual refresh: align the existing request editor with the approved layout. */
+#editCardSheet.request-fullscreen.open{background:#f4f7fb!important;color:#19324c!important;padding:18px 22px 16px!important;display:flex!important;flex-direction:column!important}
+#editCardSheet.request-fullscreen.open>.sheet-handle{display:none!important}
+#editCardSheet.request-fullscreen.open>div:first-of-type{padding:4px 0 14px!important;border-bottom:1px solid #dce6f2!important;margin-bottom:14px!important;flex-shrink:0!important}
+#editCardSheet.request-fullscreen.open .sheet-title{font-size:23px!important;font-weight:850!important;color:#19324c!important}
+#editCardSheet.request-fullscreen.open #editCardBody{display:block!important;min-height:0!important;overflow:auto!important;padding:0 2px 18px!important}
+#editCardSheet.request-fullscreen.open #editCardBody>div:first-child{border:1px solid #f5b7c1!important;border-radius:12px!important;background:#fff7f8!important;color:#19324c!important;box-shadow:none!important;padding:16px!important;margin-bottom:14px!important}
+#editCardSheet.request-fullscreen.open #editCardBody>div:not(:first-child){border-radius:12px!important}
+#editCardSheet.request-fullscreen.open #editCardBody input{border:1px solid #d7e2ef!important;border-radius:8px!important;min-height:38px!important}
+#editCardSheet.request-fullscreen.open #editCardBody button{border-radius:8px!important}
+#editCardSheet.request-fullscreen.open .edit-card-actions{padding-top:12px!important;border-top:1px solid #dce6f2!important;background:#f4f7fb!important}
+#editCardSheet.request-fullscreen.open .edit-card-actions .btn-purple{background:#2479ed!important;border-color:#2479ed!important}
+#editCardSheet.request-fullscreen.open .edit-card-actions .btn-outline{background:#fff!important;border-color:#d7e2ef!important}
+@media(min-width:900px){#editCardSheet.request-fullscreen.open{padding:18px 28px 16px!important}#editCardSheet.request-fullscreen.open #editCardBody{max-width:1480px;width:100%;margin:0 auto}#editCardSheet.request-fullscreen.open #editCardBody>div:not(:first-child){max-width:100%;margin-left:auto;margin-right:auto}}
+@media(max-width:700px){#editCardSheet.request-fullscreen.open{padding:12px 10px 12px!important}#editCardSheet.request-fullscreen.open .sheet-title{font-size:18px!important}#editCardSheet.request-fullscreen.open #editCardBody input{font-size:13px!important}}
+
 /* Map-first integrated zone dashboard */
 .zone-dashboard{max-width:1600px;margin:0 auto;color:#182b40}
 .zd-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:4px 0 16px}
