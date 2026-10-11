@@ -340,6 +340,12 @@ button:active{transform:translateY(1px)}
 #fixFullCardOverlay>div:first-child{width:100%!important;max-width:none!important;height:96vh!important;max-height:96vh!important;max-height:100%!important;box-sizing:border-box!important;overflow:auto!important;border-radius:0!important;padding:0 24px 24px!important;background:#f3f6fb!important}
 #fixFullCardOverlay>div:first-child>div:first-child{position:sticky!important;top:0!important;background:#f3f6fb!important;padding:18px 0!important;border-bottom:1px solid #dce6f0!important}
 #fixFullCardOverlay>div:first-child>div:first-child>div:first-child>div:first-child{font-size:24px!important;color:#193b5d!important}
+/* Restore the original wide two-column mockup: editable address/map on the left, request handling on the right. */
+#fixFullCardContent{grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr)!important;align-items:start!important;gap:16px!important}
+#fixFullCardContent>div:first-child{min-width:0!important}
+#fixFullCardContent>aside{min-width:0!important;position:sticky!important;top:70px!important}
+#fixFullCardContent>aside>section{margin:0 0 12px!important;border-radius:14px!important}
+@media(max-width:760px){#fixFullCardContent{grid-template-columns:minmax(0,1fr)!important}#fixFullCardContent>aside{position:static!important;top:auto!important}}
 #fixFullCardContent{max-width:1240px!important;margin:18px auto!important}
 @media(max-width:680px){
  #fixRequestOverlay>div:first-child>div:first-child{padding:16px!important}
@@ -1927,8 +1933,21 @@ function renderFixFullCardEditor() {
   mainColumn.appendChild(notice);
 
 
-  sideColumn.style.display='none';
+  sideColumn.style.display='flex';
+  sideColumn.style.cssText='min-width:0;position:sticky;top:70px;display:flex;flex-direction:column;gap:12px';
+  var requestInfoCard=document.createElement('section');
+  requestInfoCard.style.cssText='background:#fff;border:1px solid #dce6f0;border-radius:14px;padding:16px;box-shadow:0 4px 14px rgba(24,52,82,.05)';
+  requestInfoCard.innerHTML='<div style="font-size:16px;font-weight:900;color:#1e3d5e;margin-bottom:12px">③ 요청 정보</div><div style="font-size:12px;color:#718198;margin-bottom:5px">요청 주소</div><div style="font-weight:850;overflow-wrap:anywhere;margin-bottom:12px">'+escHtml(String(reqData.addr||requestedOldAddr||'주소 미지정'))+'</div><div style="font-size:12px;color:#718198;margin-bottom:5px">요청자</div><div style="margin-bottom:12px">'+escHtml(String(reqData.requesterName||reqData.userName||reqData.requester||'정보 없음'))+'</div><div style="font-size:12px;color:#718198;margin-bottom:5px">요청 사유</div><div style="white-space:pre-wrap;line-height:1.65;color:#334e68">'+escHtml(requestDescription)+'</div><div style="border-top:1px solid #e7edf4;margin-top:12px;padding-top:10px;font-size:12px;color:#718198">상태: '+escHtml(String(reqData.status||'미처리'))+'</div>';
+  sideColumn.appendChild(requestInfoCard);
+  var processingCard=document.createElement('section');
+  processingCard.style.cssText='background:#fff;border:1px solid #cfe0ef;border-radius:14px;padding:16px;box-shadow:0 4px 14px rgba(24,52,82,.05)';
+  processingCard.innerHTML='<div style="font-size:16px;font-weight:900;color:#1e3d5e;margin-bottom:10px">④ 수정 요청 처리</div><div style="padding:10px;border-radius:9px;background:#f0f6fc;color:#526b85;font-size:12px;line-height:1.6;margin-bottom:12px">주소와 지도 위치를 확인하고 수정 내용을 저장하세요. 저장과 요청 완료는 별도로 진행됩니다.</div><label for="fixFullCardResolutionMemo" style="display:block;font-size:12px;font-weight:800;color:#59718a;margin-bottom:6px">처리 메모 (선택)</label><textarea id="fixFullCardResolutionMemo" rows="4" placeholder="처리 내용이나 특이사항을 입력하세요." style="'+inp+';resize:vertical;min-height:100px"></textarea><button onclick="saveFixFullCardEditor()" style="width:100%;padding:12px;margin-top:12px;border:1px solid #2563eb;border-radius:9px;background:white;color:#2563eb;font-weight:900">✓ 수정 내용 저장</button><button onclick="completeFixRequestFromCard()" style="width:100%;padding:12px;margin-top:8px;border:0;border-radius:9px;background:#1672e8;color:white;font-weight:900">✓ 요청 처리 완료</button>';
+  sideColumn.appendChild(processingCard);
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
+  var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
+  var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
+  var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도에서 위치 지정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
+  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:360px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);mainColumn.appendChild(mapWrap);
   var addressListHeading=document.createElement('section');
   addressListHeading.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;margin:18px 0 8px;border-radius:14px;background:white;border:1px solid #cbd5e1;box-shadow:0 4px 14px rgba(15,45,75,.04)';
   addressListHeading.innerHTML='<div><div style="font-size:18px;font-weight:900;color:#173b5b">② 주소 목록</div><div style="font-size:12px;color:#64748b;margin-top:4px">주소를 바로 수정하고, 순서를 바꾸거나 지도 위치를 선택할 수 있어요.</div></div><div style="white-space:nowrap;font-size:12px;font-weight:900;color:#1d5d88;background:#eff6ff;border-radius:999px;padding:7px 10px">'+totalHouses+'개</div>';
@@ -1967,13 +1986,10 @@ function renderFixFullCardEditor() {
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);mainColumn.appendChild(card);
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};mainColumn.appendChild(add);
-    var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
+  var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
   var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
-  var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도 위치 수정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
+  var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도에서 위치 지정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
   var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:360px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);mainColumn.appendChild(mapWrap);
-  var bottomActions=document.createElement('section');bottomActions.style.cssText='display:flex;gap:10px;flex-wrap:wrap;padding:14px;border:1px solid #cbd5e1;border-radius:14px;background:white;margin-top:12px;box-shadow:0 4px 14px rgba(15,45,75,.05)';
-  bottomActions.innerHTML='<button onclick="saveFixFullCardEditor()" style="flex:1;min-width:180px;padding:13px;border:1px solid #2563eb;border-radius:10px;background:white;color:#2563eb;font-weight:900">✓ 수정 내용 저장</button><button onclick="completeFixRequestFromCard()" style="flex:1;min-width:180px;padding:13px;border:0;border-radius:10px;background:#1672e8;color:white;font-weight:900">✓ 요청 처리 완료</button>';
-  mainColumn.appendChild(bottomActions);
   content.appendChild(mainColumn);
   initFixRequestMap();
 }
