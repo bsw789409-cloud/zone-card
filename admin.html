@@ -1883,6 +1883,17 @@ async function saveFixFullCardEditor() {
         }
       });});});
       await Promise.all(jobs);
+      if(failed.length){
+        // 주소 검색이 실패한 상태로 저장하면 주소와 핀 위치가 서로 달라질 수 있으므로 저장을 중단한다.
+        throw new Error('다음 주소의 지도 위치를 찾지 못했습니다: '+failed.join(', ')+' . 주소를 확인하거나 지도에서 해당 핀 위치를 직접 지정한 뒤 다시 저장해 주세요.');
+      }
+    } else {
+      var addressChangesWithoutGeocoder=[];
+      (fixFullCardBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){
+        var addr=String(h.addr||h.num||'').trim(),id=String(h.houseId||''),oldItem=(id&&oldById[id])||oldByPath[bi+':'+si+':'+hi];
+        if(addr&&(!oldItem||oldItem.addr!==addr))addressChangesWithoutGeocoder.push(addr);
+      });});});
+      if(addressChangesWithoutGeocoder.length)throw new Error('지도 주소 검색 기능을 사용할 수 없어 저장을 중단했습니다. 지도 서비스가 준비된 뒤 다시 시도해 주세요.');
     }
     (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){delete h._fixManualMapMove;});});});
     await ref.update({blocks:fixFullCardBlocks});
