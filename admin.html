@@ -1838,7 +1838,7 @@ function removeFixFullCardItem(type,bi,si,hi) {
   if(type==='block')fixFullCardBlocks.splice(bi,1);else if(type==='sub')fixFullCardBlocks[bi].subTopics.splice(si,1);else fixFullCardBlocks[bi].subTopics[si].houses.splice(hi,1);
   renderFixFullCardEditor();
 }
-async function saveFixFullCardEditor() {
+async async function saveFixFullCardEditor() {
   if(!fixFullCardAreaId)return;syncFixFullCardInputs();
   if(!confirm('이 구역 카드의 전체 수정 내용을 저장할까요? 삭제하거나 순서를 바꾼 항목도 반영됩니다. 주소가 바뀐 항목은 지도 위치도 다시 검색합니다.'))return;
   showLoader();
@@ -1864,7 +1864,9 @@ async function saveFixFullCardEditor() {
         }
         if(!oldItem&&oldByPath[path]&&oldByPath[path].addr===addr)oldItem=oldByPath[path];
         var hadCoords=h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng));
-        var manuallyMoved=!!h._fixManualMapMove||!!(oldItem&&hadCoords&&oldItem.lat!=null&&oldItem.lng!=null&&(Math.abs(Number(h.lat)-Number(oldItem.lat))>0.000001||Math.abs(Number(h.lng)-Number(oldItem.lng))>0.000001));
+        var manuallyMoved=!!h._fixManualMapMove||!!(oldItem&&hadCoords&&oldItem.addr===addr&&oldItem.lat!=null&&oldItem.lng!=null&&(Math.abs(Number(h.lat)-Number(oldItem.lat))>0.000001||Math.abs(Number(h.lng)-Number(oldItem.lng))>0.000001));
+        // 주소가 바뀌면 이전에 핀을 수동 이동했더라도 새 주소 기준으로 좌표를 다시 찾는다.
+        // 주소가 그대로이고 사용자가 핀을 옮겼다면 그 좌표를 보존한다.
         var needsLookup=!!addr&&(!oldItem||oldItem.addr!==addr||!hadCoords);
         if(needsLookup&&!manuallyMoved){
           changed++;
@@ -1885,8 +1887,14 @@ async function saveFixFullCardEditor() {
     (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){delete h._fixManualMapMove;});});});
     await ref.update({blocks:fixFullCardBlocks});
     // 요청 문서에도 마지막 수정 기록을 남겨 재진입 시 변경 이력을 확인할 수 있게 한다.
-    var changedAddressCount=0;
-    (fixFullCardBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){var prior=(fixFullCardOriginalBlocks[bi]&&fixFullCardOriginalBlocks[bi].subTopics&&fixFullCardOriginalBlocks[bi].subTopics[si]&&fixFullCardOriginalBlocks[bi].subTopics[si].houses||[])[hi];if(!prior||String(prior.addr||prior.num||'').trim()!==String(h.addr||h.num||'').trim()||Number(prior.lat)!==Number(h.lat)||Number(prior.lng)!==Number(h.lng))changedAddressCount++;});});});
+    // 변경 개수는 배열 위치가 아니라 주소 항목 ID를 우선 비교한다.
+    // 순서만 바뀐 경우에는 주소 전체가 변경된 것으로 잘못 집계하지 않는다.
+    var changedAddressCount=0,oldByHouseId={},oldAddressCounts={},newAddressCounts={};
+    (fixFullCardOriginalBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){var id=String(h.houseId||'');if(id)oldByHouseId[id]={addr:String(h.addr||h.num||'').trim(),lat:h.lat,lng:h.lng};var key=String(h.addr||h.num||'').trim();oldAddressCounts[key]=(oldAddressCounts[key]||0)+1;});});});
+    (fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){var id=String(h.houseId||''),addr=String(h.addr||h.num||'').trim(),prior=id&&oldByHouseId[id];if(prior){if(prior.addr!==addr||Number(prior.lat)!==Number(h.lat)||Number(prior.lng)!==Number(h.lng))changedAddressCount++;}else newAddressCounts[addr]=(newAddressCounts[addr]||0)+1;});});});
+    Object.keys(newAddressCounts).forEach(function(addr){var added=newAddressCounts[addr],available=oldAddressCounts[addr]||0;changedAddressCount+=Math.max(0,added-available);});
+    // 삭제된 항목도 변경된 주소 항목으로 집계한다.
+    var oldTotal=0,newTotal=0;(fixFullCardOriginalBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){oldTotal+=(st.houses||[]).length;});});(fixFullCardBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){newTotal+=(st.houses||[]).length;});});changedAddressCount+=Math.max(0,oldTotal-newTotal);
     await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'주소/지도/블럭 편집 저장',lastEditAddressCount:changedAddressCount});
     if(activeFixRequest&&activeFixRequest.data){activeFixRequest.data.lastEditSummary='주소/지도/블럭 편집 저장';activeFixRequest.data.lastEditAddressCount=changedAddressCount;}
     var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
