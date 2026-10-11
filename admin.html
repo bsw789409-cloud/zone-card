@@ -352,6 +352,50 @@ button:active{transform:translateY(1px)}
 }
 
 
+
+/* DESIGN PASS 2 — clear visual hierarchy for the real fix-request editor */
+#fixFullCardOverlay{background:rgba(15,23,42,.68)!important;backdrop-filter:blur(5px)!important}
+#fixFullCardOverlay>div:first-child{max-width:1500px!important;width:min(1500px,calc(100% - 28px))!important;margin:18px auto!important;border:1px solid #dbe5f0!important;border-radius:20px!important;box-shadow:0 24px 80px rgba(2,6,23,.28)!important;overflow:visible!important}
+#fixFullCardOverlay>div:first-child>div:first-child{position:sticky!important;top:0!important;z-index:20!important;background:linear-gradient(120deg,#12375a,#1d5d88)!important;color:#fff!important;border-radius:18px 18px 0 0!important;padding:18px 22px!important;box-shadow:0 5px 18px rgba(15,45,75,.18)!important}
+#fixFullCardOverlay #fixFullCardTitle{color:#fff!important;font-size:clamp(18px,2vw,25px)!important;letter-spacing:-.04em!important}
+#fixFullCardOverlay>div:first-child>div:first-child button{border-radius:10px!important;font-weight:800!important;min-height:38px!important}
+#fixFullCardContent{padding:16px!important;background:#f1f5f9!important;gap:18px!important;align-items:start!important}
+#fixFullCardContent>div:first-child{display:flex!important;flex-direction:column!important;gap:14px!important}
+#fixFullCardContent>div:first-child>section{margin:0!important;border-radius:16px!important;padding:16px!important;box-shadow:0 5px 18px rgba(15,45,75,.055)!important}
+#fixFullCardContent>div:first-child>section:first-child{border:1px solid #fdba74!important;background:linear-gradient(145deg,#fff7ed,#fff)!important;box-shadow:0 5px 18px rgba(194,65,12,.07)!important}
+#fixFullCardContent>div:first-child>section:first-child>div:first-child{font-size:17px!important;letter-spacing:-.02em!important}
+#fixFullCardContent>div:first-child>section:nth-child(2){border:1px solid #cbdff1!important;background:#eaf3fb!important}
+#fixFullCardContent>div:first-child>section:nth-child(2)>div:first-child{font-size:16px!important;color:#16456d!important}
+#fixFullCardContent>div:first-child>section:nth-child(n+3){border:1px solid #d4e0eb!important;background:#fff!important;position:relative!important;overflow:hidden!important}
+#fixFullCardContent>div:first-child>section:nth-child(n+3):before{content:"";display:block;position:absolute;left:0;top:0;bottom:0;width:5px;background:#3b82b8}
+#fixFullCardContent>div:first-child>section:nth-child(n+3)>div:first-child{padding-bottom:10px!important;border-bottom:1px solid #e6edf4!important;margin-bottom:12px!important}
+#fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)!important;gap:10px!important;padding:12px!important;margin-top:9px!important;border:1px solid #e1e8f0!important;background:#f8fafc!important;transition:border-color .15s,background .15s!important}
+#fixFullCardContent .fix-house-row:focus-within{border-color:#4c91c8!important;background:#eff8ff!important;box-shadow:0 0 0 3px rgba(59,130,184,.12)!important}
+#fixFullCardContent .fix-house-row input,#fixFullCardContent .fix-house-row textarea{border-radius:10px!important;min-height:42px!important;border-color:#cbd5e1!important}
+#fixFullCardContent .fix-house-row input:focus,#fixFullCardContent .fix-house-row textarea:focus{outline:0!important;border-color:#2677b8!important;box-shadow:0 0 0 3px rgba(38,119,184,.13)!important}
+#fixFullCardContent button{cursor:pointer!important;transition:transform .12s,box-shadow .12s,background .12s!important}
+#fixFullCardContent button:hover{box-shadow:0 3px 10px rgba(15,45,75,.12)!important;transform:translateY(-1px)!important}
+#fixFullCardContent aside{gap:14px!important}
+#fixFullCardContent aside>section{border-radius:16px!important;padding:16px!important;box-shadow:0 5px 18px rgba(15,45,75,.07)!important}
+#fixFullCardContent aside>section:nth-child(1){border-top:4px solid #4f83ad!important}
+#fixFullCardContent aside>section:nth-child(2){border:1px solid #a8c9e7!important;background:linear-gradient(160deg,#fff,#f0f7ff)!important}
+#fixFullCardContent aside>section:nth-child(2)>div:first-child{color:#16456d!important}
+#fixFullCardContent aside>section:nth-child(2) button{min-height:42px!important;border-radius:10px!important}
+#fixFullCardContent aside>section:nth-child(2) button:last-child{background:#1d5d88!important}
+#fixFullCardContent aside>section:nth-child(3){background:#f8fafc!important}
+#fixFullCardContent #fixRequestMap{min-height:320px!important;border:1px solid #cbd5e1!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)!important}
+@media(max-width:760px){
+ #fixFullCardOverlay>div:first-child{width:calc(100% - 12px)!important;margin:6px auto!important;border-radius:14px!important}
+ #fixFullCardOverlay>div:first-child>div:first-child{padding:13px!important;border-radius:12px 12px 0 0!important}
+ #fixFullCardContent{padding:9px!important;gap:10px!important}
+ #fixFullCardContent>div:first-child{gap:10px!important}
+ #fixFullCardContent>div:first-child>section,#fixFullCardContent aside>section{padding:11px!important;border-radius:12px!important}
+ #fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr)!important;gap:8px!important;padding:10px!important}
+ #fixFullCardContent .fix-house-row>div:first-child{grid-column:auto!important}
+ #fixFullCardContent #fixRequestMap{height:290px!important;min-height:290px!important}
+ #fixFullCardContent aside{position:static!important}
+}
+
 /* NEXT PASS — make the full-card editor read like editable territory cards, not a raw form. */
 /* 수정요청 전체 카드 편집기: 카드 내용과 처리 패널을 실제 2열 편집 작업공간으로 배치 */
 #fixFullCardContent{display:grid!important;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr)!important;align-items:start!important;gap:16px!important;max-width:1440px!important}
