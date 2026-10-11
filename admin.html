@@ -1907,6 +1907,38 @@ function syncFixFullCardInputs() {
   }
   if(requestedAfter&&requestTarget){requestTarget.addr=requestedAfter.value;if(Object.prototype.hasOwnProperty.call(requestTarget,'num'))requestTarget.num=requestedAfter.value;requestTarget._fixManualMapMove=false;}
 }
+function fixFullCardToolbarAddAddress(){
+  syncFixFullCardInputs();
+  if(!Array.isArray(fixFullCardBlocks))fixFullCardBlocks=[];
+  if(!fixFullCardBlocks.length)fixFullCardBlocks.push({name:'',subTopics:[]});
+  var block=fixFullCardBlocks[0];if(!Array.isArray(block.subTopics))block.subTopics=[];
+  if(!block.subTopics.length)block.subTopics.push({name:'주소 목록',houses:[]});
+  var sub=block.subTopics[0];if(!Array.isArray(sub.houses))sub.houses=[];
+  sub.houses.push({houseId:'fix_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10),addr:'',note:''});
+  window.fixAddressBulkEdit=true;renderFixFullCardEditor();
+}
+function fixFullCardToolbarAddressChange(){
+  syncFixFullCardInputs();
+  window.fixAddressBulkEdit=!window.fixAddressBulkEdit;
+  renderFixFullCardEditor();
+  showToast(window.fixAddressBulkEdit?'주소 변경 모드입니다. 주소를 수정한 뒤 저장해 주세요.':'주소 변경 모드를 종료했습니다.');
+}
+function fixFullCardToolbarSwap(){
+  syncFixFullCardInputs();
+  window.fixAddressSwapMode=!window.fixAddressSwapMode;window.fixAddressSwapFirst=null;
+  renderFixFullCardEditor();
+  showToast(window.fixAddressSwapMode?'교환할 두 주소의 번호 칸을 차례로 눌러 주세요.':'번호 교환을 취소했습니다.');
+}
+function fixFullCardSwapHouse(bi,si,hi){
+  if(!window.fixAddressSwapMode)return;
+  var here={bi:bi,si:si,hi:hi},first=window.fixAddressSwapFirst;
+  if(!first){window.fixAddressSwapFirst=here;showToast('첫 번째 주소를 선택했습니다. 교환할 두 번째 주소를 선택해 주세요.');return;}
+  if(first.bi===bi&&first.si===si&&first.hi===hi){window.fixAddressSwapFirst=null;showToast('선택을 취소했습니다.');return;}
+  var a=fixFullCardBlocks[first.bi]&&fixFullCardBlocks[first.bi].subTopics[first.si]&&fixFullCardBlocks[first.bi].subTopics[first.si].houses[first.hi];
+  var b=fixFullCardBlocks[bi]&&fixFullCardBlocks[bi].subTopics[si]&&fixFullCardBlocks[bi].subTopics[si].houses[hi];
+  if(a&&b){['addr','num','lat','lng'].forEach(function(k){var tmp=a[k];a[k]=b[k];b[k]=tmp;});a._fixManualMapMove=true;b._fixManualMapMove=true;}
+  window.fixAddressSwapFirst=null;window.fixAddressSwapMode=false;renderFixFullCardEditor();showToast('두 주소의 번호와 지도 위치를 교환했습니다. 저장을 눌러 반영해 주세요.');
+}
 function renderFixFullCardEditor() {
   var inlineContent=document.getElementById('zdInlineFullCardContent');var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
@@ -1947,21 +1979,21 @@ function renderFixFullCardEditor() {
   var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
   var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
   var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도에서 위치 지정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
-  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:360px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);mainColumn.appendChild(mapWrap);
+  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:360px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);
   var addressListHeading=document.createElement('section');
-  addressListHeading.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;margin:18px 0 8px;border-radius:14px;background:white;border:1px solid #cbd5e1;box-shadow:0 4px 14px rgba(15,45,75,.04)';
-  addressListHeading.innerHTML='<div><div style="font-size:18px;font-weight:900;color:#173b5b">② 주소 목록</div><div style="font-size:12px;color:#64748b;margin-top:4px">주소를 바로 수정하고, 순서를 바꾸거나 지도 위치를 선택할 수 있어요.</div></div><div style="white-space:nowrap;font-size:12px;font-weight:900;color:#1d5d88;background:#eff6ff;border-radius:999px;padding:7px 10px">'+totalHouses+'개</div>';
+  addressListHeading.style.cssText='padding:12px;margin:14px 0 8px;border-radius:12px;background:white;border:1px solid #cbd5e1;box-shadow:0 2px 8px rgba(15,45,75,.04)';
+  addressListHeading.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px"><div style="font-size:17px;font-weight:900;color:#173b5b">② 주소 목록</div><div style="white-space:nowrap;font-size:12px;font-weight:900;color:#1d5d88;background:#eff6ff;border-radius:999px;padding:6px 9px">'+totalHouses+'개</div></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button type="button" style="'+btn+';padding:8px 10px;background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8" onclick="fixFullCardToolbarAddAddress()">＋ 주소추가</button><button type="button" style="'+btn+';padding:8px 10px;background:'+(window.fixAddressBulkEdit?'#dbeafe':'white')+';border-color:#bfdbfe;color:#1d4ed8" onclick="fixFullCardToolbarAddressChange()">'+(window.fixAddressBulkEdit?'주소변경 완료':'주소변경')+'</button><button type="button" style="'+btn+';padding:8px 10px;background:'+(window.fixAddressSwapMode?'#ffedd5':'white')+';border-color:#fed7aa;color:#9a3412" onclick="fixFullCardToolbarSwap()">'+(window.fixAddressSwapMode?'번호 교환 취소':'번호 교환')+'</button></div><div style="font-size:11px;color:#64748b;margin-top:8px">'+(window.fixAddressSwapMode?'교환할 주소의 번호 칸을 차례로 두 번 눌러 주세요.':(window.fixAddressBulkEdit?'주소를 수정한 뒤 저장 버튼을 눌러 반영하세요.':'각 주소 오른쪽의 관리 → 수정 버튼으로 주소를 편집할 수 있어요.'))+'</div>';
   mainColumn.appendChild(addressListHeading);
   var fixHouseDisplayNumber=0;
   fixFullCardBlocks.forEach(function(blk,bi) {
     if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
-    var card=document.createElement('section');var blockRequested=!!(reqData.type==='parking' && Number(reqData.block)===bi+1);card.style.cssText='background:white;border:'+(blockRequested?'3px solid #f97316':'1px solid #cbd5e1')+';border-radius:12px;padding:12px;margin:10px 0';
+    var card=document.createElement('section');var blockRequested=!!(reqData.type==='parking' && Number(reqData.block)===bi+1);card.style.cssText='background:white;border:'+(blockRequested?'2px solid #f97316':'1px solid #e2e8f0')+';border-radius:10px;padding:8px;margin:7px 0';
     var head=document.createElement('div');head.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px';
     head.innerHTML='<b style="font-size:12px;color:#64748b">블럭 '+(bi+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',-1)">↑ 위로</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'block\','+bi+',1)">↓ 아래로</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'block\','+bi+')">블럭 삭제</button>';card.appendChild(head);
     var bn=document.createElement('input');bn.value=String(blk.name||'');bn.placeholder='블럭 이름';bn.style.cssText=inp+';font-weight:800;margin-bottom:8px';bn.dataset.fixField='blockName';bn.dataset.bi=bi;card.appendChild(bn);
     blk.subTopics.forEach(function(sub,si) {
       if(!Array.isArray(sub.houses))sub.houses=[];
-      var group=document.createElement('div');group.style.cssText='border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin:10px 0;background:#f8fafc';
+      var group=document.createElement('div');group.style.cssText='border:1px solid #edf0f4;border-radius:8px;padding:7px;margin:7px 0;background:#fafbfc';
       var sh=document.createElement('div');sh.style.cssText='display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:9px 10px;background:#f6f0ff;border:1px solid #e9d5ff;border-radius:8px';
       var sn=document.createElement('input');sn.value=String(sub.name||'');sn.placeholder='도로명 또는 그룹 이름';sn.style.cssText=inp+';flex:1;min-width:150px;max-width:360px;font-size:12px;font-weight:800;background:transparent;border-color:#d8b4fe';sn.dataset.fixField='subName';sn.dataset.bi=bi;sn.dataset.si=si;sh.appendChild(sn);
       var groupCount=document.createElement('span');groupCount.style.cssText='font-size:11px;font-weight:800;color:#6d28d9;white-space:nowrap';groupCount.textContent=sub.houses.length+'개';sh.appendChild(groupCount);
@@ -1971,14 +2003,14 @@ function renderFixFullCardEditor() {
       sub.houses.forEach(function(h,hi) {
         fixHouseDisplayNumber++;
         var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);
-        var row=document.createElement('div');row.className='fix-house-row';row.style.cssText='display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 9px;margin:5px 0;border:1px solid '+(houseRequested?'#f97316':'#e5e7eb')+';border-radius:8px;background:'+(houseRequested?'#fff7ed':'#fff')+';box-shadow:'+(houseRequested?'0 0 0 2px rgba(249,115,22,.12)':'none');
-        var numberLabel=document.createElement('div');numberLabel.style.cssText='flex:0 0 30px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:7px;background:'+(houseRequested?'#f97316':'#EEEDFE')+';color:'+(houseRequested?'#fff':'#6d28d9')+';font-size:12px;font-weight:900';numberLabel.textContent=String(fixHouseDisplayNumber)+'.';numberLabel.title=(bi+1)+'블럭 · '+(si+1)+'그룹'+(houseRequested?' · 수정요청 대상':'');row.appendChild(numberLabel);
-        var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='주소 또는 번지 입력';ai.style.cssText=inp+';flex:1 1 180px;min-width:120px;font-weight:700;min-height:36px;font-size:13px;padding:7px 8px';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;ai.addEventListener('input',function(){if(String(ai.value||'').trim()!==String(h.addr||h.num||'').trim())h._fixManualMapMove=false;});row.appendChild(ai);
-        var actions=document.createElement('div');actions.style.cssText='display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-left:auto';
-        var up=document.createElement('button');up.style.cssText=btn;up.textContent='↑';up.title='주소 위로';up.onclick=function(){moveFixFullCardItem('house',bi,si,hi,-1);};actions.appendChild(up);
-        var down=document.createElement('button');down.style.cssText=btn;down.textContent='↓';down.title='주소 아래로';down.onclick=function(){moveFixFullCardItem('house',bi,si,hi,1);};actions.appendChild(down);
+        var row=document.createElement('div');row.className='fix-house-row';row.style.cssText='display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:7px 8px;margin:4px 0;border:1px solid '+(houseRequested?'#f97316':'#e5e7eb')+';border-radius:8px;background:'+(houseRequested?'#fff7ed':'#fff')+';box-shadow:'+(houseRequested?'0 0 0 2px rgba(249,115,22,.12)':'none');
+        var numberLabel=document.createElement('div');numberLabel.style.cssText='flex:0 0 30px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:7px;background:'+(houseRequested?'#f97316':'#EEEDFE')+';color:'+(houseRequested?'#fff':'#6d28d9')+';font-size:12px;font-weight:900';numberLabel.textContent=String(fixHouseDisplayNumber)+'.';numberLabel.title=(bi+1)+'블럭 · '+(si+1)+'그룹'+(houseRequested?' · 수정요청 대상':'');numberLabel.style.cursor=window.fixAddressSwapMode?'pointer':'default';numberLabel.textContent=String(fixHouseDisplayNumber)+'번';numberLabel.onclick=(function(bi2,si2,hi2){return function(){if(window.fixAddressSwapMode)fixFullCardSwapHouse(bi2,si2,hi2);};})(bi,si,hi);row.appendChild(numberLabel);
+        var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='주소 또는 번지 입력';ai.style.cssText=inp+';flex:1 1 180px;min-width:120px;font-weight:700;min-height:36px;font-size:13px;padding:7px 8px';ai.readOnly=!window.fixAddressBulkEdit;ai.style.background=ai.readOnly?'#f8fafc':'#fff';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;ai.addEventListener('input',function(){if(String(ai.value||'').trim()!==String(h.addr||h.num||'').trim())h._fixManualMapMove=false;});row.appendChild(ai);
+        var actions=document.createElement('div');actions.style.cssText='display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-left:auto;padding-left:6px;border-left:1px solid #e2e8f0';
+        var manageLabel=document.createElement('span');manageLabel.textContent='관리';manageLabel.style.cssText='font-size:10px;font-weight:900;color:#64748b;margin-right:2px';actions.appendChild(manageLabel);
+        var edit=document.createElement('button');edit.style.cssText=btn+';color:#1d4ed8;border-color:#bfdbfe';edit.textContent=ai.readOnly?'수정':'수정 중';edit.onclick=function(){ai.readOnly=!ai.readOnly;ai.style.background=ai.readOnly?'#f8fafc':'#fff';edit.textContent=ai.readOnly?'수정':'수정 중';if(!ai.readOnly){ai.focus();ai.select();}};actions.appendChild(edit);
         var del=document.createElement('button');del.style.cssText=btn+';color:#dc2626';del.textContent='삭제';del.onclick=function(){removeFixFullCardItem('house',bi,si,hi);};actions.appendChild(del);
-        var mapBtn=document.createElement('button');mapBtn.textContent='📍 지도';mapBtn.style.cssText=btn+';color:#6d28d9;border-color:#c4b5fd';mapBtn.onclick=(function(bi2,si2,hi2){return function(){selectFixRequestHouseForMap(bi2,si2,hi2);};})(bi,si,hi);actions.appendChild(mapBtn);
+        var mapBtn=document.createElement('button');mapBtn.textContent='지도';mapBtn.style.cssText=btn+';color:#6d28d9;border-color:#c4b5fd';mapBtn.onclick=(function(bi2,si2,hi2){return function(){selectFixRequestHouseForMap(bi2,si2,hi2);};})(bi,si,hi);actions.appendChild(mapBtn);
         row.appendChild(actions);group.appendChild(row);
       });
       var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({houseId:'fix_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10),addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
@@ -1987,7 +2019,11 @@ function renderFixFullCardEditor() {
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};mainColumn.appendChild(add);
 
+  mainColumn.appendChild(mapWrap);
   content.appendChild(mainColumn);
+  content.appendChild(sideColumn);
+  content.style.gridTemplateColumns=fixEditorMobile?'minmax(0,1fr)':'minmax(0,1fr)';
+  sideColumn.style.position='static';
   initFixRequestMap();
 }
 function moveFixFullCardItem(type,bi,si,hi,dir) {
@@ -2120,12 +2156,29 @@ async function completeFixRequestFromCard(){
     showToast('저장하지 않은 수정 내용이 있습니다. 먼저 “수정 내용 저장”을 눌러 주세요.');
     return;
   }
-  if(!confirm('이 수정요청을 처리 완료로 변경할까요? 먼저 수정 내용을 저장했는지 확인해 주세요.'))return;
-  var memoEl=document.getElementById('fixFullCardResolutionMemo'),memo=String(memoEl&&memoEl.value||'').trim();
+  if(!confirm('이 수정요청을 처리 완료로 변경할까요? 완료하면 전도인용·인도자용 카드의 수정요청 표시와 메모도 정리됩니다.'))return;
+  var req=activeFixRequest.data||{},memoEl=document.getElementById('fixFullCardResolutionMemo'),memo=String(memoEl&&memoEl.value||'').trim();
   try{
-    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo,lastResolutionSummary:'요청 처리 완료'});
-    showToast('수정요청을 처리 완료했습니다.');
+    var candidates=[String(req.addr||'').trim(),String(activeFixHouseLocation&&activeFixHouseLocation.oldAddr||'').trim(),String(req.oldAddr||req.beforeAddr||'').trim()].filter(Boolean);
+    candidates=candidates.filter(function(v,i,a){return a.indexOf(v)===i;});
+    var visitDocs={};
+    for(var i=0;i<candidates.length;i++){
+      var vs=await db.collection('visits').where('areaId','==',String(req.areaId||fixFullCardAreaId)).where('addr','==',candidates[i]).get();
+      vs.docs.forEach(function(d){visitDocs[d.id]=d;});
+    }
+    var batch=db.batch();
+    batch.update(db.collection('fixRequests').doc(String(activeFixRequest.docId)),{status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo,lastResolutionSummary:'요청 처리 완료'});
+    Object.keys(visitDocs).forEach(function(id){
+      var d=visitDocs[id],v=d.data()||{},patch={memo:'',updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+      if(v.status==='fix')patch.status='visited';
+      batch.update(d.ref,patch);
+    });
+    await batch.commit();
+    showToast('수정요청을 완료하고 전도인용·인도자용 카드의 요청 표시와 메모를 정리했습니다.');
+    window.fixAddressBulkEdit=false;window.fixAddressSwapMode=false;window.fixAddressSwapFirst=null;
     closeFixRequestFullCard(true);closeFixRequestEditor();await loadFixList();loadHomeStats();
+    if(typeof loadAreaList==='function')loadAreaList();
+    if(typeof zdLoadRequests==='function')zdLoadRequests();
   }catch(e){showToast('처리 실패: '+(e&&e.message?e.message:e));}
 }
 async function openFixRequestFullCard() {
