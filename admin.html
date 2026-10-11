@@ -350,6 +350,33 @@ button:active{transform:translateY(1px)}
  #fixFullCardOverlay>div:first-child{padding:0 12px 16px!important}
 }
 
+
+/* NEXT PASS — make the full-card editor read like editable territory cards, not a raw form. */
+#fixFullCardContent{display:flex!important;flex-direction:column!important;gap:14px!important}
+#fixFullCardContent>section{margin:0!important;border-radius:16px!important;box-shadow:0 5px 18px rgba(24,52,82,.055)!important;padding:16px!important}
+#fixFullCardContent>section:first-child{border:1px solid #d5e3f1!important;background:#fff!important}
+#fixFullCardContent>section:first-child>div:first-child{font-size:16px!important;color:#1e4267!important}
+#fixFullCardContent>section:not(:first-child)>div:first-child{padding-bottom:10px!important;border-bottom:1px solid #e7edf4!important}
+#fixFullCardContent input[data-fix-field],#fixFullCardContent textarea[data-fix-field]{min-height:42px!important;border-radius:9px!important;border-color:#d4dfeb!important}
+#fixFullCardContent input[data-fix-field="addr"]{font-weight:800!important}
+#fixFullCardContent textarea[data-fix-field="note"]{min-height:64px!important}
+#fixFullCardContent [data-fix-field="blockName"]{min-height:44px!important;background:#f8fbff!important}
+#fixFullCardContent [data-fix-field="subName"]{min-height:42px!important;background:#fbfcfe!important}
+#fixFullCardContent button{touch-action:manipulation}
+#fixFullCardContent button:focus-visible,#fixFullCardContent input:focus-visible,#fixFullCardContent textarea:focus-visible{outline:2px solid #3985c6!important;outline-offset:2px!important}
+#fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)!important;align-items:start!important;gap:10px!important;padding:12px!important;margin-top:8px!important}
+#fixFullCardContent .fix-house-row>div:first-child{grid-column:1/-1!important;padding-bottom:2px!important}
+@media(max-width:680px){
+ #fixFullCardOverlay>div:first-child{padding:0 10px 14px!important}
+ #fixFullCardOverlay>div:first-child>div:first-child{gap:8px!important;align-items:flex-start!important}
+ #fixFullCardOverlay>div:first-child>div:first-child>div:last-child{flex-shrink:0!important}
+ #fixFullCardOverlay>div:first-child>div:first-child button{padding:9px 10px!important;font-size:12px!important}
+ #fixFullCardContent>section{padding:11px!important}
+ #fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr)!important;padding:9px!important;gap:7px!important}
+ #fixFullCardContent .fix-house-row>div:first-child{grid-column:auto!important}
+ #fixFullCardContent #fixRequestMap{height:270px!important}
+}
+
 </style>
 </head>
 <body>
@@ -1759,7 +1786,7 @@ function renderFixFullCardEditor() {
       sh.innerHTML='<b style="font-size:12px;color:#475569">도로명/그룹 '+(si+1)+'</b><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',-1)">↑</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'sub\','+bi+','+si+',1)">↓</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'sub\','+bi+','+si+')">그룹 삭제</button>';group.appendChild(sh);
       var sn=document.createElement('input');sn.value=String(sub.name||'');sn.placeholder='도로명 또는 그룹 이름';sn.style.cssText=inp+';font-weight:700;margin-bottom:8px';sn.dataset.fixField='subName';sn.dataset.bi=bi;sn.dataset.si=si;group.appendChild(sn);
       sub.houses.forEach(function(h,hi) {
-        var row=document.createElement('div');var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);var numberLabel=document.createElement('div');numberLabel.style.cssText='grid-column:1/-1;font-size:12px;font-weight:900;color:'+(houseRequested?'#c2410c':'#475569');numberLabel.textContent=(bi+1)+'블럭 · '+(si+1)+'그룹 · '+(hi+1)+'번지'+(houseRequested?' · 🔶 수정요청 대상':'');row.appendChild(numberLabel);row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px;border-top:1px solid #e2e8f0;border-radius:8px;background:'+(houseRequested?'#fff7ed':'transparent')+';outline:'+(houseRequested?'2px solid #f97316':'none');
+        var row=document.createElement('div');var houseRequested=!!(reqLoc&&reqLoc.bi===bi&&reqLoc.si===si&&reqLoc.hi===hi);var numberLabel=document.createElement('div');numberLabel.style.cssText='grid-column:1/-1;font-size:12px;font-weight:900;color:'+(houseRequested?'#c2410c':'#475569');numberLabel.textContent=(bi+1)+'블럭 · '+(si+1)+'그룹 · '+(hi+1)+'번지'+(houseRequested?' · 🔶 수정요청 대상':'');row.appendChild(numberLabel);row.className='fix-house-row';row.style.cssText='display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:7px;padding:8px;border-top:1px solid #e2e8f0;border-radius:8px;background:'+(houseRequested?'#fff7ed':'transparent')+';outline:'+(houseRequested?'2px solid #f97316':'none');
         var ai=document.createElement('input');ai.value=String(h.addr||h.num||'');ai.placeholder='번지/주소';ai.style.cssText=inp+';font-weight:800';ai.dataset.fixField='addr';ai.dataset.bi=bi;ai.dataset.si=si;ai.dataset.hi=hi;
         var ni=document.createElement('textarea');ni.value=String(h.note||h.memo||'');ni.placeholder='메모 또는 카드 내용';ni.rows=2;ni.style.cssText=inp+';resize:vertical';ni.dataset.fixField='note';ni.dataset.bi=bi;ni.dataset.si=si;ni.dataset.hi=hi;
         row.appendChild(ai);row.appendChild(ni);group.appendChild(row);
