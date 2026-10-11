@@ -531,10 +531,12 @@ button:active{transform:translateY(1px)}
     <div class="zd-main">
       <section class="zd-panel zd-map-panel"><div class="zd-panel-head"><div><h3>🗺 구역 지도</h3><p>핀을 선택하면 해당 번지가 목록에서 강조됩니다.</p></div><select id="zdAreaSelect" onchange="zdLoadArea(this.value)"><option value="">구역 선택</option></select></div><div id="zdMap" role="application" aria-label="구역 번지 지도"></div><div class="zd-map-foot"><span><i class="zd-dot blue"></i> 주소 위치</span><span><i class="zd-dot orange"></i> 선택한 번지</span><button onclick="zdFitMap()">지도 위치 맞춤</button></div></section>
       <section class="zd-panel zd-list-panel"><div class="zd-panel-head"><div><h3>📍 번지 목록</h3><p id="zdListCaption">구역을 선택하면 주소가 표시됩니다.</p></div></div><input id="zdSearch" class="zd-search" placeholder="번지·도로명 검색" oninput="zdRenderList()"><div id="zdAddressList" class="zd-address-list"><div class="zd-empty">먼저 구역을 선택하세요.</div></div>
+        <div class="zd-list-actions"><button onclick="zdInlineClearRequest()">선택 요청 해제</button></div></section>
+      <section class="zd-panel zd-requests-panel">
         <div id="zdInlineAddressEditor" class="zd-inline-request-card" style="display:none;margin-top:10px">
           <div class="zd-inline-title"><b id="zdInlineEditorTitle">선택한 주소 편집</b><span id="zdInlineEditorState" style="font-size:11px;color:#64748b">주소 번호를 먼저 선택하세요.</span></div>
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">선택한 주소</label>
-          <input id="zdInlineAddressInput" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="주소를 수정하려면 수정 버튼을 누르세요" readonly>
+          <input id="zdInlineAddressInput" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="주소를 직접 수정하세요">
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">관리자 메모 (저장 후에도 유지)</label>
           <textarea id="zdInlineAdminMemo" class="zd-search" style="width:100%;min-height:64px;resize:vertical;margin-bottom:8px" placeholder="이 주소에 대한 관리자 메모"></textarea>
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">주소 상태</label>
@@ -542,7 +544,6 @@ button:active{transform:translateY(1px)}
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">변경 후 내용</label>
           <input id="zdInlineRequestedAfter" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="요청한 변경 후 주소 (선택)">
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button type="button" class="btn-sm btn-primary" onclick="zdInlineToggleEdit()">수정</button>
             <button type="button" class="btn-sm btn-danger" onclick="zdInlineDeleteSelected()">삭제</button>
             <button type="button" class="btn-sm btn-primary" onclick="zdInlineEnableMapPick()">지도 위치 변경</button>
             <button type="button" class="btn-sm btn-primary" onclick="zdInlineToggleSwap()">주소 순서 교환</button>
@@ -551,8 +552,7 @@ button:active{transform:translateY(1px)}
           </div>
           <div id="zdInlineEditorHint" style="font-size:11px;line-height:1.5;color:#64748b;margin-top:8px">수정요청을 선택하면 해당 구역 지도와 주소가 연결됩니다. 주소를 먼저 선택한 뒤 작업하세요.</div>
         </div>
-        <div class="zd-list-actions"><button onclick="zdInlineClearRequest()">선택 요청 해제</button></div></section>
-      <section class="zd-panel zd-requests-panel"><div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div><div class="zd-panel-head zd-history-head"><div><h3>🕘 최근 변경 이력</h3><p>기록 화면에서 변경 사항을 확인하세요.</p></div><button class="zd-link" onclick="switchTab('record',document.querySelectorAll('.tab-btn')[4])">기록 보기</button></div><div id="zdHistoryPreview" class="zd-history-preview">기존 변경 기록은 기록 탭에서 확인할 수 있습니다.</div></section>
+<div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div></section>
     </div>
   </section>
 </div>
@@ -4368,7 +4368,7 @@ function zdRenderInlineEditor(){
  }
  if(title)title.textContent=(zdActiveRequest?'수정 요청 편집':'주소 편집')+' · '+(row.number||'')+'번 주소';
  if(state)state.textContent=zdInlineMapPickMode?'지도 위치 선택 중':(zdInlineEditEnabled?'주소 수정 중':'주소 선택됨');
- if(input){if(!zdInlineEditEnabled)input.value=row.addr;input.readOnly=!zdInlineEditEnabled;}
+ if(input){if(!zdInlineEditEnabled)input.value=row.addr;input.readOnly=false;}
  if(hint)hint.textContent=zdInlineMapPickMode?'지도에서 새 위치를 한 번 클릭하세요. 일반 지도 클릭으로는 주소 위치가 바뀌지 않습니다.':(zdActiveRequest?'선택한 구역과 요청 대상이 연결되어 있습니다. 저장 후 요청 완료를 누르면 완료 처리됩니다.':'주소를 수정하거나 지도 위치를 지정할 수 있습니다.');
 }
 function zdInlineToggleSwap(){
@@ -4382,18 +4382,18 @@ function zdInlineToggleEdit(){
  var row=zdInlineRequireSelection();if(!row)return;
  zdInlineEditEnabled=!zdInlineEditEnabled;
  var input=document.getElementById('zdInlineAddressInput');
- if(input){input.readOnly=!zdInlineEditEnabled;if(zdInlineEditEnabled){input.value=row.addr;input.focus();input.select();}else input.value=row.addr;}
+ if(input){input.readOnly=false;input.value=row.addr;input.focus();input.select();}
  zdRenderInlineEditor();
  if(zdInlineEditEnabled)showToast('선택한 주소만 수정할 수 있습니다. 입력 후 저장을 눌러 주세요.');
 }
 function zdInlineEnableMapPick(){if(!zdInlineRequireSelection())return;zdInlineMapPickMode=true;zdInlineEditEnabled=false;zdRenderInlineEditor();showToast('지도 위치 선택 모드입니다. 지도에서 원하는 위치를 한 번 클릭하세요.');}
 async function zdInlineSave(){
  var row=zdInlineRequireSelection();if(!row)return;
- var wasAddressEdit=zdInlineEditEnabled;
  var input=document.getElementById('zdInlineAddressInput'),after=document.getElementById('zdInlineRequestedAfter');
  var nextAddr=String(input&&input.value||row.addr||'').trim();
- if(zdInlineEditEnabled&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
- if(zdInlineEditEnabled){if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=nextAddr;else row.house.addr=nextAddr;}
+ var wasAddressEdit=nextAddr!==String(row.addr||'').trim();
+ if(wasAddressEdit&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
+ if(wasAddressEdit){if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=nextAddr;else row.house.addr=nextAddr;}
  var memoEl=document.getElementById('zdInlineAdminMemo'),statusEl=document.getElementById('zdInlineAdminStatus');
  row.house.adminMemo=String(memoEl&&memoEl.value||'').trim();
  row.house.adminStatus=String(statusEl&&statusEl.value||'').trim();
