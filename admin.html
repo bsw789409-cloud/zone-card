@@ -1812,7 +1812,7 @@ function renderFixFullCardEditor() {
         var ha=document.createElement('div');ha.style.cssText='display:flex;gap:6px;justify-content:flex-end;margin:4px 0 7px';
         ha.innerHTML='<button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',-1)">↑ 번지</button><button style="'+btn+'" onclick="moveFixFullCardItem(\'house\','+bi+','+si+','+hi+',1)">↓ 번지</button><button style="'+btn+';color:#b91c1c" onclick="removeFixFullCardItem(\'house\','+bi+','+si+','+hi+')">삭제</button>';group.appendChild(ha);var mapBtn=document.createElement('button');mapBtn.textContent='📍 지도 위치 수정';mapBtn.style.cssText=btn;mapBtn.onclick=(function(bi2,si2,hi2){return function(){selectFixRequestHouseForMap(bi2,si2,hi2);};})(bi,si,hi);ha.appendChild(mapBtn);
       });
-      var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
+      var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({houseId:'fix_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10),addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
     });
     var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);mainColumn.appendChild(card);
   });
