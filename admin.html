@@ -1824,10 +1824,6 @@ function syncFixFullCardInputs() {
   var inlineContent=document.getElementById('zdInlineFullCardContent');
   var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent');
   if(!content) return;
-  var requestedAfter=document.getElementById('fixRequestedNewAddress');
-  if(requestedAfter&&reqTargetHouseForSync()){
-    var target=reqTargetHouseForSync();target.addr=requestedAfter.value;if(Object.prototype.hasOwnProperty.call(target,'num'))target.num=requestedAfter.value;
-  }
   content.querySelectorAll('[data-fix-field]').forEach(function(el) {
     var bi=Number(el.getAttribute('data-bi')), si=Number(el.getAttribute('data-si')), hi=Number(el.getAttribute('data-hi')), field=el.getAttribute('data-fix-field');
     if(!fixFullCardBlocks[bi]) return;
@@ -1840,6 +1836,9 @@ function syncFixFullCardInputs() {
       var houseNote=fixFullCardBlocks[bi].subTopics[si].houses[hi];houseNote.note=el.value;if(Object.prototype.hasOwnProperty.call(houseNote,'memo'))houseNote.memo=el.value;
     }
   });
+  var requestedAfter=content.querySelector('#fixRequestedNewAddress');
+  var requestTarget=reqTargetHouseForSync();
+  if(requestedAfter&&requestTarget){requestTarget.addr=requestedAfter.value;if(Object.prototype.hasOwnProperty.call(requestTarget,'num'))requestTarget.num=requestedAfter.value;}
 }
 function renderFixFullCardEditor() {
   var inlineContent=document.getElementById('zdInlineFullCardContent');var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent'); if(!content)return; content.innerHTML='';
