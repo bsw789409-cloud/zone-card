@@ -4372,6 +4372,27 @@ function zdInitAddressDrag(){
   clear();
  });
  list.addEventListener('pointercancel',clear);
+ var touchStart=null,touchTimer=null,touchDragging=false,touchDragEl=null;
+ list.addEventListener('touchstart',function(e){
+  var el=e.target.closest('[data-zd-address-row]');if(!el||!e.touches||!e.touches[0])return;
+  var t=e.touches[0];touchStart={el:el,x:t.clientX,y:t.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)};
+  touchTimer=setTimeout(function(){if(!touchStart)return;touchDragging=true;touchDragEl=touchStart.el;touchDragEl.style.opacity='.65';touchDragEl.style.outline='2px dashed #f97316';showToast('끌어서 놓으면 주소 순서가 바뀝니다.');},420);
+ },{passive:true});
+ list.addEventListener('touchmove',function(e){
+  if(!touchStart||!e.touches||!e.touches[0])return;
+  var t=e.touches[0];
+  if(!touchDragging&&Math.hypot(t.clientX-touchStart.x,t.clientY-touchStart.y)>12){clearTimeout(touchTimer);touchTimer=null;touchStart=null;return;}
+  if(touchDragging){e.preventDefault();var target=document.elementFromPoint(t.clientX,t.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;list.querySelectorAll('[data-zd-address-row]').forEach(function(el){el.style.borderColor=el===target?'#f97316':(el.style.background==='#fff7ed'?'#f97316':'#e2e8f0');});}
+ },{passive:false});
+ list.addEventListener('touchend',function(e){
+  if(!touchStart)return;
+  var from=touchStart,wasDrag=touchDragging,target=null;
+  if(wasDrag){var t=e.changedTouches&&e.changedTouches[0];if(t){target=document.elementFromPoint(t.clientX,t.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;}}
+  if(wasDrag&&target)zdMoveAddressRow({bi:from.bi,si:from.si,hi:from.hi},{bi:Number(target.dataset.bi),si:Number(target.dataset.si),hi:Number(target.dataset.hi)});
+  else if(!wasDrag)zdSelectRowByIndex(from.bi,from.si,from.hi);
+  clearTimeout(touchTimer);touchTimer=null;touchStart=null;touchDragging=false;if(touchDragEl){touchDragEl.style.opacity='';touchDragEl.style.outline='';touchDragEl=null;}
+ },{passive:true});
+ list.addEventListener('touchcancel',function(){clearTimeout(touchTimer);touchTimer=null;touchStart=null;touchDragging=false;if(touchDragEl){touchDragEl.style.opacity='';touchDragEl.style.outline='';touchDragEl=null;}},{passive:true});
  list.addEventListener('dragstart',function(e){var el=e.target.closest('[data-zd-address-row]');if(!el)return;start={el:el,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)};dragEl=el;dragging=true;if(e.dataTransfer)e.dataTransfer.effectAllowed='move';});
  list.addEventListener('dragover',function(e){if(dragging)e.preventDefault();});
  list.addEventListener('drop',function(e){var el=e.target.closest('[data-zd-address-row]');if(!el||!start)return;e.preventDefault();zdMoveAddressRow({bi:start.bi,si:start.si,hi:start.hi},{bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)});clear();});
