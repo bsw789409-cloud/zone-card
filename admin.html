@@ -1742,7 +1742,17 @@ var fixFullCardBlocks = [];
 var fixFullCardOriginalBlocks = [];
 var fixRequestMap=null,fixRequestMapOverlays=[],fixRequestSelectedHouse=null;
 function clearFixRequestMapOverlays(){fixRequestMapOverlays.forEach(function(o){try{o.setMap(null)}catch(e){}});fixRequestMapOverlays=[];}
-function selectFixRequestHouseForMap(bi,si,hi){syncFixFullCardInputs();fixRequestSelectedHouse={bi:bi,si:si,hi:hi};renderFixFullCardEditor();showToast('선택한 번지의 위치를 바꾸려면 지도에서 새 위치를 눌러 주세요.');}
+function selectFixRequestHouseForMap(bi,si,hi){
+ syncFixFullCardInputs();
+ fixRequestSelectedHouse={bi:bi,si:si,hi:hi};
+ renderFixFullCardEditor();
+ // 지도 핀 선택과 주소 목록을 연결해, 선택한 번지의 입력칸을 바로 찾을 수 있게 한다.
+ var inlineContent=document.getElementById('zdInlineFullCardContent');
+ var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent');
+ var input=content&&content.querySelector('[data-fix-field="addr"][data-bi="'+bi+'"][data-si="'+si+'"][data-hi="'+hi+'"]');
+ if(input){input.scrollIntoView({behavior:'smooth',block:'center'});input.focus({preventScroll:true});}
+ showToast('선택한 번지가 강조되었습니다. 지도에서 새 위치를 누르면 이 번지의 좌표가 변경됩니다.');
+}
 function initFixRequestMap(){
  var el=document.getElementById('fixRequestMap');if(!el||!window.kakao||!kakao.maps)return;clearFixRequestMapOverlays();fixRequestMap=null;
  var center=new kakao.maps.LatLng(35.5487,126.7216),target=null,all=[];
