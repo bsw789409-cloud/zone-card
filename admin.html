@@ -1826,23 +1826,37 @@ async function saveFixFullCardEditor() {
   showLoader();
   try {
     var ref=db.collection('areas').doc(String(fixFullCardAreaId)),fresh=await ref.get();if(!fresh.exists)throw new Error('구역 카드를 찾을 수 없습니다.');
-    // 주소 문구만 바뀌고 핀이 옛 위치에 남지 않도록, 같은 houseId의 기존 주소와 비교해 좌표를 다시 검색한다.
-    var oldById={},oldByPath={};
-    (fixFullCardOriginalBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){var item={addr:String(h.addr||h.num||'').trim(),lat:h.lat,lng:h.lng};oldByPath[bi+':'+si+':'+hi]=item;if(h.houseId)oldById[String(h.houseId)]=item;});});});
+    // 주소가 바뀌었거나 새로 추가된 항목은 좌표를 검색한다. 사용자가 지도에서 직접 옮긴 핀은 주소 검색 결과로 덮어쓰지 않는다.
+    var oldById={},oldByPath={},oldByAddr={},usedOld={};
+    (fixFullCardOriginalBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){
+      var item={addr:String(h.addr||h.num||'').trim(),lat:h.lat,lng:h.lng,houseId:h.houseId||''},path=bi+':'+si+':'+hi;
+      oldByPath[path]=item;if(h.houseId)oldById[String(h.houseId)]=item;
+      if(item.addr){if(!oldByAddr[item.addr])oldByAddr[item.addr]=[];oldByAddr[item.addr].push(item);}
+    });});});
     var geocoder=(window.kakao&&kakao.maps&&kakao.maps.services)?new kakao.maps.services.Geocoder():null;
     var changed=0,failed=[];
     if(geocoder){
       var jobs=[];
       (fixFullCardBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){
-        var id=String(h.houseId||''),old=(id&&oldById[id])||oldByPath[bi+':'+si+':'+hi]||null,addr=String(h.addr||h.num||'').trim();
-        if(old&&old.addr!==addr&&addr){
+        var id=String(h.houseId||''),addr=String(h.addr||h.num||'').trim(),path=bi+':'+si+':'+hi;
+        var oldItem=(id&&oldById[id])||null;
+        if(!oldItem&&addr&&oldByAddr[addr]){
+          oldItem=oldByAddr[addr].find(function(item){return !usedOld[item];})||null;
+          if(oldItem)usedOld[oldItem]=true;
+        }
+        if(!oldItem&&oldByPath[path]&&oldByPath[path].addr===addr)oldItem=oldByPath[path];
+        var hadCoords=h.lat!==null&&h.lng!==null&&h.lat!==undefined&&h.lng!==undefined&&Number.isFinite(Number(h.lat))&&Number.isFinite(Number(h.lng));
+        var manuallyMoved=!!(oldItem&&hadCoords&&oldItem.lat!=null&&oldItem.lng!=null&&(Math.abs(Number(h.lat)-Number(oldItem.lat))>0.000001||Math.abs(Number(h.lng)-Number(oldItem.lng))>0.000001));
+        var needsLookup=!!addr&&(!oldItem||oldItem.addr!==addr||!hadCoords);
+        if(needsLookup&&!manuallyMoved){
           changed++;
           jobs.push(new Promise(function(resolve){
             geocoder.addressSearch(addr,function(results,status){
               if(status===kakao.maps.services.Status.OK&&results&&results[0]){
                 h.lat=Number(results[0].y);h.lng=Number(results[0].x);resolve();
               }else{
-                h.lat=null;h.lng=null;failed.push(addr);resolve();
+                // 검색 실패 시 기존/수동 좌표가 있으면 유지하고, 좌표가 없을 때만 미표시로 둔다.
+                if(!hadCoords){h.lat=null;h.lng=null;}failed.push(addr);resolve();
               }
             });
           }));
