@@ -472,6 +472,21 @@ button:active{transform:translateY(1px)}
   #fixFullCardContent{padding:10px!important;}
 }
 
+
+/* Address list rows: clear number, editable fields and action grouping */
+#fixFullCardContent .fix-house-row{
+  grid-template-columns:minmax(0,1fr) minmax(0,1.45fr)!important;
+  gap:10px!important;padding:12px!important;margin-top:8px!important;
+  border:1px solid #dbe5ef!important;border-radius:12px!important;
+  background:#fff!important;box-shadow:0 2px 8px rgba(15,45,75,.035)!important;
+}
+#fixFullCardContent .fix-house-row input,
+#fixFullCardContent .fix-house-row textarea{min-width:0!important;border-radius:9px!important;}
+@media(max-width:600px){
+  #fixFullCardContent .fix-house-row{grid-template-columns:minmax(0,1fr)!important;padding:10px!important;}
+  #fixFullCardContent .fix-house-row>div:first-child{grid-column:1!important;}
+}
+
 </style>
 </head>
 <body>
@@ -1904,6 +1919,10 @@ function renderFixFullCardEditor() {
 
   sideColumn.style.display='none';
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
+  var addressListHeading=document.createElement('section');
+  addressListHeading.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;margin:18px 0 8px;border-radius:14px;background:white;border:1px solid #cbd5e1;box-shadow:0 4px 14px rgba(15,45,75,.04)';
+  addressListHeading.innerHTML='<div><div style="font-size:18px;font-weight:900;color:#173b5b">② 주소 목록</div><div style="font-size:12px;color:#64748b;margin-top:4px">주소를 바로 수정하고, 순서를 바꾸거나 지도 위치를 선택할 수 있어요.</div></div><div style="white-space:nowrap;font-size:12px;font-weight:900;color:#1d5d88;background:#eff6ff;border-radius:999px;padding:7px 10px">'+totalHouses+'개</div>';
+  mainColumn.appendChild(addressListHeading);
   var fixHouseDisplayNumber=0;
   fixFullCardBlocks.forEach(function(blk,bi) {
     if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
