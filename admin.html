@@ -228,6 +228,46 @@ button:active{transform:translateY(1px)}
 .area-map-edit-toggle.active{background:#b45309!important}
 
 
+/* Request-only visual concept v1: layout/styling only; existing editing handlers remain in place. */
+#editCardSheet.request-fullscreen.open{background:#f3f6fb!important;color:#172b45!important;padding:0!important;display:flex!important;flex-direction:column!important}
+#editCardSheet.request-fullscreen.open>.sheet-handle{display:none!important}
+#editCardSheet.request-fullscreen.open>div:first-of-type{background:#fff!important;padding:16px 22px!important;margin:0!important;border-bottom:1px solid #e3eaf3!important;box-shadow:0 2px 10px rgba(26,48,78,.04);flex-shrink:0!important}
+#editCardSheet.request-fullscreen.open .sheet-title{font-size:21px!important;font-weight:900!important;color:#183657!important;margin:0!important}
+#editCardSheet.request-fullscreen.open #editCardBody{width:100%;max-width:1480px;box-sizing:border-box;margin:0 auto!important;padding:20px 24px 26px!important;overflow:auto!important;min-height:0!important}
+.request-editor-hero{background:linear-gradient(135deg,#173c67,#245d91);color:#fff;border-radius:18px;padding:22px 24px;margin-bottom:22px;box-shadow:0 10px 26px rgba(24,62,103,.16)}
+.request-editor-hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.request-editor-eyebrow,.request-editor-section-kicker{font-size:10px;font-weight:900;letter-spacing:1.4px;opacity:.75}
+.request-editor-hero-title{font-size:25px;font-weight:900;margin-top:5px;letter-spacing:-.6px}
+.request-editor-status{font-size:12px;font-weight:800;background:#fff2d8;color:#8b4b00;border-radius:999px;padding:7px 12px;white-space:nowrap}
+.request-editor-target-label{font-size:12px;font-weight:700;color:#d8e8f8;margin-top:20px}
+.request-editor-target-address{font-size:23px;font-weight:900;line-height:1.35;margin-top:4px;overflow-wrap:anywhere}
+.request-editor-memo{margin-top:15px;border-radius:12px;padding:13px 15px;background:rgba(255,255,255,.11);border:1px solid rgba(255,255,255,.18)}
+.request-editor-memo-label{font-size:11px;font-weight:800;color:#d8e8f8;margin-bottom:6px}
+.request-editor-memo-text{font-size:14px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.request-editor-memo-empty{font-size:13px;color:#e0eaf4}
+.request-editor-hero-foot{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px;padding-top:13px;border-top:1px solid rgba(255,255,255,.2)}
+.request-editor-hero-foot span{font-size:11px;font-weight:800;background:rgba(255,255,255,.12);border-radius:7px;padding:6px 9px}
+.request-editor-section-head{display:flex;align-items:end;justify-content:space-between;gap:14px;margin:0 0 12px}
+.request-editor-section-kicker{color:#6c829b;opacity:1}
+.request-editor-section-title{font-size:20px;font-weight:900;color:#1b3553;margin-top:4px}
+.request-editor-section-help{font-size:12px;color:#718198;text-align:right}
+.request-editor-block-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.request-editor-block-card{border:1px solid #dce5ef!important;border-radius:15px!important;overflow:hidden;background:#fff!important;margin:0!important;box-shadow:0 4px 14px rgba(28,55,86,.045)}
+.request-editor-block-head{background:#fff!important;border-bottom:1px solid #e5edf5;padding:14px 16px!important}
+.request-editor-block-head>span:first-child{color:#193f68!important;font-size:15px!important}
+.request-editor-block-head button{color:#385572!important;background:#edf3f9!important;border:1px solid #dce6f0!important;padding:6px 10px!important}
+.request-editor-block-card>div:not(.request-editor-block-head){border-color:#edf1f6!important}
+.request-editor-block-card input{min-height:40px!important;box-sizing:border-box!important;border-color:#d5e0ec!important}
+.request-editor-block-card [data-bi][data-si][data-hi]{border:1px solid #e0e8f1!important;background:#f7f9fc!important;border-radius:10px!important;padding:10px!important}
+.request-editor-block-card [data-bi][data-si][data-hi].fix-request-target{background:#fff4e8!important;border:2px solid #ed8b32!important}
+.request-editor-block-card button{transition:background .15s ease}
+.request-editor-add-block{grid-column:1/-1;background:#fff!important;border:1px dashed #9aafc4!important;color:#315b83!important;font-weight:800!important;padding:13px!important}
+.request-editor-target-chip{padding:12px 14px;margin-bottom:14px;border-radius:10px;background:#fff2e6;border:1px solid #f0b47b;color:#8a4711;font-weight:800}
+#editCardSheet.request-fullscreen.open .edit-card-actions{padding:12px 22px!important;margin:0!important;border-top:1px solid #e0e8f1!important;background:#fff!important}
+#editCardSheet.request-fullscreen.open .edit-card-actions .btn-purple{background:#236bb2!important;border-color:#236bb2!important}
+#editCardSheet.request-fullscreen.open .edit-card-actions .btn-outline{background:#fff!important;border-color:#d3deea!important;color:#45617c!important}
+@media(max-width:760px){#editCardSheet.request-fullscreen.open>div:first-of-type{padding:13px 14px!important}#editCardSheet.request-fullscreen.open .sheet-title{font-size:18px!important}#editCardSheet.request-fullscreen.open #editCardBody{padding:13px 12px 20px!important}.request-editor-hero{padding:17px 16px;border-radius:14px}.request-editor-hero-title{font-size:21px}.request-editor-target-address{font-size:20px}.request-editor-section-head{align-items:start;flex-direction:column;gap:5px}.request-editor-section-help{text-align:left}.request-editor-block-grid{grid-template-columns:minmax(0,1fr);gap:11px}.request-editor-block-head{padding:12px!important}}
+@media(min-width:761px) and (max-width:1050px){.request-editor-block-grid{grid-template-columns:minmax(0,1fr)}}
 /* Request editor visual refresh: align the existing request editor with the approved layout. */
 #editCardSheet.request-fullscreen.open{background:#f4f7fb!important;color:#19324c!important;padding:18px 22px 16px!important;display:flex!important;flex-direction:column!important}
 #editCardSheet.request-fullscreen.open>.sheet-handle{display:none!important}
@@ -1260,15 +1300,16 @@ function renderCardEditor() {
   try {
     editingBlocks = normalizeEditingBlocksForEditor(editingBlocks);
     var fixTargetMemo = editingActiveFixRequestData ? String(editingActiveFixRequestData.memo || editingActiveFixRequestData.description || '').trim() : '';
-    var fixTargetBanner = editingFixTargetAddr ? '<div style="position:sticky;top:0;z-index:4;margin:0 0 10px;padding:12px;background:#fff1e6;border:2px solid #ea580c;border-radius:10px;color:#9a3412;font-size:13px;font-weight:900;box-shadow:0 3px 10px rgba(234,88,12,.12)">🎯 수정요청 대상: ' + escHtml(editingFixTargetAddr) + (fixTargetMemo ? '<div style="margin-top:8px;padding:9px;background:#fffaf5;border:1px solid #fed7aa;border-radius:7px;font-size:12px;font-weight:700;line-height:1.5;white-space:pre-wrap">요청 내용: ' + escHtml(fixTargetMemo) + '</div>' : '') + '<div style="font-size:11px;font-weight:600;margin-top:7px">주황색 주소를 확인해 수정한 뒤 저장하세요. 이 요청에서 저장하면 선택한 요청만 완료 처리됩니다.</div></div>' : '';
+    var requestHouseCount = editingBlocks.reduce(function(total, block) { return total + (block.subTopics || []).reduce(function(n, topic) { return n + (topic.houses || []).length; }, 0); }, 0);
+    var fixTargetBanner = editingActiveFixRequestDocId ? '<section class="request-editor-hero"><div class="request-editor-hero-top"><div><div class="request-editor-eyebrow">CHANGE REQUEST · ADMIN</div><div class="request-editor-hero-title">수정요청 검토</div></div><span class="request-editor-status">미처리 요청</span></div><div class="request-editor-target-label">수정 대상 주소</div><div class="request-editor-target-address">🎯 ' + escHtml(editingFixTargetAddr || '대상 주소 확인 필요') + '</div>' + (fixTargetMemo ? '<div class="request-editor-memo"><div class="request-editor-memo-label">전도인 요청 내용</div><div class="request-editor-memo-text">' + escHtml(fixTargetMemo) + '</div></div>' : '<div class="request-editor-memo request-editor-memo-empty">전도인이 별도 요청 내용을 남기지 않았습니다.</div>') + '<div class="request-editor-hero-foot"><span>구역 ' + escHtml(String(editingAreaId)) + '번</span><span>블록 ' + editingBlocks.length + '개</span><span>주소 ' + requestHouseCount + '개</span></div></section><div class="request-editor-section-head"><div><div class="request-editor-section-kicker">TERRITORY DETAILS</div><div class="request-editor-section-title">주소 및 블록 목록</div></div><div class="request-editor-section-help">아래 기존 편집 기능을 이용해 내용을 확인하세요.</div></div>' : (editingFixTargetAddr ? '<div class="request-editor-target-chip">🎯 수정 대상 주소: ' + escHtml(editingFixTargetAddr) + '</div>' : '');
     if(!editingBlocks.length) {
       body.innerHTML = fixTargetBanner + '<div style="text-align:center;color:#777;padding:28px 16px;font-size:13px;line-height:1.7">\uBE14\uB7ED\uC774 \uC5C6\uC2B5\uB2C8\uB2E4<br><button onclick="addBlock()" style="margin-top:12px;background:#7c3aed;color:white;border:none;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
       return;
     }
-    var html = '', usedFixDocIds = {};
+    var html = '<div class="request-editor-block-grid">', usedFixDocIds = {};
     editingBlocks.forEach(function(blk, bi) {
-      html += '<div style="border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px;background:white">';
-      html += '<div style="background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
+      html += '<section class="request-editor-block-card" style="border:1px solid #7c3aed;border-radius:12px;overflow:hidden;margin-bottom:10px;background:white">';
+      html += '<div class="request-editor-block-head" style="background:#7c3aed;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px">';
       html += '<span style="font-size:13px;font-weight:800;color:white">' + (bi + 1) + '\uBE14\uB7ED</span>';
       html += '<span style="display:flex;gap:6px"><button onclick="editBlkParking(' + bi + ')" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer">\uC8FC\uCC28 \uC218\uC815</button><button onclick="removeBlk(' + bi + ')" style="background:rgba(255,0,0,.3);border:none;border-radius:6px;padding:3px 8px;font-size:11px;color:white;cursor:pointer">\uC0AD\uC81C</button></span>';
       html += '</div>';
@@ -1311,7 +1352,7 @@ function renderCardEditor() {
       html += '<button onclick="addSubTopic(' + bi + ')" style="width:calc(100% - 24px);margin:8px 12px;padding:7px;border-radius:8px;border:1px dashed #aaa;background:transparent;color:#888;font-size:12px;cursor:pointer;display:block">+ \uB3C4\uB85C\uBA85 \uCD94\uAC00</button>';
       html += '</div>';
     });
-    html += '<button onclick="addBlock()" style="width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px">+ \uBE14\uB7ED \uCD94\uAC00</button>';
+    html += '<button class="request-editor-add-block" onclick="addBlock()" style="width:100%;padding:10px;border-radius:12px;border:1px dashed #aaa;background:transparent;color:#888;font-size:13px;cursor:pointer;margin-bottom:8px">+ \uBE14\uB7ED \uCD94\uAC00</button></div>';
     body.innerHTML = fixTargetBanner + html;
     body.scrollTop = 0;
   } catch(e) {
