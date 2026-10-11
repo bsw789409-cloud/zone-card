@@ -1738,13 +1738,16 @@ function initFixRequestMap(){
  if(!target&&all.length)target=all[0];if(target)center=new kakao.maps.LatLng(target.lat,target.lng);
  fixRequestMap=new kakao.maps.Map(el,{center:center,level:4});if(kakao.maps.MapTypeId&&kakao.maps.MapTypeId.HYBRID)fixRequestMap.setMapTypeId(kakao.maps.MapTypeId.HYBRID);
  var number=0;(fixFullCardBlocks||[]).forEach(function(blk,bi){(blk.subTopics||[]).forEach(function(sub,si){(sub.houses||[]).forEach(function(h,hi){number++;if(h.lat===null||h.lng===null||h.lat===undefined||h.lng===undefined||!Number.isFinite(Number(h.lat))||!Number.isFinite(Number(h.lng)))return;var selected=fixRequestSelectedHouse&&fixRequestSelectedHouse.bi===bi&&fixRequestSelectedHouse.si===si&&fixRequestSelectedHouse.hi===hi;var requested=activeFixHouseLocation&&activeFixHouseLocation.bi===bi&&activeFixHouseLocation.si===si&&activeFixHouseLocation.hi===hi;var pin=document.createElement('div');pin.style.cssText='width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px #0005;background:'+(selected||requested?'#ea580c':'#2563eb')+';color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;cursor:pointer';pin.textContent=number;pin.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();selectFixRequestHouseForMap(bi,si,hi);});var o=new kakao.maps.CustomOverlay({position:new kakao.maps.LatLng(Number(h.lat),Number(h.lng)),content:pin,yAnchor:.5,xAnchor:.5});o.setMap(fixRequestMap);fixRequestMapOverlays.push(o);});});});
- kakao.maps.event.addListener(fixRequestMap,'click',function(ev){if(!fixRequestSelectedHouse){showToast('먼저 주소 목록에서 지도 위치 수정을 선택해 주세요.');return;}var loc=fixRequestSelectedHouse,blk=fixFullCardBlocks[loc.bi],sub=blk&&blk.subTopics&&blk.subTopics[loc.si],h=sub&&sub.houses&&sub.houses[loc.hi];if(!h)return;h.lat=ev.latLng.getLat();h.lng=ev.latLng.getLng();renderFixFullCardEditor();showToast('지도 위치를 변경했습니다. 전체 수정 저장을 눌러 확정하세요.');});
+ kakao.maps.event.addListener(fixRequestMap,'click',function(ev){if(!fixRequestSelectedHouse){showToast('먼저 주소 목록에서 지도 위치 수정을 선택해 주세요.');return;}syncFixFullCardInputs();var loc=fixRequestSelectedHouse,blk=fixFullCardBlocks[loc.bi],sub=blk&&blk.subTopics&&blk.subTopics[loc.si],h=sub&&sub.houses&&sub.houses[loc.hi];if(!h)return;h.lat=ev.latLng.getLat();h.lng=ev.latLng.getLng();renderFixFullCardEditor();showToast('지도 위치를 변경했습니다. 전체 수정 저장을 눌러 확정하세요.');});
  setTimeout(function(){if(fixRequestMap)fixRequestMap.relayout()},80);
 }
 
 
 function syncFixFullCardInputs() {
-  var content=document.getElementById('fixFullCardContent');
+  // The editor can render either in the full-screen overlay or inline in the request panel.
+  // Always sync from the visible editor; reading the hidden overlay silently drops inline edits.
+  var inlineContent=document.getElementById('zdInlineFullCardContent');
+  var content=(inlineContent&&inlineContent.offsetParent!==null)?inlineContent:document.getElementById('fixFullCardContent');
   if(!content) return;
   content.querySelectorAll('[data-fix-field]').forEach(function(el) {
     var bi=Number(el.getAttribute('data-bi')), si=Number(el.getAttribute('data-si')), hi=Number(el.getAttribute('data-hi')), field=el.getAttribute('data-fix-field');
