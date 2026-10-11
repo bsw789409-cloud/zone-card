@@ -4383,8 +4383,9 @@ function zdInlineToggleEdit(){
  if(zdInlineEditEnabled)showToast('선택한 주소만 수정할 수 있습니다. 입력 후 저장을 눌러 주세요.');
 }
 function zdInlineEnableMapPick(){if(!zdInlineRequireSelection())return;zdInlineMapPickMode=true;zdInlineEditEnabled=false;zdRenderInlineEditor();showToast('지도 위치 선택 모드입니다. 지도에서 원하는 위치를 한 번 클릭하세요.');}
-async async function zdInlineSave(){
+async function zdInlineSave(){
  var row=zdInlineRequireSelection();if(!row)return;
+ var wasAddressEdit=zdInlineEditEnabled;
  var input=document.getElementById('zdInlineAddressInput'),after=document.getElementById('zdInlineRequestedAfter');
  var nextAddr=String(input&&input.value||row.addr||'').trim();
  if(zdInlineEditEnabled&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
@@ -4395,11 +4396,18 @@ async async function zdInlineSave(){
  var newAfter=String(after&&after.value||'').trim();
  showLoader();
  try{
-  await db.collection('areas').doc(String(document.getElementById('zdAreaSelect').value)).update({blocks:zdDashboardBlocks});
-  var ai=areas.findIndex(function(a){return String(a.id)===String(document.getElementById('zdAreaSelect').value);});if(ai>=0)areas[ai].blocks=zdDashboardBlocks;
-  if(zdActiveRequest){await db.collection('fixRequests').doc(zdActiveRequest.docId).update({newAddr:newAfter,lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'홈 화면에서 주소/지도 편집 저장'});zdActiveRequest.data.newAddr=newAfter;}
+  var areaId=String(document.getElementById('zdAreaSelect').value);
+  await db.collection('areas').doc(areaId).update({blocks:zdDashboardBlocks});
+  var ai=areas.findIndex(function(a){return String(a.id)===areaId;});if(ai>=0)areas[ai].blocks=zdDashboardBlocks;
+  if(zdActiveRequest){
+   var requestUpdate={newAddr:newAfter,lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'홈 화면에서 주소/지도 편집 저장'};
+   if(wasAddressEdit){requestUpdate.status='완료';requestUpdate.resolvedAt=firebase.firestore.FieldValue.serverTimestamp();requestUpdate.resolvedAddr=nextAddr;requestUpdate.memo='';requestUpdate.description='';}
+   await db.collection('fixRequests').doc(zdActiveRequest.docId).update(requestUpdate);
+   if(wasAddressEdit)zdActiveRequest=null;
+  }
   zdDashboardRows.forEach(function(r){r.addr=String(r.house.addr||r.house.num||'');r.lat=Number(r.house.lat);r.lng=Number(r.house.lng);});
-  zdInlineEditEnabled=false;zdInlineMapPickMode=false;zdRenderList();zdRunAudit();zdCreateMap();zdRenderInlineEditor();showToast('주소·지도 좌표·관리자 메모·상태를 저장했습니다.');
+  zdInlineEditEnabled=false;zdInlineMapPickMode=false;zdRenderList();zdRunAudit();zdCreateMap();zdRenderInlineEditor();zdLoadRequests();
+  showToast(wasAddressEdit?'주소 수정 및 수정요청 완료 처리를 저장했습니다.':'주소·지도 좌표·관리자 메모·상태를 저장했습니다.');
  }catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}
  hideLoader();
 }
