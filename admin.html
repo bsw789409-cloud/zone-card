@@ -4375,7 +4375,7 @@ async function zdInlineSave(){
 async function zdInlineDeleteSelected(){
  var row=zdInlineRequireSelection();if(!row)return;
  if(!confirm('선택한 '+row.number+'번 주소를 삭제할까요?'))return;
- var houses=zdDashboardBlocks[row.bi]&&zdDashboardBlocks[row.bi].subTopics[row.si]&&zdDashboardBlocks[row.bi].subTopics[row.bi===undefined?row.si:row.si].houses;
+ var houses=zdDashboardBlocks[row.bi]&&zdDashboardBlocks[row.bi].subTopics[row.si]&&zdDashboardBlocks[row.bi].subTopics[row.si].houses;
  if(!houses||!houses[row.hi]){showToast('주소 위치를 찾지 못했습니다.');return;}
  houses.splice(row.hi,1);zdSelectedHouse=null;showLoader();
  try{
