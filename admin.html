@@ -337,7 +337,7 @@ button:active{transform:translateY(1px)}
 @media(max-width:680px){.fix-request-header{padding:16px!important}#fixRequestTitle{font-size:21px!important}.fix-request-body{grid-template-columns:minmax(0,1fr)!important;padding:14px!important;gap:11px!important}.fix-request-memo-card,.fix-request-helper{grid-column:auto!important}.fix-request-footer{padding:10px!important;gap:7px!important}.fix-request-footer button{font-size:12px!important;padding:10px 7px!important}}
 
 #fixFullCardOverlay{padding:0!important;background:rgba(13,31,52,.62)!important}
-#fixFullCardOverlay>div:first-child{width:100%!important;max-width:none!important;height:100%!important;max-height:100%!important;box-sizing:border-box!important;overflow:auto!important;border-radius:0!important;padding:0 24px 24px!important;background:#f3f6fb!important}
+#fixFullCardOverlay>div:first-child{width:100%!important;max-width:none!important;height:96vh!important;max-height:96vh!important;max-height:100%!important;box-sizing:border-box!important;overflow:auto!important;border-radius:0!important;padding:0 24px 24px!important;background:#f3f6fb!important}
 #fixFullCardOverlay>div:first-child>div:first-child{position:sticky!important;top:0!important;background:#f3f6fb!important;padding:18px 0!important;border-bottom:1px solid #dce6f0!important}
 #fixFullCardOverlay>div:first-child>div:first-child>div:first-child>div:first-child{font-size:24px!important;color:#193b5d!important}
 #fixFullCardContent{max-width:1240px!important;margin:18px auto!important}
@@ -715,12 +715,12 @@ button:active{transform:translateY(1px)}
 <div class="fix-request-footer" style="margin-top:auto;position:sticky;bottom:0;background:white;border-top:1px solid #dce6f0;padding:14px 22px;display:flex;gap:10px;flex-wrap:wrap;box-shadow:0 -5px 18px rgba(24,52,82,.05)"><button onclick="closeFixRequestEditor()" style="flex:1;padding:12px;min-height:46px;border-radius:10px;font-weight:800">취소</button><button onclick="openFixRequestCardEditor()" style="flex:1;padding:12px;background:#edf3f9;color:#254c73;border:1px solid #d6e2ee;border-radius:10px;font-weight:800;min-height:46px">구역 카드 편집하기</button><button onclick="saveFixRequestEditor()" style="flex:2;padding:12px;background:#236bb2;color:white;border:0;border-radius:10px;font-weight:800;min-height:46px">저장 및 처리완료</button></div></div></div>
 <!-- 수정요청에서 여는 해당 구역 전체 카드 보기 -->
 <div id="fixFullCardOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:13000;padding:12px;align-items:center;justify-content:center" onclick="closeFixRequestFullCard()">
-  <div onclick="event.stopPropagation()" style="width:min(100%,900px);max-height:92vh;overflow:auto;background:#f8fafc;border-radius:16px;padding:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:-16px;background:#f8fafc;padding:8px 0;z-index:1">
-      <div><div style="font-size:19px;font-weight:900">전체 카드 보기</div><div id="fixFullCardSubtitle" style="font-size:12px;color:#64748b;margin-top:3px"></div></div>
+  <div onclick="event.stopPropagation()" style="width:min(100%,1380px);height:96vh;max-height:96vh;overflow:auto;background:#f1f5f9;border-radius:14px;padding:18px;box-sizing:border-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:-18px;background:#f1f5f9;padding:10px 0 14px;z-index:20;border-bottom:1px solid #dbe3ee;margin-bottom:12px">
+      <div><div style="font-size:22px;font-weight:900;color:#172b4d">수정 요청 · 구역 카드 편집</div><div id="fixFullCardSubtitle" style="font-size:13px;color:#64748b;margin-top:4px"></div><div style="font-size:12px;color:#64748b;margin-top:4px">요청 대상과 주소·지도 위치를 확인하고, 수정 내용을 저장하세요. 요청 완료 처리는 별도 단계입니다.</div></div>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><button onclick="saveFixFullCardEditor()" style="padding:9px 12px;border-radius:9px;border:0;background:#ea580c;color:white;font-weight:900">전체 수정 저장</button><button onclick="closeFixRequestFullCard()" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:white">닫기</button></div>
     </div>
-    <div id="fixFullCardContent"><div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div></div>
+    <div id="fixFullCardContent" style="display:grid;grid-template-columns:minmax(0,1fr);gap:12px"><div style="padding:20px;text-align:center;color:#94a3b8">카드 내용을 불러오는 중...</div></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
