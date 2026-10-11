@@ -1766,15 +1766,27 @@ function renderFixFullCardEditor() {
   var inp='width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;padding:9px;font-size:14px;background:white;color:#0f172a';
   var reqData=activeFixRequest&&activeFixRequest.data?activeFixRequest.data:{};
   var reqLoc=activeFixHouseLocation;
+  content.style.display='grid';content.style.gridTemplateColumns='minmax(0,1.7fr) minmax(280px,0.8fr)';content.style.alignItems='start';content.style.gap='12px';
+  var mainColumn=document.createElement('div');mainColumn.style.cssText='min-width:0';
+  var sideColumn=document.createElement('aside');sideColumn.style.cssText='min-width:0;position:sticky;top:70px;display:flex;flex-direction:column;gap:12px';
   var notice=document.createElement('div');
   notice.style.cssText='padding:12px;border:2px solid #f97316;background:#fff7ed;border-radius:10px;color:#7c2d12;margin-bottom:12px';
   notice.innerHTML='<div style="font-weight:900;margin-bottom:5px">🔎 수정해야 할 내용</div><div style="font-weight:800">'+escHtml(String(reqData.addr||'주차 위치'))+(reqData.block?' · 블럭 '+reqData.block:'')+'</div><div style="white-space:pre-wrap;margin-top:5px">'+escHtml(String(reqData.memo||'요청 내용이 없습니다. 요청한 위치를 확인해 주세요.'))+'</div><div style="font-size:12px;margin-top:6px">주황색 테두리로 표시된 항목을 우선 확인한 뒤 저장하세요.</div>';
-  content.appendChild(notice);
+  mainColumn.appendChild(notice);
   var mapWrap=document.createElement('section');mapWrap.style.cssText='background:white;border:1px solid #cbd5e1;border-radius:12px;padding:12px;margin:10px 0';
   var mapTitle=document.createElement('div');mapTitle.style.cssText='font-weight:900;margin-bottom:7px';mapTitle.textContent='📍 주소 위치 지도';mapWrap.appendChild(mapTitle);
   var mapHelp=document.createElement('div');mapHelp.style.cssText='font-size:12px;line-height:1.5;color:#64748b;margin-bottom:8px';mapHelp.textContent='주황색 핀은 수정요청 대상입니다. 주소 목록에서 “지도 위치 수정”을 선택한 뒤 지도를 누르면 해당 번지의 좌표가 바뀝니다.';mapWrap.appendChild(mapHelp);
-  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:320px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);content.appendChild(mapWrap);
+  var mapDiv=document.createElement('div');mapDiv.id='fixRequestMap';mapDiv.style.cssText='height:360px;width:100%;border-radius:10px;overflow:hidden;background:#e2e8f0';mapWrap.appendChild(mapDiv);mainColumn.appendChild(mapWrap);
 
+  var reqCard=document.createElement('section');reqCard.style.cssText='background:white;border:1px solid #dbe3ee;border-radius:12px;padding:14px';
+  reqCard.innerHTML='<div style="font-size:16px;font-weight:900;color:#1e293b;margin-bottom:12px">⑤ 요청 정보</div><div style="font-size:12px;color:#64748b;margin-bottom:5px">요청 주소</div><div style="font-weight:800;margin-bottom:10px">'+escHtml(String(reqData.addr||'주차 위치'))+'</div><div style="font-size:12px;color:#64748b;margin-bottom:5px">요청자</div><div style="margin-bottom:10px">'+escHtml(String(reqData.requesterName||reqData.userName||reqData.requester||'정보 없음'))+'</div><div style="font-size:12px;color:#64748b;margin-bottom:5px">요청 사유</div><div style="white-space:pre-wrap;line-height:1.5">'+escHtml(String(reqData.memo||reqData.description||'요청 내용 없음'))+'</div><div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:10px;font-size:12px;color:#64748b">상태: '+escHtml(String(reqData.status||'미처리'))+'</div>';
+  sideColumn.appendChild(reqCard);
+  var actionCard=document.createElement('section');actionCard.style.cssText='background:white;border:1px solid #dbe3ee;border-radius:12px;padding:14px';
+  actionCard.innerHTML='<div style="font-size:16px;font-weight:900;color:#1e293b;margin-bottom:10px">⑥ 수정 요청 처리</div><div style="padding:10px;border-radius:9px;background:#fff7ed;color:#9a3412;font-size:12px;line-height:1.5;margin-bottom:10px">수정 내용을 저장한 뒤, 확인이 끝나면 별도로 요청 처리를 완료하세요.</div><label style="display:block;font-size:12px;font-weight:800;margin-bottom:6px">처리 메모 (선택)</label><textarea id="fixFullCardResolutionMemo" rows="4" placeholder="처리 내용이나 특이사항을 입력하세요." style="'+inp+';resize:vertical"></textarea><button onclick="saveFixFullCardEditor()" style="width:100%;padding:11px;margin-top:10px;border:1px solid #2563eb;border-radius:9px;background:white;color:#2563eb;font-weight:900">✓ 수정 내용 저장</button><button onclick="completeFixRequestFromCard()" style="width:100%;padding:11px;margin-top:8px;border:0;border-radius:9px;background:#1672e8;color:white;font-weight:900">◎ 요청 처리 완료</button>';
+  sideColumn.appendChild(actionCard);
+  var historyCard=document.createElement('section');historyCard.style.cssText='background:white;border:1px solid #dbe3ee;border-radius:12px;padding:14px';
+  historyCard.innerHTML='<div style="font-size:15px;font-weight:900;margin-bottom:10px">변경 이력</div><div style="font-size:12px;color:#64748b;line-height:1.8">• 수정 요청 접수<br>• 수정 내용 저장은 요청 완료와 별도로 기록됩니다.</div>';
+  sideColumn.appendChild(historyCard);
   var btn='border:1px solid #cbd5e1;border-radius:7px;padding:6px 9px;background:white;color:#334155;font-weight:700;font-size:12px';
   fixFullCardBlocks.forEach(function(blk,bi) {
     if(!Array.isArray(blk.subTopics)){blk.subTopics=Array.isArray(blk.houses)?[{name:blk.name||'번지 목록',houses:blk.houses}]:[];delete blk.houses;}
@@ -1798,7 +1810,7 @@ function renderFixFullCardEditor() {
       });
       var ah=document.createElement('button');ah.textContent='+ 번지/항목 추가';ah.style.cssText=btn;ah.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics[si].houses.push({addr:'',note:''});renderFixFullCardEditor();};group.appendChild(ah);card.appendChild(group);
     });
-    var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);content.appendChild(card);
+    var ab=document.createElement('button');ab.textContent='+ 도로명/그룹 추가';ab.style.cssText=btn;ab.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks[bi].subTopics.push({name:'',houses:[]});renderFixFullCardEditor();};card.appendChild(ab);mainColumn.appendChild(card);
   });
   var add=document.createElement('button');add.textContent='+ 블럭 추가';add.style.cssText='width:100%;padding:12px;border:1px dashed #94a3b8;border-radius:10px;background:white;font-weight:900;margin:8px 0';add.onclick=function(){syncFixFullCardInputs();fixFullCardBlocks.push({name:'',subTopics:[]});renderFixFullCardEditor();};content.appendChild(add);
   initFixRequestMap();
@@ -1872,6 +1884,16 @@ async function saveFixFullCardEditor() {
     showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+(failed.length?' — 실패한 항목은 지도에서 위치를 다시 지정해 주세요.':'.')) : '구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');
     loadAreaList();loadHomeStats();closeFixRequestFullCard();
   } catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}hideLoader();
+}
+async function completeFixRequestFromCard(){
+  if(!activeFixRequest)return;
+  if(!confirm('이 수정요청을 처리 완료로 변경할까요? 먼저 수정 내용을 저장했는지 확인해 주세요.'))return;
+  var memoEl=document.getElementById('fixFullCardResolutionMemo'),memo=String(memoEl&&memoEl.value||'').trim();
+  try{
+    await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo});
+    showToast('수정요청을 처리 완료했습니다.');
+    closeFixRequestFullCard();closeFixRequestEditor();await loadFixList();loadHomeStats();
+  }catch(e){showToast('처리 실패: '+(e&&e.message?e.message:e));}
 }
 async function openFixRequestFullCard() {
   if(!activeFixRequest){showToast('먼저 수정요청을 열어 주세요.');return;}
