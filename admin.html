@@ -4324,7 +4324,10 @@ function zdRenderList(){
  if(!rows.length){list.innerHTML='<div class="zd-empty">'+(zdDashboardRows.length?'검색 결과가 없습니다.':'이 구역에 번지 정보가 없습니다.')+'</div>';return;}
  list.innerHTML=rows.map(function(r){
   var active=zdSelectedHouse&&zdSelectedHouse.bi===r.bi&&zdSelectedHouse.si===r.si&&zdSelectedHouse.hi===r.hi;
-  return '<button type="button" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:pointer" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div></button>';
+  var meta=[];
+  if(r.house.adminStatus)meta.push('<span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 6px;margin:3px 4px 0 0;font-size:11px;font-weight:800">'+escHtml(r.house.adminStatus)+'</span>');
+  if(r.house.adminMemo)meta.push('<div style="font-size:12px;color:#475569;margin-top:4px;white-space:pre-wrap">📝 '+escHtml(r.house.adminMemo)+'</div>');
+  return '<button type="button" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:pointer" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div>'+meta.join('')+'</button>';
  }).join('');
 }
 function zdSelectRowByIndex(bi,si,hi){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi;});if(r)zdSelectRow(r,true);}
