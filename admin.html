@@ -436,6 +436,42 @@ button:active{transform:translateY(1px)}
  #fixFullCardContent #fixRequestMap{height:270px!important}
 }
 
+
+/* FIX REQUEST EDITOR: make the entire long form scrollable on desktop and mobile */
+#fixFullCardOverlay{
+  position:fixed!important;inset:0!important;
+  overflow-y:auto!important;overflow-x:hidden!important;
+  height:100dvh!important;max-height:100dvh!important;
+  box-sizing:border-box!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  align-items:flex-start!important;
+}
+#fixFullCardOverlay>div:first-child{
+  height:auto!important;min-height:0!important;
+  max-height:none!important;overflow:visible!important;
+  box-sizing:border-box!important;
+  margin:16px auto 28px!important;
+}
+#fixFullCardContent{
+  overflow:visible!important;min-height:0!important;
+  box-sizing:border-box!important;
+}
+#fixFullCardOverlay>div:first-child>div:first-child{
+  position:sticky!important;top:0!important;z-index:30!important;
+}
+@media(max-width:760px){
+  #fixFullCardOverlay{padding:0!important;}
+  #fixFullCardOverlay>div:first-child{
+    width:100%!important;max-width:100%!important;
+    margin:0 auto 20px!important;border-radius:0 0 16px 16px!important;
+  }
+  #fixFullCardOverlay>div:first-child>div:first-child{
+    border-radius:0!important;padding:12px!important;
+  }
+  #fixFullCardContent{padding:10px!important;}
+}
+
 </style>
 </head>
 <body>
