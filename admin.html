@@ -1939,11 +1939,18 @@ async function saveFixFullCardEditor() {
     batch.update(ref,{blocks:fixFullCardBlocks});
     batch.update(requestRef,{lastEditedAt:firebase.firestore.FieldValue.serverTimestamp(),lastEditSummary:'주소/지도/블럭 편집 저장',lastEditAddressCount:changedAddressCount});
     await batch.commit();
-    if(activeFixRequest&&activeFixRequest.data){activeFixRequest.data.lastEditSummary='주소/지도/블럭 편집 저장';activeFixRequest.data.lastEditAddressCount=changedAddressCount;}
+    if(activeFixRequest&&activeFixRequest.data){
+      activeFixRequest.data.lastEditSummary='주소/지도/블럭 편집 저장';
+      activeFixRequest.data.lastEditAddressCount=changedAddressCount;
+      // 서버가 기록한 실제 저장 시각과 요청 이력을 다시 읽어 편집 화면에도 반영한다.
+      try{var savedRequest=await requestRef.get();if(savedRequest.exists)activeFixRequest.data=savedRequest.data();}catch(historyReadError){}
+    }
     var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
     fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(fixFullCardBlocks));
-    showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+(failed.length?' — 실패한 항목은 지도에서 위치를 다시 지정해 주세요.':'.')) : '구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');
-    loadAreaList();loadHomeStats();closeFixRequestFullCard(true);
+    // 저장 후 편집기를 닫지 않고 다시 그려, 주소 검색으로 갱신된 좌표와 핀 번호를 즉시 확인할 수 있게 한다.
+    renderFixFullCardEditor();
+    showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+' · 지도 핀을 갱신했습니다.') : '구역 카드 전체 내용을 저장하고 지도 핀을 갱신했습니다. 수정요청 상태는 변경하지 않았습니다.');
+    loadAreaList();loadHomeStats();
   } catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}hideLoader();
 }
 function isFixFullCardDirty(){
