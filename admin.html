@@ -1826,14 +1826,14 @@ async function saveFixFullCardEditor() {
   try {
     var ref=db.collection('areas').doc(String(fixFullCardAreaId)),fresh=await ref.get();if(!fresh.exists)throw new Error('구역 카드를 찾을 수 없습니다.');
     // 주소 문구만 바뀌고 핀이 옛 위치에 남지 않도록, 같은 houseId의 기존 주소와 비교해 좌표를 다시 검색한다.
-    var oldById={};
-    (fixFullCardOriginalBlocks||[]).forEach(function(b){(b.subTopics||[]).forEach(function(st){(st.houses||[]).forEach(function(h){if(h.houseId)oldById[String(h.houseId)]={addr:String(h.addr||h.num||'').trim(),lat:h.lat,lng:h.lng};});});});
+    var oldById={},oldByPath={};
+    (fixFullCardOriginalBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){var item={addr:String(h.addr||h.num||'').trim(),lat:h.lat,lng:h.lng};oldByPath[bi+':'+si+':'+hi]=item;if(h.houseId)oldById[String(h.houseId)]=item;});});});
     var geocoder=(window.kakao&&kakao.maps&&kakao.maps.services)?new kakao.maps.services.Geocoder():null;
     var changed=0,failed=[];
     if(geocoder){
       var jobs=[];
       (fixFullCardBlocks||[]).forEach(function(b,bi){(b.subTopics||[]).forEach(function(st,si){(st.houses||[]).forEach(function(h,hi){
-        var id=String(h.houseId||''),old= id ? oldById[id] : null,addr=String(h.addr||h.num||'').trim();
+        var id=String(h.houseId||''),old=(id&&oldById[id])||oldByPath[bi+':'+si+':'+hi]||null,addr=String(h.addr||h.num||'').trim();
         if(old&&old.addr!==addr&&addr){
           changed++;
           jobs.push(new Promise(function(resolve){
