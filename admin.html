@@ -353,6 +353,9 @@ button:active{transform:translateY(1px)}
 
 
 
+/* Live editor summary strip: compact on phones, readable at a glance */
+#fixFullCardContent .fix-editor-summary{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media(max-width:760px){#fixFullCardContent .fix-editor-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:6px!important;padding:8px!important}#fixFullCardContent .fix-editor-summary>div{padding:8px!important}#fixFullCardContent .fix-editor-summary>div>div:nth-child(2){font-size:19px!important}}
 /* DESIGN PASS 2 — clear visual hierarchy for the real fix-request editor */
 #fixFullCardOverlay{background:rgba(15,23,42,.68)!important;backdrop-filter:blur(5px)!important}
 #fixFullCardOverlay>div:first-child{max-width:1500px!important;width:min(1500px,calc(100% - 28px))!important;margin:18px auto!important;border:1px solid #dbe5f0!important;border-radius:20px!important;box-shadow:0 24px 80px rgba(2,6,23,.28)!important;overflow:visible!important}
@@ -1837,8 +1840,8 @@ function renderFixFullCardEditor() {
   content.style.display='grid';content.style.gridTemplateColumns=fixEditorMobile?'minmax(0,1fr)':'minmax(0,1.7fr) minmax(280px,0.8fr)';content.style.alignItems='start';content.style.gap='12px';
   var mainColumn=document.createElement('div');mainColumn.style.cssText='min-width:0';
   var sideColumn=document.createElement('aside');sideColumn.style.cssText='min-width:0;'+(fixEditorMobile?'':'position:sticky;top:70px;')+'display:flex;flex-direction:column;gap:12px';
-  var summary=document.createElement('section');
-  summary.style.cssText='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px;border:1px solid #cbdff1;border-radius:14px;background:linear-gradient(135deg,#fff,#eef6fd);margin:0 0 12px;box-shadow:0 4px 14px rgba(15,45,75,.05)';
+  var summary=document.createElement('div');
+  summary.className='fix-editor-summary';summary.style.cssText='display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px;border:1px solid #cbdff1;border-radius:14px;background:linear-gradient(135deg,#fff,#eef6fd);margin:0 0 12px;box-shadow:0 4px 14px rgba(15,45,75,.05)';
   var totalGroups=0,totalHouses=0,missingCoords=0;
   (fixFullCardBlocks||[]).forEach(function(block){(block.subTopics||[]).forEach(function(group){totalGroups++;(group.houses||[]).forEach(function(house){totalHouses++;var valid=house.lat!==null&&house.lng!==null&&house.lat!==undefined&&house.lng!==undefined&&house.lat!==''&&house.lng!==''&&Number.isFinite(Number(house.lat))&&Number.isFinite(Number(house.lng));if(!valid)missingCoords++;});});});
   function summaryMetric(label,value,detail,color){var item=document.createElement('div');item.style.cssText='min-width:0;padding:10px;border-radius:10px;background:white;border:1px solid #e1eaf3';item.innerHTML='<div style="font-size:11px;color:#64748b;font-weight:800;margin-bottom:5px">'+label+'</div><div style="font-size:22px;line-height:1.1;font-weight:900;color:'+color+'">'+value+'</div><div style="font-size:10px;color:#64748b;margin-top:4px">'+detail+'</div>';summary.appendChild(item);}
