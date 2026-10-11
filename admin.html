@@ -1911,7 +1911,7 @@ async function saveFixFullCardEditor() {
     var idx=areas.findIndex(function(a){return String(a.id)===String(fixFullCardAreaId);});if(idx>=0)areas[idx].blocks=fixFullCardBlocks;
     fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(fixFullCardBlocks));
     showToast(changed ? ('저장 완료 · 주소 위치 '+(changed-failed.length)+'개 갱신'+(failed.length?' · '+failed.length+'개 위치 검색 실패':'')+(failed.length?' — 실패한 항목은 지도에서 위치를 다시 지정해 주세요.':'.')) : '구역 카드 전체 내용을 저장했습니다. 수정요청 상태는 변경하지 않았습니다.');
-    loadAreaList();loadHomeStats();closeFixRequestFullCard();
+    loadAreaList();loadHomeStats();closeFixRequestFullCard(true);
   } catch(e){showToast('저장 실패: '+(e&&e.message?e.message:e));}hideLoader();
 }
 function isFixFullCardDirty(){
@@ -1930,7 +1930,7 @@ async function completeFixRequestFromCard(){
   try{
     await db.collection('fixRequests').doc(String(activeFixRequest.docId)).update({status:'완료',resolvedAt:firebase.firestore.FieldValue.serverTimestamp(),resolutionMemo:memo,lastResolutionSummary:'요청 처리 완료'});
     showToast('수정요청을 처리 완료했습니다.');
-    closeFixRequestFullCard();closeFixRequestEditor();await loadFixList();loadHomeStats();
+    closeFixRequestFullCard(true);closeFixRequestEditor();await loadFixList();loadHomeStats();
   }catch(e){showToast('처리 실패: '+(e&&e.message?e.message:e));}
 }
 async function openFixRequestFullCard() {
@@ -1943,7 +1943,10 @@ async function openFixRequestFullCard() {
     var blocks=data.blocks||[];if(!Array.isArray(blocks))blocks=Object.values(blocks);fixFullCardOriginalBlocks=JSON.parse(JSON.stringify(blocks));fixFullCardBlocks=JSON.parse(JSON.stringify(blocks));fixRequestSelectedHouse=activeFixHouseLocation?{bi:activeFixHouseLocation.bi,si:activeFixHouseLocation.si,hi:activeFixHouseLocation.hi}:null;renderFixFullCardEditor();
   } catch(e){content.innerHTML='<div style="padding:16px;color:#b91c1c;background:white;border-radius:10px">카드 내용을 불러오지 못했습니다: '+escHtml(e&&e.message?e.message:e)+'</div>';}
 }
-function closeFixRequestFullCard() {
+function closeFixRequestFullCard(force) {
+  if(!force && fixFullCardBlocks && fixFullCardOriginalBlocks && isFixFullCardDirty()){
+    if(!confirm('저장하지 않은 수정 내용이 있습니다. 저장하지 않고 편집기를 닫을까요?'))return;
+  }
   var overlay=document.getElementById('fixFullCardOverlay');
   if(overlay) overlay.style.display='none';
 }
