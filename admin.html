@@ -1845,13 +1845,12 @@ function removeFixFullCardItem(type,bi,si,hi) {
   syncFixFullCardInputs();if(!confirm('선택한 항목을 삭제할까요? 저장 전까지 실제 카드에는 반영되지 않습니다.'))return;
   function getHouse(loc){var b=loc&&fixFullCardBlocks[loc.bi],st=b&&b.subTopics&&b.subTopics[loc.si],hs=st&&st.houses;return hs&&hs[loc.hi]||null;}
   var selectedHouse=getHouse(fixRequestSelectedHouse),requestedHouse=getHouse(activeFixHouseLocation);
-  var deletedHouse=type==='house'&&fixFullCardBlocks[bi]&&fixFullCardBlocks[bi].subTopics[si]&&fixFullCardBlocks[bi].subTopics[si].houses[hi];
-  var deletedRequested=!!(requestedHouse&&requestedHouse===deletedHouse);
   if(type==='block')fixFullCardBlocks.splice(bi,1);else if(type==='sub')fixFullCardBlocks[bi].subTopics.splice(si,1);else fixFullCardBlocks[bi].subTopics[si].houses.splice(hi,1);
   function findHouse(house){if(!house)return null;for(var b=0;b<fixFullCardBlocks.length;b++)for(var st=0;st<(fixFullCardBlocks[b].subTopics||[]).length;st++)for(var h=0;h<(fixFullCardBlocks[b].subTopics[st].houses||[]).length;h++)if(fixFullCardBlocks[b].subTopics[st].houses[h]===house)return {bi:b,si:st,hi:h};return null;}
   if(selectedHouse)fixRequestSelectedHouse=findHouse(selectedHouse);
-  if(requestedHouse){var requestLoc=findHouse(requestedHouse);activeFixHouseLocation=requestLoc||{oldAddr:activeFixHouseLocation&&activeFixHouseLocation.oldAddr||String(activeFixRequest&&activeFixRequest.data&&activeFixRequest.data.addr||'')};}
-  if(deletedRequested)showToast('요청 대상 주소가 삭제되었습니다. 요청 주소 기록은 유지되며, 저장 전까지 실제 카드에는 반영되지 않습니다.');
+  var requestLoc=requestedHouse&&findHouse(requestedHouse);
+  if(requestedHouse){activeFixHouseLocation=requestLoc||{oldAddr:activeFixHouseLocation&&activeFixHouseLocation.oldAddr||String(activeFixRequest&&activeFixRequest.data&&activeFixRequest.data.addr||'')};}
+  if(requestedHouse&&!requestLoc)showToast('요청 대상 주소가 삭제되었습니다. 요청 주소 기록은 유지되며, 저장 전까지 실제 카드에는 반영되지 않습니다.');
   renderFixFullCardEditor();
 }
 async function saveFixFullCardEditor() {
