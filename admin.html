@@ -4327,6 +4327,7 @@ function zdRenderList(){
   var meta=[];
   if(r.house.adminStatus)meta.push('<span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 6px;margin:3px 4px 0 0;font-size:11px;font-weight:800">'+escHtml(r.house.adminStatus)+'</span>');
   if(r.house.adminMemo)meta.push('<div style="font-size:12px;color:#475569;margin-top:4px;white-space:pre-wrap">📝 '+escHtml(r.house.adminMemo)+'</div>');
+  if(r.house.mapAddress)meta.push('<div style="font-size:12px;color:#334155;margin-top:4px">📍 지도 주소: '+escHtml(r.house.mapAddress)+'</div>');
   return '<button type="button" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:pointer" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div>'+meta.join('')+'</button>';
  }).join('');
 }
@@ -4491,6 +4492,14 @@ function zdCreateMap(){
   var row=zdInlineRequireSelection();if(!row){zdInlineMapPickMode=false;zdRenderInlineEditor();return;}
   var p=e.latLng;row.house.lat=p.getLat();row.house.lng=p.getLng();row.lat=p.getLat();row.lng=p.getLng();row.house.locationUpdatedAt=new Date().toISOString();
   row.house._fixManualMapMove=true;zdInlineMapPickMode=false;
+  if(kakao.maps.services&&kakao.maps.services.Geocoder){
+   try{new kakao.maps.services.Geocoder().coord2Address(p.getLng(),p.getLat(),function(result,status){
+    if(status===kakao.maps.services.Status.OK&&result&&result[0]){
+     var found=(result[0].road_address&&result[0].road_address.address_name)||(result[0].address&&result[0].address.address_name)||'';
+     if(found){row.house.mapAddress=found;row.mapAddress=found;zdRenderList();showToast('지도 좌표와 확인된 주소를 가져왔습니다. 저장을 눌러 반영하세요.');}
+    }
+   });}catch(ge){console.warn('좌표 주소 변환 실패',ge);}
+  }
   zdDashboardRows.forEach(function(r){if(r.bi===row.bi&&r.si===row.si&&r.hi===row.hi){r.lat=row.house.lat;r.lng=row.house.lng;}});
   zdRenderList();zdRenderInlineEditor();zdCreateMap();showToast('선택한 주소의 지도 위치를 바꿨습니다. 저장을 눌러 반영하세요.');
  });
