@@ -53,7 +53,7 @@ main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;
 <div class="topline"><strong style="font-size:14px">오늘 방문 위치 공유</strong><span class="count" id="selectedCount">0곳 선택</span></div>
 <p class="muted" style="margin:7px 0 10px">선택한 위치만 복사해 모임에 전달할 수 있습니다. 이름과 개인 메모는 복사되지 않습니다.</p>
 <textarea id="shareText" readonly placeholder="오늘 방문할 위치를 선택하면 여기에 위치 목록이 표시됩니다."></textarea>
-<div class="row" style="margin-top:8px"><button class="btn primary" onclick="copySelected()">위치 목록 복사</button><button class="btn soft" onclick="shareSelected()">목록 공유하기</button><button class="btn soft" onclick="openSelectedMaps()">추천 방문 목록 만들기</button></div><p class="muted" style="margin-bottom:0">추천 목록에서 각 주소의 「카카오내비로 안내」를 누르면 해당 주소가 목적지로 열립니다. 현재 위치를 허용하면 현재 위치 기준으로 방문 순서를 추천합니다.</p><div id="recommendedRoute" class="route-list"></div>
+<div class="row" style="margin-top:8px"><button class="btn primary" onclick="copySelected()">위치 목록 복사</button><button class="btn soft" onclick="shareSelected()">목록 공유하기</button><button class="btn soft" onclick="showSelectedMap()">지도에 위치 표시</button><button class="btn soft" onclick="openSelectedMaps()">추천 방문 순서</button></div><p class="muted" style="margin-bottom:0">지도에 선택한 위치를 번호로 표시하고, 추천 방문 순서는 직접 드래그해 바꿀 수 있습니다. 공유 목록에는 선택한 주소와 지도 검색 링크만 들어가며 개인 메모는 포함하지 않습니다.</p><div id="routeMapPanel" class="hidden" style="margin-top:12px"><div class="topline"><strong style="font-size:14px">선택한 위치 지도</strong><button class="btn soft" onclick="hideSelectedMap()">지도 접기</button></div><div id="routeMap" aria-label="선택한 재방문 위치 지도" style="height:320px;width:100%;border-radius:12px;overflow:hidden;background:#ece8f5;margin-top:8px"></div><div id="mapStatus" class="muted" role="status" style="margin-top:7px"></div></div><div id="recommendedRoute" class="route-list"></div>
 </div>
 </section>
 </main>
@@ -180,7 +180,32 @@ function render(){
  renderShare();
 }
 function openPersonMap(id){var p=people.find(x=>x.id===id);if(p)window.open('https://map.kakao.com/link/search/'+encodeURIComponent(p.address),'_blank')}
-function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=chosen.map((p,i)=>(i+1)+'. '+p.address).join('\n')}
+function mapSearchUrl(address){return 'https://map.kakao.com/link/search/'+encodeURIComponent(address)}
+function buildShareText(chosen){return chosen.map(function(p,i){return (i+1)+'. '+p.address+'\\n'+mapSearchUrl(p.address)}).join('\\n\\n')}
+function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=buildShareText(chosen)}
+var revisitMap=null,revisitMapMarkers=[],revisitMapLine=null;
+function hideSelectedMap(){document.getElementById('routeMapPanel').classList.add('hidden')}
+async function showSelectedMap(){
+ var chosen=people.filter(function(p){return selectedIds.has(p.id)});
+ if(!chosen.length){alert('지도에 표시할 위치를 먼저 선택해 주세요.');return}
+ var panel=document.getElementById('routeMapPanel'),status=document.getElementById('mapStatus'),mapEl=document.getElementById('routeMap');
+ panel.classList.remove('hidden');status.textContent='주소를 지도 좌표로 바꾸는 중입니다…';
+ if(!window.kakao||!kakao.maps||!kakao.maps.services){status.textContent='카카오 지도 SDK를 불러오지 못했습니다. 페이지를 새로고침해 주세요.';return}
+ var results=await Promise.all(chosen.map(async function(p){return Object.assign({},p,{_point:await geocodeRevisitAddress(p.address)})}));
+ var valid=results.filter(function(p){return !!p._point});
+ if(!valid.length){status.textContent='주소 좌표를 찾지 못했습니다. 주소를 확인하고 다시 시도해 주세요.';return}
+ if(!revisitMap){revisitMap=new kakao.maps.Map(mapEl,{center:new kakao.maps.LatLng(valid[0]._point.lat,valid[0]._point.lng),level:7})}
+ setTimeout(function(){try{
+  revisitMap.relayout();var bounds=new kakao.maps.LatLngBounds();
+  revisitMapMarkers.forEach(function(m){m.setMap(null)});revisitMapMarkers=[];
+  if(revisitMapLine){revisitMapLine.setMap(null);revisitMapLine=null}
+  valid.forEach(function(p,i){var pos=new kakao.maps.LatLng(p._point.lat,p._point.lng);bounds.extend(pos);var overlay=new kakao.maps.CustomOverlay({position:pos,content:'<div style="background:#6d45d9;color:#fff;border:2px solid #fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 2px 7px #0003">'+(i+1)+'</div>',yAnchor:1});overlay.setMap(revisitMap);revisitMapMarkers.push(overlay)});
+  if(valid.length>1){revisitMapLine=new kakao.maps.Polyline({path:valid.map(function(p){return new kakao.maps.LatLng(p._point.lat,p._point.lng)}),strokeWeight:3,strokeColor:'#6d45d9',strokeOpacity:.75,strokeStyle:'dash'});revisitMapLine.setMap(revisitMap)}
+  if(valid.length===1)revisitMap.setCenter(new kakao.maps.LatLng(valid[0]._point.lat,valid[0]._point.lng));else revisitMap.setBounds(bounds)
+ }catch(e){status.textContent='지도를 표시하지 못했습니다. 각 주소의 지도 검색 링크를 이용해 주세요.'}},100);
+ status.textContent=valid.length===chosen.length?valid.length+'곳을 지도에 표시했습니다. 번호는 선택한 순서입니다.':'선택한 '+chosen.length+'곳 중 '+valid.length+'곳을 표시했습니다. 좌표를 찾지 못한 주소가 있습니다.';
+ if(valid.length!==chosen.length)status.textContent+=' 주소를 확인한 뒤 다시 시도해 주세요.';
+}
 function copySelected(){var t=document.getElementById('shareText').value;if(!t){alert('오늘 방문할 위치를 먼저 선택해 주세요.');return}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert('위치 목록을 복사했습니다. 개인 메모는 포함되지 않았습니다.')).catch(()=>fallbackCopy())}else fallbackCopy()}
 async function shareSelected(){var t=document.getElementById('shareText').value;if(!t){alert('먼저 방문할 위치를 선택해 주세요.');return}if(navigator.share){try{await navigator.share({title:'오늘 방문할 위치 목록',text:t});return}catch(e){if(e&&e.name==='AbortError')return}}copySelected()}
 function fallbackCopy(){var e=document.getElementById('shareText');e.focus();e.select();try{var ok=document.execCommand('copy');if(ok)alert('위치 목록을 복사했습니다. 공유할 곳에 붙여 넣어 주세요.');else alert('자동 복사가 제한되어 있어요. 목록을 길게 눌러 복사해 주세요.')}catch(err){alert('자동 복사가 제한되어 있어요. 목록을 길게 눌러 복사해 주세요.')}}
@@ -223,7 +248,7 @@ async function openSelectedMaps(){
    ?(current?'현재 위치를 출발 기준으로':'현재 위치를 사용할 수 없어 주소 간 거리를 기준으로')
    :'주소 좌표를 일부 확인하지 못해 선택한 순서로 표시했어요. 아래 「지도에서 위치 확인」으로 주소를 확인할 수 있습니다.';
   renderRecommendedRoute(note);
-  document.getElementById('shareText').value='방문 위치 목록\\n'+recommendedRoute.map(function(p,i){return (i+1)+'. '+p.address;}).join('\\n');
+  document.getElementById('shareText').value=buildShareText(recommendedRoute)}).join('\\n');
   document.getElementById('recommendedRoute').scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){
   alert('위치 목록을 표시하지 못했습니다. 주소를 복사해 지도에서 직접 검색할 수도 있습니다.');
