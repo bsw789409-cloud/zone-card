@@ -185,13 +185,13 @@ function buildShareText(chosen){return chosen.map(function(p,i){return (i+1)+'. 
 function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=buildShareText(chosen)}
 var revisitMap=null,revisitMapMarkers=[],revisitMapLine=null;
 function hideSelectedMap(){document.getElementById('routeMapPanel').classList.add('hidden')}
-async function showSelectedMap(){
- var chosen=people.filter(function(p){return selectedIds.has(p.id)});
+async function showSelectedMap(items){
+ var chosen=items||people.filter(function(p){return selectedIds.has(p.id)});
  if(!chosen.length){alert('지도에 표시할 위치를 먼저 선택해 주세요.');return}
  var panel=document.getElementById('routeMapPanel'),status=document.getElementById('mapStatus'),mapEl=document.getElementById('routeMap');
  panel.classList.remove('hidden');status.textContent='주소를 지도 좌표로 바꾸는 중입니다…';
  if(!window.kakao||!kakao.maps||!kakao.maps.services){status.textContent='카카오 지도 SDK를 불러오지 못했습니다. 페이지를 새로고침해 주세요.';return}
- var results=await Promise.all(chosen.map(async function(p){return Object.assign({},p,{_point:await geocodeRevisitAddress(p.address)})}));
+ var results=await Promise.all(chosen.map(async function(p){return Object.assign({},p,{_point:p._point||await geocodeRevisitAddress(p.address)})}));
  var valid=results.filter(function(p){return !!p._point});
  if(!valid.length){status.textContent='주소 좌표를 찾지 못했습니다. 주소를 확인하고 다시 시도해 주세요.';return}
  if(!revisitMap){revisitMap=new kakao.maps.Map(mapEl,{center:new kakao.maps.LatLng(valid[0]._point.lat,valid[0]._point.lng),level:7})}
@@ -228,6 +228,7 @@ async function openSelectedMaps(){
   }else{recommendedRoute=chosen.map(function(p){return geocoded.find(function(g){return g.id===p.id;})||Object.assign({},p,{_point:null});});}
   var note=valid.length===chosen.length?(current?'현재 위치를 출발 기준으로':'현재 위치를 사용할 수 없어 주소 간 거리를 기준으로'):'주소 좌표를 일부 확인하지 못해 선택한 순서로 표시했어요. 지도에서 위치 확인을 이용해 주세요.';
   renderRecommendedRoute(note);
+  showSelectedMap(recommendedRoute);
   document.getElementById('shareText').value=buildShareText(recommendedRoute);
   document.getElementById('recommendedRoute').scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){alert('위치 목록을 표시하지 못했습니다. 주소를 복사해 지도에서 직접 검색할 수도 있습니다.');}
