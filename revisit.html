@@ -52,7 +52,8 @@ main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;
 </main>
 <script>
 var ownerName='', people=[], selectedIds=new Set(), activeAreaFilter='전체', activeVisitId='';
-var revisitDb=null, territoryAreasCache=null, addressCheckToken=0, recommendedRoute=[];\ntry{if(window.Kakao&&!Kakao.isInitialized())Kakao.init('373ab91b1b34d489bc6ad97eb162c05e')}catch(e){}
+var revisitDb=null, territoryAreasCache=null, addressCheckToken=0, recommendedRoute=[];
+try{if(window.Kakao&&!Kakao.isInitialized())Kakao.init('373ab91b1b34d489bc6ad97eb162c05e')}catch(e){}
 try {
   firebase.initializeApp({apiKey:"AIzaSyBmhHpanj9lYGLo-f9VYTmgn4Kwtdw0u8",authDomain:"field-map-f06a4.firebaseapp.com",databaseURL:"https://field-map-f06a4-default-rtdb.firebaseio.com",projectId:"field-map-f06a4",storageBucket:"field-map-f06a4.firebasestorage.app",messagingSenderId:"1080155946606",appId:"1:1080155946606:web:d5d15c62295251c2ce307f",measurementId:"G-FC5XP2N46M"});
   revisitDb=firebase.firestore();
