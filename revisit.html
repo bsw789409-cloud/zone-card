@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>재방문 관리 — 줄포 회중</title>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=373ab91b1b34d489bc6ad97eb162c05e&libraries=services"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f3fa;color:#211747;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
 header{background:#1a1040;color:#fff;padding:18px 16px 22px}header button{border:0;background:#ffffff1a;color:#fff;border-radius:10px;padding:8px 12px;font-size:14px}h1{font-size:23px;margin:18px 0 6px}header p{font-size:13px;color:#c9c2e4;margin:0;line-height:1.6}
@@ -21,7 +24,7 @@ main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;
 <section class="panel">
 <div class="topline"><h2 id="formTitle">재방문 대상 등록</h2><span class="count">개인 기록</span></div>
 <div class="field" style="margin-top:14px"><label class="label">이름 또는 알아볼 별칭 *</label><input id="personName" placeholder="예: 파란 대문 집, 김○○님"></div>
-<div class="field"><label class="label">위치 / 주소 *</label><input id="personAddress" placeholder="주소 또는 지도에서 찾을 수 있는 위치"></div>
+<div class="field"><label class="label">위치 / 주소 *</label><input id="personAddress" placeholder="기존 구역카드에 등록된 주소를 입력하세요" onblur="verifyAddress(false)"><div id="addressMatchStatus" class="muted" role="status" style="margin-top:7px">주소를 입력하면 기존 구역카드에서 위치를 찾아 연결합니다.</div><input id="matchedAreaId" type="hidden"><input id="matchedAreaName" type="hidden"><input id="matchedHouseKey" type="hidden"><input id="matchedHouseName" type="hidden"></div>
 <div class="field"><label class="label">이전 대화 내용 (나만 보는 메모)</label><textarea id="personTalk" placeholder="지난번에 나눈 이야기"></textarea></div>
 <div class="field"><label class="label">특징 / 관심사 (나만 보는 메모)</label><textarea id="personTraits" placeholder="관심사, 기억할 점, 다음에 나눌 이야기"></textarea></div>
 <div class="row"><button class="btn primary" onclick="savePerson()">저장</button><button class="btn soft" onclick="resetForm()">입력 지우기</button></div>
@@ -41,15 +44,79 @@ main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;
 </main>
 <script>
 var ownerName='', people=[], selectedIds=new Set();
+var revisitDb=null, territoryAreasCache=null, addressCheckToken=0;
+try {
+  firebase.initializeApp({apiKey:"AIzaSyBmhHpanj9lYGLo-f9VYTmgn4Kwtdw0u8",authDomain:"field-map-f06a4.firebaseapp.com",databaseURL:"https://field-map-f06a4-default-rtdb.firebaseio.com",projectId:"field-map-f06a4",storageBucket:"field-map-f06a4.firebasestorage.app",messagingSenderId:"1080155946606",appId:"1:1080155946606:web:d5d15c62295251c2ce307f",measurementId:"G-FC5XP2N46M"});
+  revisitDb=firebase.firestore();
+} catch(e) { if(firebase.apps && firebase.apps.length) revisitDb=firebase.firestore(); }
+function normalizeAddress(s){return String(s||'').toLocaleLowerCase('ko-KR').replace(/\s+/g,'').replace(/[.,·ㆍ()\-]/g,'')}
+async function loadTerritoryAreas(){
+  if(territoryAreasCache) return territoryAreasCache;
+  if(!revisitDb) throw new Error('구역카드 데이터 연결에 실패했습니다.');
+  var snap=await revisitDb.collection('areas').get();
+  territoryAreasCache=snap.docs.map(function(doc){var a=doc.data()||{};return Object.assign({},a,{id:doc.id})});
+  return territoryAreasCache;
+}
+function allHousesInArea(area){
+  var found=[],blocks=area.blocks||[];
+  blocks.forEach(function(block,bi){
+    var topics=block.subTopics||block.subs||[];
+    if(topics.length){
+      topics.forEach(function(topic,si){(topic.houses||[]).forEach(function(h,hi){found.push({house:h,key:String(h.houseId||h._key||bi+'_'+si+'_'+hi),area:area})})});
+    }else{
+      (block.houses||[]).forEach(function(h,hi){found.push({house:h,key:String(h.houseId||h._key||bi+'_0_'+hi),area:area})});
+    }
+  });
+  return found;
+}
+async function verifyAddress(showAlert){
+  var address=document.getElementById('personAddress').value.trim(), status=document.getElementById('addressMatchStatus');
+  var token=++addressCheckToken;
+  ['matchedAreaId','matchedAreaName','matchedHouseKey','matchedHouseName'].forEach(function(id){document.getElementById(id).value=''});
+  if(!address){status.textContent='주소를 입력하면 기존 구역카드에서 위치를 찾아 연결합니다.';status.style.color='';return false}
+  status.textContent='기존 구역카드에서 주소를 찾는 중…';status.style.color='#716b86';
+  try{
+    var areas=await loadTerritoryAreas();
+    if(token!==addressCheckToken)return false;
+    var target=normalizeAddress(address), matches=[];
+    areas.forEach(function(area){allHousesInArea(area).forEach(function(item){var a=normalizeAddress(item.house.addr||item.house.address||'');if(a&&a===target)matches.push(item)})});
+    if(token!==addressCheckToken)return false;
+    if(matches.length===1){
+      var m=matches[0], house=m.house, area=m.area;
+      document.getElementById('matchedAreaId').value=String(area.id);
+      document.getElementById('matchedAreaName').value=String(area.name||('구역 '+area.id));
+      document.getElementById('matchedHouseKey').value=m.key;
+      document.getElementById('matchedHouseName').value=String(house.name||house.personName||house.addr||address);
+      status.textContent='✓ 기존 구역카드에서 찾았습니다: '+String(area.name||('구역 '+area.id))+' · 카드 위치가 자동 연결됩니다.';
+      status.style.color='#18794e';
+      return true;
+    }
+    if(matches.length>1){
+      status.textContent='같은 주소가 여러 카드에서 발견되어 자동 연결하지 않았습니다. 주소를 더 정확하게 입력해 주세요.';
+      status.style.color='#b45309';
+      if(showAlert)alert(status.textContent);
+      return false;
+    }
+    status.textContent='기존 구역카드에서 이 주소를 찾지 못했습니다. 카드에 등록된 주소와 띄어쓰기·번지까지 확인해 주세요.';
+    status.style.color='#b42318';
+    if(showAlert)alert(status.textContent);
+    return false;
+  }catch(e){
+    status.textContent='구역카드 주소를 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+    status.style.color='#b42318';
+    if(showAlert)alert(status.textContent);
+    return false;
+  }
+}
 function storageKey(){return 'privateRevisitV1:'+ownerName.trim().toLocaleLowerCase('ko-KR')}
 function loadOwner(){var n=document.getElementById('owner').value.trim();if(!n){alert('사용자 이름을 입력해 주세요.');return}ownerName=n;document.getElementById('owner').value=n;try{people=JSON.parse(localStorage.getItem(storageKey())||'[]');if(!Array.isArray(people))people=[]}catch(e){people=[]}selectedIds=new Set();resetForm();render(); }
-function savePerson(){if(!ownerName){alert('먼저 사용자 이름을 입력하고 목록을 열어주세요.');return}var name=document.getElementById('personName').value.trim(),address=document.getElementById('personAddress').value.trim();if(!name||!address){alert('이름과 위치는 꼭 입력해 주세요.');return}var id=document.getElementById('editId').value||('rv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));var old=people.find(p=>p.id===id);var item=Object.assign({},old||{},{id:id,name:name,address:address,talk:document.getElementById('personTalk').value.trim(),traits:document.getElementById('personTraits').value.trim(),createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()});if(old)people=people.map(p=>p.id===id?item:p);else people.unshift(item);persist();resetForm();render()}
+async function savePerson(){if(!ownerName){alert('먼저 사용자 이름을 입력하고 목록을 열어주세요.');return}var name=document.getElementById('personName').value.trim(),address=document.getElementById('personAddress').value.trim();if(!name||!address){alert('이름과 위치는 꼭 입력해 주세요.');return}var matched=await verifyAddress(true);if(!matched)return;var id=document.getElementById('editId').value||('rv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));var old=people.find(p=>p.id===id);var item=Object.assign({},old||{},{id:id,name:name,address:address,talk:document.getElementById('personTalk').value.trim(),traits:document.getElementById('personTraits').value.trim(),sourceAreaId:document.getElementById('matchedAreaId').value,sourceAreaName:document.getElementById('matchedAreaName').value,sourceHouseKey:document.getElementById('matchedHouseKey').value,sourceHouseName:document.getElementById('matchedHouseName').value,createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()});if(old)people=people.map(p=>p.id===id?item:p);else people.unshift(item);persist();resetForm();render()}
 function persist(){try{localStorage.setItem(storageKey(),JSON.stringify(people))}catch(e){alert('저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.')}}
-function resetForm(){['personName','personAddress','personTalk','personTraits','editId'].forEach(id=>document.getElementById(id).value='');document.getElementById('formTitle').textContent='재방문 대상 등록'}
-function editPerson(id){var p=people.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=p.id;document.getElementById('personName').value=p.name;document.getElementById('personAddress').value=p.address;document.getElementById('personTalk').value=p.talk||'';document.getElementById('personTraits').value=p.traits||'';document.getElementById('formTitle').textContent='재방문 정보 수정';window.scrollTo({top:0,behavior:'smooth'})}
+function resetForm(){['personName','personAddress','personTalk','personTraits','editId','matchedAreaId','matchedAreaName','matchedHouseKey','matchedHouseName'].forEach(id=>document.getElementById(id).value='');document.getElementById('formTitle').textContent='재방문 대상 등록';var st=document.getElementById('addressMatchStatus');st.textContent='주소를 입력하면 기존 구역카드에서 위치를 찾아 연결합니다.';st.style.color=''}
+function editPerson(id){var p=people.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=p.id;document.getElementById('personName').value=p.name;document.getElementById('personAddress').value=p.address;document.getElementById('personTalk').value=p.talk||'';document.getElementById('personTraits').value=p.traits||'';document.getElementById('formTitle').textContent='재방문 정보 수정';document.getElementById('addressMatchStatus').textContent=p.sourceAreaId?'연결된 구역카드: '+(p.sourceAreaName||p.sourceAreaId):'주소를 다시 확인해 주세요.';document.getElementById('addressMatchStatus').style.color=p.sourceAreaId?'#18794e':'#716b86';document.getElementById('matchedAreaId').value=p.sourceAreaId||'';document.getElementById('matchedAreaName').value=p.sourceAreaName||'';document.getElementById('matchedHouseKey').value=p.sourceHouseKey||'';document.getElementById('matchedHouseName').value=p.sourceHouseName||'';window.scrollTo({top:0,behavior:'smooth'})}
 function deletePerson(id){if(!confirm('이 재방문 기록을 삭제할까요? 삭제하면 복구할 수 없습니다.'))return;people=people.filter(p=>p.id!==id);selectedIds.delete(id);persist();render()}
 function toggleSelected(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);renderShare()}
-function render(){document.getElementById('listCount').textContent=people.length+'명';var root=document.getElementById('peopleList');if(!people.length){root.innerHTML='<div class="empty">아직 등록된 재방문 대상이 없습니다.</div>'}else{root.innerHTML=people.map(p=>'<article class="item '+(selectedIds.has(p.id)?'selected':'')+'"><div class="itemhead"><input aria-label="오늘 방문할 위치 선택" type="checkbox" '+(selectedIds.has(p.id)?'checked':'')+' onchange="toggleSelected('+JSON.stringify(p.id)+',this.checked)"><div style="flex:1;min-width:0"><div class="person">'+esc(p.name)+'</div><div class="address">📍 '+esc(p.address)+'</div></div></div>'+((p.talk||p.traits)?'<div class="note">'+(p.talk?'대화: '+esc(p.talk)+'\n':'')+(p.traits?'특징: '+esc(p.traits):'')+'</div>':'<div class="muted" style="margin-top:7px">개인 메모 없음</div>')+'<div class="itemactions"><button class="btn soft" onclick="editPerson('+JSON.stringify(p.id)+')">수정</button><button class="btn soft" onclick="openPersonMap('+JSON.stringify(p.id)+')">지도</button><button class="btn danger" onclick="deletePerson('+JSON.stringify(p.id)+')">삭제</button></div></article>').join('')}renderShare()}
+function render(){document.getElementById('listCount').textContent=people.length+'명';var root=document.getElementById('peopleList');if(!people.length){root.innerHTML='<div class="empty">아직 등록된 재방문 대상이 없습니다.</div>'}else{root.innerHTML=people.map(p=>'<article class="item '+(selectedIds.has(p.id)?'selected':'')+'"><div class="itemhead"><input aria-label="오늘 방문할 위치 선택" type="checkbox" '+(selectedIds.has(p.id)?'checked':'')+' onchange="toggleSelected('+JSON.stringify(p.id)+',this.checked)"><div style="flex:1;min-width:0"><div class="person">'+esc(p.name)+'</div><div class="address">📍 '+esc(p.address)+'</div>'+(p.sourceAreaId?'<div class="muted" style="margin-top:4px;color:#18794e">연결된 구역카드: '+esc(p.sourceAreaName||p.sourceAreaId)+'</div>':'<div class="muted" style="margin-top:4px;color:#b42318">구역카드 위치 미연결</div>')+'</div></div>'+((p.talk||p.traits)?'<div class="note">'+(p.talk?'대화: '+esc(p.talk)+'\n':'')+(p.traits?'특징: '+esc(p.traits):'')+'</div>':'<div class="muted" style="margin-top:7px">개인 메모 없음</div>')+'<div class="itemactions"><button class="btn soft" onclick="editPerson('+JSON.stringify(p.id)+')">수정</button><button class="btn soft" onclick="openPersonMap('+JSON.stringify(p.id)+')">지도</button><button class="btn danger" onclick="deletePerson('+JSON.stringify(p.id)+')">삭제</button></div></article>').join('')}renderShare()}
 function openPersonMap(id){var p=people.find(x=>x.id===id);if(p)window.open('https://map.kakao.com/link/search/'+encodeURIComponent(p.address),'_blank')}
 function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=chosen.map((p,i)=>(i+1)+'. '+p.address).join('\n')}
 function copySelected(){var t=document.getElementById('shareText').value;if(!t){alert('오늘 방문할 위치를 먼저 선택해 주세요.');return}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert('위치 목록을 복사했습니다. 개인 메모는 포함되지 않았습니다.')).catch(()=>fallbackCopy())}else fallbackCopy()}
