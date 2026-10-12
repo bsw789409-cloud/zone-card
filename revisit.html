@@ -188,7 +188,49 @@ function geocodeRevisitAddress(address){return new Promise(function(resolve){var
 function routeDistance(a,b){var rad=Math.PI/180,lat1=a.lat*rad,lat2=b.lat*rad,dlat=(b.lat-a.lat)*rad,dlng=(b.lng-a.lng)*rad;var h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlng/2)**2;return 6371*2*Math.asin(Math.min(1,Math.sqrt(h)))}
 function nearestOrder(points,start){var left=points.slice(),ordered=[],current=start;if(!current){current=left.reduce(function(best,p){var sum=left.reduce(function(s,q){return s+(p===q?0:routeDistance(p,q))},0);return !best||sum<best.sum?{p:p,sum:sum}:best},null).p;left=left.filter(function(p){return p!==current});ordered.push(current)}while(left.length){var bestIndex=0,bestDistance=Infinity;left.forEach(function(p,i){var d=routeDistance(current,p);if(d<bestDistance){bestDistance=d;bestIndex=i}});current=left.splice(bestIndex,1)[0];ordered.push(current)}return ordered}
 function improveRoute(points,start){var route=nearestOrder(points,start);if(route.length<4)return route;var changed=true,passes=0;while(changed&&passes++<8){changed=false;for(var i=0;i<route.length-2;i++){for(var k=i+2;k<route.length;k++){var a=i===0?start:route[i-1],b=route[i],c=route[k],d=k+1<route.length?route[k+1]:null;if(!a)continue;var before=routeDistance(a,b)+(d?routeDistance(c,d):0),after=routeDistance(a,c)+(d?routeDistance(b,d):0);if(after+0.02<before){route.splice(i,k-i+1,...route.slice(i,k+1).reverse());changed=true}}}}return route}
-async function openSelectedMaps(){var chosen=people.filter(function(p){return selectedIds.has(p.id)});if(!chosen.length){alert('위치를 먼저 선택해 주세요.');return}var btns=document.querySelectorAll('.sharebox button');btns.forEach(function(b){if(b.textContent.indexOf('추천 방문 목록')>=0){b.disabled=true;b.textContent='위치 확인 중…'}});try{var geocoded=await Promise.all(chosen.map(async function(p){var point=await geocodeRevisitAddress(p.address);return Object.assign({},p,{_point:point||null})}));var valid=geocoded.filter(function(p){return !!p._point});var current=null;if(valid.length===chosen.length){try{if(navigator.geolocation){current=await new Promise(function(resolve){navigator.geolocation.getCurrentPosition(function(pos){resolve({lat:pos.coords.latitude,lng:pos.coords.longitude)},function(){resolve(null)},{enableHighAccuracy:false,timeout:3500,maximumAge:120000})})}}catch(e){current=null}recommendedRoute=improveRoute(valid,current)}else{recommendedRoute=chosen.map(function(p){var found=geocoded.find(function(g){return g.id===p.id});return found||Object.assign({},p,{_point:null})})}var note=valid.length===chosen.length?(current?'현재 위치를 출발 기준으로':'현재 위치를 사용할 수 없어 주소 간 거리를 기준으로'):'주소 좌표를 일부 확인하지 못해 선택한 순서로 표시했어요. 아래 「지도에서 위치 확인」으로 주소를 확인할 수 있습니다.';renderRecommendedRoute(note);document.getElementById('shareText').value='방문 위치 목록\\n'+recommendedRoute.map(function(p,i){return (i+1)+'. '+p.address}).join('\\n');document.getElementById('recommendedRoute').scrollIntoView({behavior:'smooth',block:'nearest'})}catch(e){alert('위치 목록을 표시하지 못했습니다. 주소를 복사해 지도에서 직접 검색할 수도 있습니다.')}finally{btns.forEach(function(b){if(b.textContent.indexOf('위치 확인 중')>=0){b.disabled=false;b.textContent='추천 방문 목록 만들기'}})}}
+async function openSelectedMaps(){
+ var chosen=people.filter(function(p){return selectedIds.has(p.id)});
+ if(!chosen.length){alert('위치를 먼저 선택해 주세요.');return}
+ var btns=document.querySelectorAll('.sharebox button');
+ btns.forEach(function(b){if(b.textContent.indexOf('추천 방문 목록')>=0){b.disabled=true;b.textContent='위치 확인 중…'}});
+ try{
+  var geocoded=await Promise.all(chosen.map(async function(p){
+   var point=await geocodeRevisitAddress(p.address);
+   return Object.assign({},p,{_point:point||null});
+  }));
+  var valid=geocoded.filter(function(p){return !!p._point});
+  var current=null;
+  if(valid.length===chosen.length){
+   try{
+    if(navigator.geolocation){
+     current=await new Promise(function(resolve){
+      navigator.geolocation.getCurrentPosition(
+       function(pos){resolve({lat:pos.coords.latitude,lng:pos.coords.longitude});},
+       function(){resolve(null);},
+       {enableHighAccuracy:false,timeout:3500,maximumAge:120000}
+      );
+     });
+    }
+   }catch(e){current=null;}
+   recommendedRoute=improveRoute(valid,current);
+  }else{
+   recommendedRoute=chosen.map(function(p){
+    var found=geocoded.find(function(g){return g.id===p.id;});
+    return found||Object.assign({},p,{_point:null});
+   });
+  }
+  var note=valid.length===chosen.length
+   ?(current?'현재 위치를 출발 기준으로':'현재 위치를 사용할 수 없어 주소 간 거리를 기준으로')
+   :'주소 좌표를 일부 확인하지 못해 선택한 순서로 표시했어요. 아래 「지도에서 위치 확인」으로 주소를 확인할 수 있습니다.';
+  renderRecommendedRoute(note);
+  document.getElementById('shareText').value='방문 위치 목록\\n'+recommendedRoute.map(function(p,i){return (i+1)+'. '+p.address;}).join('\\n');
+  document.getElementById('recommendedRoute').scrollIntoView({behavior:'smooth',block:'nearest'});
+ }catch(e){
+  alert('위치 목록을 표시하지 못했습니다. 주소를 복사해 지도에서 직접 검색할 수도 있습니다.');
+ }finally{
+  btns.forEach(function(b){if(b.textContent.indexOf('위치 확인 중')>=0){b.disabled=false;b.textContent='추천 방문 목록 만들기';}});
+ }
+}
 function renderRecommendedRoute(originNote){var root=document.getElementById('recommendedRoute');if(!recommendedRoute.length){root.innerHTML='';return}root.innerHTML='<div class="topline" style="margin:12px 0 4px"><strong style="font-size:14px">방문 위치 목록</strong><span class="count">'+recommendedRoute.length+'곳</span></div><p class="muted">'+(originNote||'추천 순서')+' 손잡이(☰)를 드래그해 순서를 직접 바꿀 수 있습니다. 자동 추천은 직선거리 기준이며 실제 도로 거리·교통 상황에 따른 최적화는 아닙니다.</p>'+recommendedRoute.map(function(p,i){return '<div class="route-stop" data-route-index="'+i+'"><button class="route-drag" aria-label="방문 순서 드래그" title="길게 눌러 끌어서 순서 변경" onpointerdown="beginRouteDrag(event,'+i+')" onpointerup="finishRouteDrag(event)" onpointercancel="cancelRouteDrag()" draggable="true" ondragstart="desktopRouteDragStart(event,'+i+')" ondragover="event.preventDefault()" ondrop="desktopRouteDrop(event,'+i+')">☰</button><div class="route-number">'+(i+1)+'</div><div class="route-stop-info"><div class="route-stop-address">'+esc(p.address)+'</div><div class="muted">'+esc(areaOf(p))+'</div></div><button class="btn primary" onclick="navigateKakao('+i+')">'+(p._point?'카카오내비로 안내':'지도에서 위치 확인')+'</button></div>'}).join('');document.getElementById('shareText').value='방문 위치 목록\\n'+recommendedRoute.map(function(p,i){return (i+1)+'. '+p.address}).join('\\n')}
 function beginRouteDrag(event,index){routeDragStart=index;event.currentTarget.setPointerCapture&&event.currentTarget.setPointerCapture(event.pointerId);event.preventDefault();var card=event.currentTarget.closest('.route-stop');if(card)card.classList.add('dragging')}
 function finishRouteDrag(event){if(routeDragStart<0)return;var from=routeDragStart;routeDragStart=-1;document.querySelectorAll('.route-stop.dragging').forEach(function(el){el.classList.remove('dragging')});var target=document.elementFromPoint(event.clientX,event.clientY);var card=target&&target.closest?target.closest('.route-stop'):null;if(!card)return;var to=Number(card.getAttribute('data-route-index'));if(!Number.isInteger(to)||to===from||to<0||to>=recommendedRoute.length)return;var moved=recommendedRoute.splice(from,1)[0];recommendedRoute.splice(to,0,moved);renderRecommendedRoute('순서를 직접 수정했습니다.');}
