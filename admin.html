@@ -517,7 +517,6 @@ button:active{transform:translateY(1px)}
   <button class="tab-btn active" onclick="switchTab('home',this)">🏠 홈</button>
   <button class="tab-btn" onclick="switchTab('area',this)">🗺 구역관리</button>
   
-  <button class="tab-btn" onclick="switchTab('fix',this)">🔧 수정요청</button>
   <button class="tab-btn" onclick="switchTab('stats',this)">📊 통계</button>
   <button class="tab-btn" onclick="switchTab('record',this)">📋 기록</button>
   <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ 설정</button>
@@ -526,7 +525,7 @@ button:active{transform:translateY(1px)}
 <!-- ══════════ 홈 탭 ══════════ -->
 <div class="tab-content active" id="tab-home">
   <section class="zone-dashboard">
-    <div class="zd-heading"><div><div class="zd-eyebrow">ZONE CONTROL CENTER</div><h2>구역 통합 관리</h2><p>지도와 번지 목록, 수정요청을 한 화면에서 확인하세요.</p></div><button class="zd-primary" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">수정요청 전체 보기 →</button></div>
+    <div class="zd-heading"><div><div class="zd-eyebrow">ZONE CONTROL CENTER</div><h2>구역 통합 관리</h2><p>지도와 번지 목록, 수정요청을 한 화면에서 확인하세요.</p></div></div>
     <div class="zd-stats"><div><span>전체 구역</span><b id="zdAreaCount">-</b></div><div><span>전체 번지</span><b id="zdHouseCount">-</b></div><div><span>미처리 요청</span><b id="zdPendingCount">-</b></div><div><span>주소 점검</span><b id="zdAuditCount">선택 필요</b></div></div>
     <div class="zd-main">
       <section class="zd-panel zd-map-panel"><div class="zd-panel-head"><div><h3>🗺 구역 지도</h3><p>핀을 선택하면 해당 번지가 목록에서 강조됩니다.</p></div><select id="zdAreaSelect" onchange="zdLoadArea(this.value)"><option value="">구역 선택</option></select></div><div id="zdMap" role="application" aria-label="구역 번지 지도"></div><div class="zd-map-foot"><span><i class="zd-dot blue"></i> 주소 위치</span><span><i class="zd-dot orange"></i> 선택한 번지</span><button onclick="zdFitMap()">지도 위치 맞춤</button></div></section>
@@ -551,7 +550,7 @@ button:active{transform:translateY(1px)}
           </div>
           <div id="zdInlineEditorHint" style="font-size:11px;line-height:1.5;color:#64748b;margin-top:8px">수정요청을 선택하면 해당 구역 지도와 주소가 연결됩니다. 주소를 먼저 선택한 뒤 작업하세요.</div>
         </div>
-<div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div><button class="zd-link" onclick="switchTab('fix',document.querySelectorAll('.tab-btn')[2])">전체 보기</button></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div></section>
+<div class="zd-panel-head"><div><h3>🛠 수정요청 현황</h3><p>최근 접수된 요청</p></div></div><div class="zd-request-counts"><span>미처리 <b id="zdReqOpen">-</b></span><span>처리 중 <b id="zdReqWorking">-</b></span><span>완료 <b id="zdReqDone">-</b></span></div><div id="zdRecentRequests" class="zd-recent"><div class="zd-empty">요청 현황 불러오는 중...</div></div><div id="zdInlineRequestCard" class="zd-inline-request-card" style="display:none;margin-top:12px"></div></section>
     </div>
   </section>
 </div>
@@ -587,14 +586,6 @@ button:active{transform:translateY(1px)}
     <input id="addressSearch" class="inp" placeholder="번지 / 도로명 / 메모 검색" oninput="renderAddressManager()" style="margin-bottom:10px">
     <div id="addressAuditSummary" style="background:#f5f3ff;border-radius:10px;padding:10px;font-size:12px;line-height:1.6;margin-bottom:10px">구역을 선택하면 번지 점검 결과가 표시됩니다.</div>
     <div id="addressManagerList"><div style="text-align:center;color:#aaa;padding:20px">먼저 구역을 선택하세요.</div></div>
-  </div>
-</div>
-
-<!-- ══════════ 수정요청 탭 ══════════ -->
-<div class="tab-content" id="tab-fix">
-
-  <div id="fixList">
-    <div style="text-align:center;color:#aaa;padding:20px;font-size:14px">불러오는 중...</div>
   </div>
 </div>
 
@@ -959,7 +950,7 @@ function showToast(msg) {
 }
 
 // ── 탭 전환 ──
-var adminTabOrder = ['home','area','fix','stats','record','settings'];
+var adminTabOrder = ['home','area','stats','record','settings'];
 var adminCurrentTab = 'home';
 var adminSwipeStartX = 0;
 var adminSwipeStartY = 0;
