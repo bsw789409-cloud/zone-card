@@ -4394,14 +4394,14 @@ function zdInitAddressDrag(){
   }
  });
  list.addEventListener('pointermove',function(e){
-  if(!start)return;
+  if(e.pointerType==='touch'||!start)return;
   var distance=Math.hypot(e.clientX-start.x,e.clientY-start.y);
   if(!dragging&&start.pointerType!=='touch'&&distance>5)beginDrag();
   if(!dragging&&start.pointerType==='touch'&&distance>12){if(timer)clearTimeout(timer);timer=null;start=null;return;}
   if(dragging){e.preventDefault();moveOver(e.clientX,e.clientY);}
  });
  list.addEventListener('pointerup',function(e){
-  if(!start)return;
+  if(e.pointerType==='touch'||!start)return;
   var from=start,wasDrag=dragging,target=dropTarget||getTarget(e.clientX,e.clientY);
   if(wasDrag){
    suppressClick=true;
@@ -4413,7 +4413,7 @@ function zdInitAddressDrag(){
    clearVisual();
   }else{if(timer)clearTimeout(timer);timer=null;start=null;}
  });
- list.addEventListener('pointercancel',clearVisual);
+ list.addEventListener('pointercancel',function(e){if(e.pointerType!=='touch')clearVisual();});
  var touchTimer=null,touchStart=null;
  list.addEventListener('touchstart',function(e){
   var el=e.target.closest('[data-zd-address-row]');if(!el||!e.touches||!e.touches[0])return;
