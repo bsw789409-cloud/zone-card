@@ -969,6 +969,19 @@ function switchTab(tab, el) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   if(el) el.classList.add('active');
   var next = document.getElementById('tab-' + tab);
+  // 제거된 탭이나 잘못된 탭 키가 호출되어도 관리자 화면 전체가 멈추지 않게 한다.
+  if(!next) {
+    var homeTab = document.getElementById('tab-home');
+    if(homeTab) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      homeTab.classList.add('active');
+      var homeButton = getAdminTabButton('home');
+      if(homeButton) homeButton.classList.add('active');
+      adminCurrentTab = 'home';
+    }
+    return;
+  }
   next.classList.remove('slide-left','slide-right');
   void next.offsetWidth;
   next.classList.add('active', dir);
@@ -4498,7 +4511,8 @@ function zdInlineEnableMapPick(){if(!zdInlineRequireSelection())return;zdInlineM
 async function zdInlineSave(){
  var row=zdInlineRequireSelection();if(!row)return;
  var input=document.getElementById('zdInlineAddressInput'),after=document.getElementById('zdInlineRequestedAfter');
- var nextAddr=String(input&&input.value||row.addr||'').trim();
+ // 입력란이 비어 있으면 기존 주소로 조용히 되돌리지 말고 아래 검증에서 막는다.
+ var nextAddr=String(input ? input.value : (row.addr||'')).trim();
  var wasAddressEdit=nextAddr!==String(row.addr||'').trim();
  if(wasAddressEdit&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
  var memoEl=document.getElementById('zdInlineAdminMemo'),statusEl=document.getElementById('zdInlineAdminStatus');
