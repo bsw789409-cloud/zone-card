@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f4f3fa;color:#211747;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
 header{background:#1a1040;color:#fff;padding:18px 16px 22px}header button{border:0;background:#ffffff1a;color:#fff;border-radius:10px;padding:8px 12px;font-size:14px}h1{font-size:23px;margin:18px 0 6px}header p{font-size:13px;color:#c9c2e4;margin:0;line-height:1.6}
-main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 3px 14px #1a10400b}.label{font-size:12px;color:#716b86;font-weight:700;margin:0 0 6px;display:block}input,textarea{width:100%;border:1px solid #e4e0ef;border-radius:10px;padding:12px;font:inherit;font-size:14px;background:#fff;color:#211747;outline:none}textarea{min-height:74px;resize:vertical}input:focus,textarea:focus{border-color:#8061df}.field{margin-bottom:12px}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.btn{border:0;border-radius:10px;padding:12px 14px;font-weight:750;font-size:14px;cursor:pointer}.primary{background:#6d45d9;color:white}.soft{background:#eee9ff;color:#5c3ab8}.danger{background:#fff0f0;color:#b42332}.muted{color:#807a91;font-size:12px;line-height:1.6}.topline{display:flex;justify-content:space-between;align-items:center;gap:8px}.topline h2{font-size:16px;margin:0}.count{font-size:12px;color:#6d45d9;background:#eee9ff;border-radius:20px;padding:5px 9px;font-weight:800}.item{border:1px solid #ebe7f3;border-radius:13px;padding:13px;margin-top:9px}.item.selected{border-color:#8c6be6;background:#faf8ff}.itemhead{display:flex;gap:9px;align-items:flex-start}.itemhead input[type=checkbox]{width:19px;height:19px;flex:0 0 19px;margin-top:2px;accent-color:#6d45d9}.person{font-size:15px;font-weight:800}.address{font-size:13px;color:#6e6882;margin-top:4px;overflow-wrap:anywhere}.note{font-size:13px;line-height:1.55;color:#45405b;background:#f7f6fb;border-radius:9px;padding:9px;margin-top:9px;white-space:pre-wrap;overflow-wrap:anywhere}.itemactions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.itemactions button{font-size:12px;padding:8px 10px}.empty{text-align:center;color:#8b859d;padding:24px 8px;font-size:14px}.sharebox{background:#f7f4ff;border:1px solid #e3d9ff;border-radius:12px;padding:12px;margin-top:12px}.sharebox textarea{min-height:100px;background:white}.hidden{display:none!important}
+main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 3px 14px #1a10400b}.label{font-size:12px;color:#716b86;font-weight:700;margin:0 0 6px;display:block}input,textarea{width:100%;border:1px solid #e4e0ef;border-radius:10px;padding:12px;font:inherit;font-size:14px;background:#fff;color:#211747;outline:none}textarea{min-height:74px;resize:vertical}input:focus,textarea:focus{border-color:#8061df}.field{margin-bottom:12px}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.btn{border:0;border-radius:10px;padding:12px 14px;font-weight:750;font-size:14px;cursor:pointer}.primary{background:#6d45d9;color:white}.soft{background:#eee9ff;color:#5c3ab8}.danger{background:#fff0f0;color:#b42332}.muted{color:#807a91;font-size:12px;line-height:1.6}.topline{display:flex;justify-content:space-between;align-items:center;gap:8px}.topline h2{font-size:16px;margin:0}.count{font-size:12px;color:#6d45d9;background:#eee9ff;border-radius:20px;padding:5px 9px;font-weight:800}.item{border:1px solid #ebe7f3;border-radius:13px;padding:13px;margin-top:9px}.item.selected{border-color:#8c6be6;background:#faf8ff}.itemhead{display:flex;gap:9px;align-items:flex-start}.itemhead input[type=checkbox]{width:19px;height:19px;flex:0 0 19px;margin-top:2px;accent-color:#6d45d9}.person{font-size:15px;font-weight:800}.address{font-size:13px;color:#6e6882;margin-top:4px;overflow-wrap:anywhere}.note{font-size:13px;line-height:1.55;color:#45405b;background:#f7f6fb;border-radius:9px;padding:9px;margin-top:9px;white-space:pre-wrap;overflow-wrap:anywhere}.itemactions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.itemactions button{font-size:12px;padding:8px 10px}.empty{text-align:center;color:#8b859d;padding:24px 8px;font-size:14px}.sharebox{background:#f7f4ff;border:1px solid #e3d9ff;border-radius:12px;padding:12px;margin-top:12px}.sharebox textarea{min-height:100px;background:white}.hidden{display:none!important}.areatabs{display:flex;gap:7px;overflow-x:auto;padding:4px 0 10px}.areatab{flex:0 0 auto;border:1px solid #e3def0;background:#fff;color:#5d5674;border-radius:999px;padding:9px 13px;font-size:13px;font-weight:800}.areatab.active{background:#6d45d9;color:#fff;border-color:#6d45d9}.visitlog{margin-top:10px;border-top:1px solid #eee9f6;padding-top:10px}.visitentry{background:#f8f7fc;border-radius:9px;padding:9px;margin-top:7px;font-size:12px;line-height:1.55;white-space:pre-wrap}.visitform{background:#f7f4ff;border:1px solid #e3d9ff;border-radius:12px;padding:12px;margin-top:10px}
 </style>
 </head>
 <body>
@@ -30,20 +30,27 @@ main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;
 <div class="row"><button class="btn primary" onclick="savePerson()">저장</button><button class="btn soft" onclick="resetForm()">입력 지우기</button></div>
 <input id="editId" type="hidden">
 </section>
+<section id="visitFormPanel" class="panel hidden">
+<div class="topline"><h2 id="visitFormTitle">방문 기록 추가</h2><span class="count">날짜별 기록</span></div>
+<p class="muted" style="margin-top:7px">이번 방문에서 나눈 이야기를 추가하세요. 기존 기록은 지우지 않고 날짜별로 쌓입니다.</p>
+<div class="field" style="margin-top:12px"><label class="label" for="visitDate">방문 날짜</label><input id="visitDate" type="date"></div>
+<div class="field"><label class="label" for="visitNote">오늘 나눈 이야기 / 다음에 이어갈 내용</label><textarea id="visitNote" placeholder="오늘 이야기한 내용, 새로 알게 된 점, 다음 방문 때 이어갈 주제"></textarea></div>
+<div class="row"><button class="btn primary" onclick="saveVisit()">방문 기록 저장</button><button class="btn soft" onclick="cancelVisit()">취소</button></div>
+</section>
 <section class="panel">
-<div class="topline"><h2>내 재방문 목록</h2><span class="count" id="listCount">0명</span></div>
+<div class="topline"><h2>면 단위 재방문 목록</h2><span class="count" id="listCount">0명</span></div><div id="areaTabs" class="areatabs" style="margin-top:10px"></div><p class="muted">면 탭을 선택하면 해당 면의 재방문 대상만 모아 볼 수 있습니다. 방문 날짜별 기록은 각 대상의 ‘방문 기록 추가’에서 이어서 작성하세요.</p>
 <p class="muted" style="margin-top:7px">아래에서 오늘 방문할 곳을 선택하세요. 공유용 목록에는 위치만 포함되며 개인 메모는 포함되지 않습니다.</p>
 <div id="peopleList"><div class="empty">먼저 사용자 이름을 입력하고 목록을 열어주세요.</div></div>
 <div class="sharebox">
 <div class="topline"><strong style="font-size:14px">오늘 방문 위치 공유</strong><span class="count" id="selectedCount">0곳 선택</span></div>
 <p class="muted" style="margin:7px 0 10px">선택한 위치만 복사해 모임에 전달할 수 있습니다. 이름과 개인 메모는 복사되지 않습니다.</p>
 <textarea id="shareText" readonly placeholder="오늘 방문할 위치를 선택하면 여기에 위치 목록이 표시됩니다."></textarea>
-<div class="row" style="margin-top:8px"><button class="btn primary" onclick="copySelected()">위치 목록 복사</button><button class="btn soft" onclick="openSelectedMaps()">선택 위치 지도 열기</button></div>
+<div class="row" style="margin-top:8px"><button class="btn primary" onclick="copySelected()">위치 목록 복사</button><button class="btn soft" onclick="openSelectedMaps()">차량 경로 / 내비 열기</button></div><p class="muted" style="margin-bottom:0">선택한 주소를 운전 경로로 열어요. Google 지도 앱이 설치되어 있으면 앱에서 이어서 내비게이션을 시작할 수 있습니다.</p>
 </div>
 </section>
 </main>
 <script>
-var ownerName='', people=[], selectedIds=new Set();
+var ownerName='', people=[], selectedIds=new Set(), activeAreaFilter='전체', activeVisitId='';
 var revisitDb=null, territoryAreasCache=null, addressCheckToken=0;
 try {
   firebase.initializeApp({apiKey:"AIzaSyBmhHpanj9lYGLo-f9VYTmgn4Kwtdw0u8",authDomain:"field-map-f06a4.firebaseapp.com",databaseURL:"https://field-map-f06a4-default-rtdb.firebaseio.com",projectId:"field-map-f06a4",storageBucket:"field-map-f06a4.firebasestorage.app",messagingSenderId:"1080155946606",appId:"1:1080155946606:web:d5d15c62295251c2ce307f",measurementId:"G-FC5XP2N46M"});
@@ -108,20 +115,66 @@ async function verifyAddress(showAlert){
     return false;
   }
 }
+function startVisit(id){
+ var p=people.find(function(x){return x.id===id});if(!p)return;
+ activeVisitId=id;
+ document.getElementById('visitFormTitle').textContent='방문 기록 추가 · '+p.name;
+ document.getElementById('visitDate').value=new Date().toLocaleDateString('en-CA');
+ document.getElementById('visitNote').value='';
+ document.getElementById('visitFormPanel').classList.remove('hidden');
+ document.getElementById('visitFormPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cancelVisit(){activeVisitId='';document.getElementById('visitFormPanel').classList.add('hidden');document.getElementById('visitNote').value=''}
+function saveVisit(){
+ var p=people.find(function(x){return x.id===activeVisitId});if(!p){alert('재방문 대상을 찾을 수 없습니다.');return}
+ var date=document.getElementById('visitDate').value,note=document.getElementById('visitNote').value.trim();
+ if(!date||!note){alert('방문 날짜와 대화 내용을 입력해 주세요.');return}
+ if(!Array.isArray(p.visitHistory))p.visitHistory=[];
+ p.visitHistory.push({id:'visit_'+Date.now(),date:date,note:note,createdAt:Date.now()});
+ p.talk=note;p.updatedAt=Date.now();persist();cancelVisit();render();
+}
 function storageKey(){return 'privateRevisitV1:'+ownerName.trim().toLocaleLowerCase('ko-KR')}
-function loadOwner(){var n=document.getElementById('owner').value.trim();if(!n){alert('사용자 이름을 입력해 주세요.');return}ownerName=n;document.getElementById('owner').value=n;try{people=JSON.parse(localStorage.getItem(storageKey())||'[]');if(!Array.isArray(people))people=[]}catch(e){people=[]}selectedIds=new Set();resetForm();render(); }
+function loadOwner(){var n=document.getElementById('owner').value.trim();if(!n){alert('사용자 이름을 입력해 주세요.');return}ownerName=n;document.getElementById('owner').value=n;try{people=JSON.parse(localStorage.getItem(storageKey())||'[]');if(!Array.isArray(people))people=[]}catch(e){people=[]}people=people.map(function(p){if(!Array.isArray(p.visitHistory))p.visitHistory=[];return p});selectedIds=new Set();activeAreaFilter='전체';resetForm();render(); }
 async function savePerson(){if(!ownerName){alert('먼저 사용자 이름을 입력하고 목록을 열어주세요.');return}var name=document.getElementById('personName').value.trim(),address=document.getElementById('personAddress').value.trim();if(!name||!address){alert('이름과 위치는 꼭 입력해 주세요.');return}var matched=await verifyAddress(true);if(!matched)return;var id=document.getElementById('editId').value||('rv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));var old=people.find(p=>p.id===id);var item=Object.assign({},old||{},{id:id,name:name,address:address,talk:document.getElementById('personTalk').value.trim(),traits:document.getElementById('personTraits').value.trim(),sourceAreaId:document.getElementById('matchedAreaId').value,sourceAreaName:document.getElementById('matchedAreaName').value,sourceHouseKey:document.getElementById('matchedHouseKey').value,sourceHouseName:document.getElementById('matchedHouseName').value,createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()});if(old)people=people.map(p=>p.id===id?item:p);else people.unshift(item);persist();resetForm();render()}
 function persist(){try{localStorage.setItem(storageKey(),JSON.stringify(people))}catch(e){alert('저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.')}}
 function resetForm(){['personName','personAddress','personTalk','personTraits','editId','matchedAreaId','matchedAreaName','matchedHouseKey','matchedHouseName'].forEach(id=>document.getElementById(id).value='');document.getElementById('formTitle').textContent='재방문 대상 등록';var st=document.getElementById('addressMatchStatus');st.textContent='주소를 입력하면 기존 구역카드에서 위치를 찾아 연결합니다.';st.style.color=''}
 function editPerson(id){var p=people.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=p.id;document.getElementById('personName').value=p.name;document.getElementById('personAddress').value=p.address;document.getElementById('personTalk').value=p.talk||'';document.getElementById('personTraits').value=p.traits||'';document.getElementById('formTitle').textContent='재방문 정보 수정';document.getElementById('addressMatchStatus').textContent=p.sourceAreaId?'연결된 구역카드: '+(p.sourceAreaName||p.sourceAreaId):'주소를 다시 확인해 주세요.';document.getElementById('addressMatchStatus').style.color=p.sourceAreaId?'#18794e':'#716b86';document.getElementById('matchedAreaId').value=p.sourceAreaId||'';document.getElementById('matchedAreaName').value=p.sourceAreaName||'';document.getElementById('matchedHouseKey').value=p.sourceHouseKey||'';document.getElementById('matchedHouseName').value=p.sourceHouseName||'';window.scrollTo({top:0,behavior:'smooth'})}
 function deletePerson(id){if(!confirm('이 재방문 기록을 삭제할까요? 삭제하면 복구할 수 없습니다.'))return;people=people.filter(p=>p.id!==id);selectedIds.delete(id);persist();render()}
 function toggleSelected(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);renderShare()}
-function render(){document.getElementById('listCount').textContent=people.length+'명';var root=document.getElementById('peopleList');if(!people.length){root.innerHTML='<div class="empty">아직 등록된 재방문 대상이 없습니다.</div>'}else{root.innerHTML=people.map(p=>'<article class="item '+(selectedIds.has(p.id)?'selected':'')+'"><div class="itemhead"><input aria-label="오늘 방문할 위치 선택" type="checkbox" '+(selectedIds.has(p.id)?'checked':'')+' onchange="toggleSelected('+JSON.stringify(p.id)+',this.checked)"><div style="flex:1;min-width:0"><div class="person">'+esc(p.name)+'</div><div class="address">📍 '+esc(p.address)+'</div>'+(p.sourceAreaId?'<div class="muted" style="margin-top:4px;color:#18794e">연결된 구역카드: '+esc(p.sourceAreaName||p.sourceAreaId)+'</div>':'<div class="muted" style="margin-top:4px;color:#b42318">구역카드 위치 미연결</div>')+'</div></div>'+((p.talk||p.traits)?'<div class="note">'+(p.talk?'대화: '+esc(p.talk)+'\n':'')+(p.traits?'특징: '+esc(p.traits):'')+'</div>':'<div class="muted" style="margin-top:7px">개인 메모 없음</div>')+'<div class="itemactions"><button class="btn soft" onclick="editPerson('+JSON.stringify(p.id)+')">수정</button><button class="btn soft" onclick="openPersonMap('+JSON.stringify(p.id)+')">지도</button><button class="btn danger" onclick="deletePerson('+JSON.stringify(p.id)+')">삭제</button></div></article>').join('')}renderShare()}
+function areaOf(p){
+ var raw=String(p.sourceAreaName||'')+' '+String(p.address||'');
+ var m=raw.match(/(줄포면|보안면|흥덕면)/);
+ if(m)return m[1];
+ var generic=raw.match(/([가-힣]{2,8}면)/);
+ return generic?generic[1]:'면 미분류';
+}
+function setAreaFilter(area){activeAreaFilter=area;render()}
+function renderAreaTabs(){
+ var names=['전체','줄포면','보안면','흥덕면'];
+ people.forEach(function(p){var a=areaOf(p);if(names.indexOf(a)<0)names.push(a)});
+ var root=document.getElementById('areaTabs');
+ root.innerHTML=names.map(function(a){var count=a==='전체'?people.length:people.filter(function(p){return areaOf(p)===a}).length;return '<button class="areatab '+(activeAreaFilter===a?'active':'')+'" onclick="setAreaFilter('+JSON.stringify(a)+')">'+esc(a)+' <span style="opacity:.75">'+count+'</span></button>'}).join('');
+}
+function renderVisitHistory(p){
+ var history=Array.isArray(p.visitHistory)?p.visitHistory:[];
+ var logs=history.slice().sort(function(a,b){return String(b.date||'').localeCompare(String(a.date||''))}).map(function(v){return '<div class="visitentry"><strong>'+esc(v.date||'날짜 미입력')+'</strong><div>'+esc(v.note||'내용 없음')+'</div></div>'}).join('');
+ return '<div class="visitlog"><div class="topline"><strong style="font-size:13px">방문 기록 ('+history.length+')</strong><button class="btn soft" onclick="startVisit('+JSON.stringify(p.id)+')" style="padding:7px 9px">＋ 방문 기록 추가</button></div>'+logs+'</div>';
+}
+function render(){
+ document.getElementById('listCount').textContent=people.filter(function(p){return activeAreaFilter==='전체'||areaOf(p)===activeAreaFilter}).length+'명';
+ renderAreaTabs();
+ var root=document.getElementById('peopleList');
+ var filtered=people.filter(function(p){return activeAreaFilter==='전체'||areaOf(p)===activeAreaFilter});
+ if(!people.length){root.innerHTML='<div class="empty">아직 등록된 재방문 대상이 없습니다.</div>'}
+ else if(!filtered.length){root.innerHTML='<div class="empty">이 면에 등록된 재방문 대상이 없습니다.</div>'}
+ else{root.innerHTML=filtered.map(function(p){return '<article class="item '+(selectedIds.has(p.id)?'selected':'')+'"><div class="itemhead"><input aria-label="오늘 방문할 위치 선택" type="checkbox" '+(selectedIds.has(p.id)?'checked':'')+' onchange="toggleSelected('+JSON.stringify(p.id)+',this.checked)"><div style="flex:1;min-width:0"><div class="person">'+esc(p.name)+'</div><div class="address">📍 '+esc(p.address)+'</div><div class="muted" style="margin-top:4px">'+esc(areaOf(p))+(p.sourceAreaId?' · 구역카드 연결됨':' · 구역카드 위치 미연결')+'</div></div></div>'+((p.talk||p.traits)?'<div class="note">'+(p.talk?'최근 대화: '+esc(p.talk)+'\n':'')+(p.traits?'특징/관심사: '+esc(p.traits):'')+'</div>':'<div class="muted" style="margin-top:7px">개인 메모 없음</div>')+renderVisitHistory(p)+'<div class="itemactions"><button class="btn soft" onclick="editPerson('+JSON.stringify(p.id)+')">기본 정보 수정</button><button class="btn soft" onclick="openPersonMap('+JSON.stringify(p.id)+')">지도</button><button class="btn danger" onclick="deletePerson('+JSON.stringify(p.id)+')">삭제</button></div></article>'}).join('')}
+ renderShare();
+}
 function openPersonMap(id){var p=people.find(x=>x.id===id);if(p)window.open('https://map.kakao.com/link/search/'+encodeURIComponent(p.address),'_blank')}
 function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=chosen.map((p,i)=>(i+1)+'. '+p.address).join('\n')}
 function copySelected(){var t=document.getElementById('shareText').value;if(!t){alert('오늘 방문할 위치를 먼저 선택해 주세요.');return}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert('위치 목록을 복사했습니다. 개인 메모는 포함되지 않았습니다.')).catch(()=>fallbackCopy())}else fallbackCopy()}
 function fallbackCopy(){var e=document.getElementById('shareText');e.focus();e.select();try{document.execCommand('copy');alert('위치 목록을 복사했습니다.')}catch(err){alert('복사에 실패했습니다. 목록을 길게 눌러 복사해 주세요.')}}
-function openSelectedMaps(){var chosen=people.filter(p=>selectedIds.has(p.id));if(!chosen.length){alert('위치를 먼저 선택해 주세요.');return}window.open('https://map.kakao.com/link/search/'+encodeURIComponent(chosen[0].address),'_blank');if(chosen.length>1)alert('지도에서 첫 번째 위치를 열었습니다. 여러 위치의 최적 경로 기능은 다음 단계에서 연결할게요.')}
+function openSelectedMaps(){var chosen=people.filter(p=>selectedIds.has(p.id));if(!chosen.length){alert('위치를 먼저 선택해 주세요.');return}if(chosen.length===1){window.open('https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(chosen[0].address)+'&travelmode=driving','_blank');return}var origin=chosen[0].address,destination=chosen[chosen.length-1].address,waypoints=chosen.slice(1,-1).map(function(p){return p.address}).join('|');var url='https://www.google.com/maps/dir/?api=1&origin='+encodeURIComponent(origin)+'&destination='+encodeURIComponent(destination)+'&travelmode=driving';if(waypoints)url+='&waypoints='+encodeURIComponent(waypoints);window.open(url,'_blank')}
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 (function(){var saved=localStorage.getItem('savedUserName');if(saved)document.getElementById('owner').value=saved;})();
 </script>
