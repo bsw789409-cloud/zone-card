@@ -1925,23 +1925,38 @@ function addCurrentHouseToRevisit() {
   try { list = JSON.parse(localStorage.getItem(key) || '[]'); if(!Array.isArray(list)) list=[]; } catch(e) { list=[]; }
   var houseKey = String(house.houseId || house._key || house.addr);
   var existing = list.find(function(p){ return String(p.sourceAreaId||'')===String(dAreaId||'') && String(p.sourceHouseKey||'')===houseKey; });
-  if(existing) { showToast('이미 내 재방문 목록에 등록되어 있어요'); return; }
+  if(existing) {
+    showToast('이미 등록된 대상이에요. 정보를 이어서 입력합니다.');
+    var existingUrl = 'revisit.html?owner=' + encodeURIComponent(String(currentUser)) + '&edit=' + encodeURIComponent(existing.id);
+    var existingWindow = window.open(existingUrl, '_blank');
+    if(!existingWindow) showToast('새 창이 차단됐어요. 팝업 허용 후 다시 눌러주세요.');
+    return;
+  }
   var area = areas.find(function(a){ return String(a.id)===String(dAreaId); });
+  var id = 'rv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
   list.unshift({
-    id: 'rv_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    id: id,
     name: String(house.name || house.personName || house.addr),
     address: String(house.addr),
+    age: '',
     talk: '',
     traits: '',
+    publication: '',
+    scripture: '',
+    verse: '',
     sourceAreaId: String(dAreaId || ''),
     sourceAreaName: String(area && area.name || ('구역 ' + (dAreaId || ''))),
     sourceHouseKey: houseKey,
     createdAt: Date.now(),
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    visitHistory: []
   });
   try {
     localStorage.setItem(key, JSON.stringify(list));
-    showToast('내 재방문 목록에 추가했어요');
+    var url = 'revisit.html?owner=' + encodeURIComponent(String(currentUser)) + '&edit=' + encodeURIComponent(id);
+    var revisitWindow = window.open(url, '_blank');
+    if(!revisitWindow) showToast('목록에는 추가했어요. 새 창이 차단됐으니 팝업을 허용한 뒤 다시 눌러 정보를 입력해 주세요.');
+    else showToast('재방문 정보 입력 화면을 열었어요');
   } catch(e) { showToast('저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요'); }
 }
 
