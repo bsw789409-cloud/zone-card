@@ -119,7 +119,7 @@ function startVisit(id){
  var p=people.find(function(x){return x.id===id});if(!p)return;
  activeVisitId=id;
  document.getElementById('visitFormTitle').textContent='방문 기록 추가 · '+p.name;
- document.getElementById('visitDate').value=new Date().toLocaleDateString('en-CA');
+ var now=new Date();document.getElementById('visitDate').value=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
  document.getElementById('visitNote').value='';
  document.getElementById('visitFormPanel').classList.remove('hidden');
  document.getElementById('visitFormPanel').scrollIntoView({behavior:'smooth',block:'start'});
