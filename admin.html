@@ -4386,7 +4386,7 @@ function zdInitAddressDrag(){
   animateMove(function(){if(after){if(target.nextSibling!==dragEl)list.insertBefore(dragEl,target.nextSibling);}else if(target!==dragEl.nextSibling)list.insertBefore(dragEl,target);});
  }
  list.addEventListener('pointerdown',function(e){
-  var el=e.target.closest('[data-zd-address-row]');if(!el||e.button===2)return;
+  var el=e.target.closest('[data-zd-address-row]');if(!el||e.button===2||e.pointerType==='touch')return;
   if(String((document.getElementById('zdSearch')||{}).value||'').trim())return;
   start={el:el,x:e.clientX,y:e.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi),pointerType:e.pointerType};
   if(e.pointerType==='touch'){
@@ -4414,6 +4414,36 @@ function zdInitAddressDrag(){
   }else{if(timer)clearTimeout(timer);timer=null;start=null;}
  });
  list.addEventListener('pointercancel',clearVisual);
+ var touchTimer=null,touchStart=null;
+ list.addEventListener('touchstart',function(e){
+  var el=e.target.closest('[data-zd-address-row]');if(!el||!e.touches||!e.touches[0])return;
+  if(String((document.getElementById('zdSearch')||{}).value||'').trim())return;
+  var t=e.touches[0];touchStart={el:el,x:t.clientX,y:t.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)};
+  start=touchStart;
+  timer=null;
+  touchTimer=setTimeout(function(){if(touchStart){start=touchStart;beginDrag();}},420);
+ },{passive:true});
+ list.addEventListener('touchmove',function(e){
+  if(!touchStart||!e.touches||!e.touches[0])return;
+  var t=e.touches[0],distance=Math.hypot(t.clientX-touchStart.x,t.clientY-touchStart.y);
+  if(!dragging&&distance>12){if(touchTimer)clearTimeout(touchTimer);touchTimer=null;touchStart=null;start=null;return;}
+  if(dragging){e.preventDefault();moveOver(t.clientX,t.clientY);}
+ },{passive:false});
+ list.addEventListener('touchend',function(e){
+  if(!touchStart)return;
+  if(touchTimer)clearTimeout(touchTimer);touchTimer=null;
+  if(dragging){
+   var target=dropTarget,from=touchStart;
+   if(target&&target!==dragEl&&Number(target.dataset.bi)===from.bi&&Number(target.dataset.si)===from.si){
+    var groupRows=Array.prototype.filter.call(list.querySelectorAll('[data-zd-address-row]'),function(el){return Number(el.dataset.bi)===from.bi&&Number(el.dataset.si)===from.si;});
+    var destination=groupRows.indexOf(dragEl);
+    if(destination>=0)zdMoveAddressRow({bi:from.bi,si:from.si,hi:from.hi},{bi:from.bi,si:from.si,hi:destination});
+   }
+   suppressClick=true;clearVisual();
+  }else{start=null;}
+  touchStart=null;
+ },{passive:true});
+ list.addEventListener('touchcancel',function(){if(touchTimer)clearTimeout(touchTimer);touchTimer=null;touchStart=null;clearVisual();},{passive:true});
  list.addEventListener('click',function(e){if(!suppressClick)return;suppressClick=false;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();},true);
  list.addEventListener('dragstart',function(e){e.preventDefault();});
 }
