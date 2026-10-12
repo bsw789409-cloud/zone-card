@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>재방문 관리 — 줄포 회중</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f3fa;color:#211747;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif}
+header{background:#1a1040;color:#fff;padding:18px 16px 22px}header button{border:0;background:#ffffff1a;color:#fff;border-radius:10px;padding:8px 12px;font-size:14px}h1{font-size:23px;margin:18px 0 6px}header p{font-size:13px;color:#c9c2e4;margin:0;line-height:1.6}
+main{max-width:720px;margin:auto;padding:14px 14px 40px}.panel{background:white;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 3px 14px #1a10400b}.label{font-size:12px;color:#716b86;font-weight:700;margin:0 0 6px;display:block}input,textarea{width:100%;border:1px solid #e4e0ef;border-radius:10px;padding:12px;font:inherit;font-size:14px;background:#fff;color:#211747;outline:none}textarea{min-height:74px;resize:vertical}input:focus,textarea:focus{border-color:#8061df}.field{margin-bottom:12px}.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}.btn{border:0;border-radius:10px;padding:12px 14px;font-weight:750;font-size:14px;cursor:pointer}.primary{background:#6d45d9;color:white}.soft{background:#eee9ff;color:#5c3ab8}.danger{background:#fff0f0;color:#b42332}.muted{color:#807a91;font-size:12px;line-height:1.6}.topline{display:flex;justify-content:space-between;align-items:center;gap:8px}.topline h2{font-size:16px;margin:0}.count{font-size:12px;color:#6d45d9;background:#eee9ff;border-radius:20px;padding:5px 9px;font-weight:800}.item{border:1px solid #ebe7f3;border-radius:13px;padding:13px;margin-top:9px}.item.selected{border-color:#8c6be6;background:#faf8ff}.itemhead{display:flex;gap:9px;align-items:flex-start}.itemhead input[type=checkbox]{width:19px;height:19px;flex:0 0 19px;margin-top:2px;accent-color:#6d45d9}.person{font-size:15px;font-weight:800}.address{font-size:13px;color:#6e6882;margin-top:4px;overflow-wrap:anywhere}.note{font-size:13px;line-height:1.55;color:#45405b;background:#f7f6fb;border-radius:9px;padding:9px;margin-top:9px;white-space:pre-wrap;overflow-wrap:anywhere}.itemactions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.itemactions button{font-size:12px;padding:8px 10px}.empty{text-align:center;color:#8b859d;padding:24px 8px;font-size:14px}.sharebox{background:#f7f4ff;border:1px solid #e3d9ff;border-radius:12px;padding:12px;margin-top:12px}.sharebox textarea{min-height:100px;background:white}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header><button onclick="location.href='index.html'">← 구역카드로</button><h1>📍 나의 재방문</h1><p>다시 방문할 분의 위치와 개인 메모를 정리하세요.<br>오늘 방문할 위치를 골라 공유할 수 있습니다.</p></header>
+<main>
+<section class="panel">
+<label class="label" for="owner">사용자 이름 (현재 로그인 방식 그대로)</label>
+<div class="row"><input id="owner" placeholder="구역카드에서 사용하는 이름"><button class="btn soft" onclick="loadOwner()">목록 열기</button></div>
+<p class="muted">현재 1차 버전은 이 기기의 브라우저에만 저장됩니다. 이름 입력만으로 본인 확인이 되는 것은 아니므로 민감한 기록은 공유 기기에 남기지 마세요.</p>
+</section>
+<section class="panel">
+<div class="topline"><h2 id="formTitle">재방문 대상 등록</h2><span class="count">개인 기록</span></div>
+<div class="field" style="margin-top:14px"><label class="label">이름 또는 알아볼 별칭 *</label><input id="personName" placeholder="예: 파란 대문 집, 김○○님"></div>
+<div class="field"><label class="label">위치 / 주소 *</label><input id="personAddress" placeholder="주소 또는 지도에서 찾을 수 있는 위치"></div>
+<div class="field"><label class="label">이전 대화 내용 (나만 보는 메모)</label><textarea id="personTalk" placeholder="지난번에 나눈 이야기"></textarea></div>
+<div class="field"><label class="label">특징 / 관심사 (나만 보는 메모)</label><textarea id="personTraits" placeholder="관심사, 기억할 점, 다음에 나눌 이야기"></textarea></div>
+<div class="row"><button class="btn primary" onclick="savePerson()">저장</button><button class="btn soft" onclick="resetForm()">입력 지우기</button></div>
+<input id="editId" type="hidden">
+</section>
+<section class="panel">
+<div class="topline"><h2>내 재방문 목록</h2><span class="count" id="listCount">0명</span></div>
+<p class="muted" style="margin-top:7px">아래에서 오늘 방문할 곳을 선택하세요. 공유용 목록에는 위치만 포함되며 개인 메모는 포함되지 않습니다.</p>
+<div id="peopleList"><div class="empty">먼저 사용자 이름을 입력하고 목록을 열어주세요.</div></div>
+<div class="sharebox">
+<div class="topline"><strong style="font-size:14px">오늘 방문 위치 공유</strong><span class="count" id="selectedCount">0곳 선택</span></div>
+<p class="muted" style="margin:7px 0 10px">선택한 위치만 복사해 모임에 전달할 수 있습니다. 이름과 개인 메모는 복사되지 않습니다.</p>
+<textarea id="shareText" readonly placeholder="오늘 방문할 위치를 선택하면 여기에 위치 목록이 표시됩니다."></textarea>
+<div class="row" style="margin-top:8px"><button class="btn primary" onclick="copySelected()">위치 목록 복사</button><button class="btn soft" onclick="openSelectedMaps()">선택 위치 지도 열기</button></div>
+</div>
+</section>
+</main>
+<script>
+var ownerName='', people=[], selectedIds=new Set();
+function storageKey(){return 'privateRevisitV1:'+ownerName.trim().toLocaleLowerCase('ko-KR')}
+function loadOwner(){var n=document.getElementById('owner').value.trim();if(!n){alert('사용자 이름을 입력해 주세요.');return}ownerName=n;document.getElementById('owner').value=n;try{people=JSON.parse(localStorage.getItem(storageKey())||'[]');if(!Array.isArray(people))people=[]}catch(e){people=[]}selectedIds=new Set();resetForm();render(); }
+function savePerson(){if(!ownerName){alert('먼저 사용자 이름을 입력하고 목록을 열어주세요.');return}var name=document.getElementById('personName').value.trim(),address=document.getElementById('personAddress').value.trim();if(!name||!address){alert('이름과 위치는 꼭 입력해 주세요.');return}var id=document.getElementById('editId').value||('rv_'+Date.now()+'_'+Math.random().toString(36).slice(2,7));var old=people.find(p=>p.id===id);var item={id,name,address,talk:document.getElementById('personTalk').value.trim(),traits:document.getElementById('personTraits').value.trim(),createdAt:old?old.createdAt:Date.now(),updatedAt:Date.now()};if(old)people=people.map(p=>p.id===id?item:p);else people.unshift(item);persist();resetForm();render()}
+function persist(){try{localStorage.setItem(storageKey(),JSON.stringify(people))}catch(e){alert('저장하지 못했습니다. 브라우저 저장 공간을 확인해 주세요.')}}
+function resetForm(){['personName','personAddress','personTalk','personTraits','editId'].forEach(id=>document.getElementById(id).value='');document.getElementById('formTitle').textContent='재방문 대상 등록'}
+function editPerson(id){var p=people.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=p.id;document.getElementById('personName').value=p.name;document.getElementById('personAddress').value=p.address;document.getElementById('personTalk').value=p.talk||'';document.getElementById('personTraits').value=p.traits||'';document.getElementById('formTitle').textContent='재방문 정보 수정';window.scrollTo({top:0,behavior:'smooth'})}
+function deletePerson(id){if(!confirm('이 재방문 기록을 삭제할까요? 삭제하면 복구할 수 없습니다.'))return;people=people.filter(p=>p.id!==id);selectedIds.delete(id);persist();render()}
+function toggleSelected(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);renderShare()}
+function render(){document.getElementById('listCount').textContent=people.length+'명';var root=document.getElementById('peopleList');if(!people.length){root.innerHTML='<div class="empty">아직 등록된 재방문 대상이 없습니다.</div>'}else{root.innerHTML=people.map(p=>'<article class="item '+(selectedIds.has(p.id)?'selected':'')+'"><div class="itemhead"><input aria-label="오늘 방문할 위치 선택" type="checkbox" '+(selectedIds.has(p.id)?'checked':'')+' onchange="toggleSelected('+JSON.stringify(p.id)+',this.checked)"><div style="flex:1;min-width:0"><div class="person">'+esc(p.name)+'</div><div class="address">📍 '+esc(p.address)+'</div></div></div>'+((p.talk||p.traits)?'<div class="note">'+(p.talk?'대화: '+esc(p.talk)+'\n':'')+(p.traits?'특징: '+esc(p.traits):'')+'</div>':'<div class="muted" style="margin-top:7px">개인 메모 없음</div>')+'<div class="itemactions"><button class="btn soft" onclick="editPerson('+JSON.stringify(p.id)+')">수정</button><button class="btn soft" onclick="window.open(\'https://map.kakao.com/link/search/'+encodeURIComponent('+p.address+')+'\',\'_blank\')">지도</button><button class="btn danger" onclick="deletePerson('+JSON.stringify(p.id)+')">삭제</button></div></article>').join('')}renderShare()}
+function renderShare(){var chosen=people.filter(p=>selectedIds.has(p.id));document.getElementById('selectedCount').textContent=chosen.length+'곳 선택';document.getElementById('shareText').value=chosen.map((p,i)=>(i+1)+'. '+p.address).join('\n')}
+function copySelected(){var t=document.getElementById('shareText').value;if(!t){alert('오늘 방문할 위치를 먼저 선택해 주세요.');return}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(()=>alert('위치 목록을 복사했습니다. 개인 메모는 포함되지 않았습니다.')).catch(()=>fallbackCopy())}else fallbackCopy()}
+function fallbackCopy(){var e=document.getElementById('shareText');e.focus();e.select();try{document.execCommand('copy');alert('위치 목록을 복사했습니다.')}catch(err){alert('복사에 실패했습니다. 목록을 길게 눌러 복사해 주세요.')}}
+function openSelectedMaps(){var chosen=people.filter(p=>selectedIds.has(p.id));if(!chosen.length){alert('위치를 먼저 선택해 주세요.');return}window.open('https://map.kakao.com/link/search/'+encodeURIComponent(chosen[0].address),'_blank');if(chosen.length>1)alert('지도에서 첫 번째 위치를 열었습니다. 여러 위치의 최적 경로 기능은 다음 단계에서 연결할게요.')}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+(function(){var saved=localStorage.getItem('savedUserName');if(saved)document.getElementById('owner').value=saved;})();
+</script>
+</body></html>
