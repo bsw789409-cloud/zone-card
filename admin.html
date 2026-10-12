@@ -537,8 +537,8 @@ button:active{transform:translateY(1px)}
           <div class="zd-inline-title"><b id="zdInlineEditorTitle">선택한 주소 편집</b><span id="zdInlineEditorState" style="font-size:11px;color:#64748b">주소 번호를 먼저 선택하세요.</span></div>
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">선택한 주소</label>
           <input id="zdInlineAddressInput" class="zd-search" style="width:100%;margin-bottom:8px" placeholder="주소를 직접 수정하세요">
-          <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">관리자 메모 (저장 후에도 유지)</label>
-          <textarea id="zdInlineAdminMemo" class="zd-search" style="width:100%;min-height:64px;resize:vertical;margin-bottom:8px" placeholder="이 주소에 대한 관리자 메모"></textarea>
+          <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">관리자 메모 (번지 위에 표시 · 관리자 전용)</label>
+          <textarea id="zdInlineAdminMemo" class="zd-search" style="width:100%;min-height:64px;resize:vertical;margin-bottom:8px" placeholder="예: 공실입니다"></textarea>
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">주소 상태</label>
           <select id="zdInlineAdminStatus" class="zd-search" style="width:100%;margin-bottom:8px"><option value="">상태 미지정</option><option value="공실">공실</option><option value="거절">거절</option><option value="방문 필요">방문 필요</option><option value="재방문">재방문</option></select>
           <label style="display:block;font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px">변경 후 내용</label>
@@ -4328,7 +4328,7 @@ function zdRenderList(){
   if(r.house.adminStatus)meta.push('<span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:6px;padding:2px 6px;margin:3px 4px 0 0;font-size:11px;font-weight:800">'+escHtml(r.house.adminStatus)+'</span>');
   if(r.house.adminMemo)meta.push('<div style="font-size:12px;color:#475569;margin-top:4px;white-space:pre-wrap">📝 '+escHtml(r.house.adminMemo)+'</div>');
   if(r.house.mapAddress)meta.push('<div style="font-size:12px;color:#334155;margin-top:4px">📍 지도 주소: '+escHtml(r.house.mapAddress)+'</div>');
-  return '<button type="button" data-zd-address-row="1" data-bi="'+r.bi+'" data-si="'+r.si+'" data-hi="'+r.hi+'" draggable="true" title="꾹 눌러 끌어서 같은 도로 안에서 순서를 바꾸세요" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><span style="float:right;color:#94a3b8;font-size:14px" aria-hidden="true">⠿</span><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div>'+meta.join('')+'</button>';
+  return '<button type="button" data-zd-address-row="1" data-bi="'+r.bi+'" data-si="'+r.si+'" data-hi="'+r.hi+'" draggable="false" title="PC는 드래그, 모바일은 꾹 눌러 끌어서 순서 변경" style="display:block;width:100%;text-align:left;padding:11px 12px;margin:5px 0;border:1px solid '+(active?'#f97316':'#e2e8f0')+';border-radius:10px;background:'+(active?'#fff7ed':'#fff')+';color:#0f172a;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none" onclick="zdSelectRowByIndex('+r.bi+','+r.si+','+r.hi+')"><span style="float:right;color:#94a3b8;font-size:14px" aria-hidden="true">⠿</span><b style="color:'+(active?'#c2410c':'#2563eb')+'">'+r.number+'. '+escHtml(r.addr||'번지 미입력')+'</b><div style="font-size:12px;color:#64748b;margin-top:3px">'+escHtml(r.road||'도로명 미입력')+'</div><div style="font-size:12px;color:#64748b;margin-top:3px">'+(Number.isFinite(r.lat)&&Number.isFinite(r.lng)&&Math.abs(r.lat)>0&&Math.abs(r.lng)>0?'지도 위치 등록됨':'지도 위치 없음')+'</div>'+meta.join('')+'</button>';
  }).join('');
 }
 function zdRebuildDashboardRows(){
@@ -4347,56 +4347,72 @@ function zdMoveAddressRow(from,to){
 }
 function zdInitAddressDrag(){
  var list=document.getElementById('zdAddressList');if(!list||list.dataset.dragReady)return;list.dataset.dragReady='1';
- var timer=null,start=null,dragging=false,dragEl=null;
- function clear(){if(timer)clearTimeout(timer);timer=null;start=null;dragging=false;if(dragEl){dragEl.style.opacity='';dragEl.style.outline='';dragEl=null;}}
+ var start=null,dragging=false,dragEl=null,dropTarget=null,timer=null,suppressClick=false;
+ var style=document.createElement('style');
+ style.textContent='.zd-address-drag-item{transition:transform 190ms cubic-bezier(.2,.8,.2,1),box-shadow 190ms ease,border-color 190ms ease}.zd-address-dragging{opacity:.62!important;outline:3px solid #f97316!important;box-shadow:0 10px 26px #f9731640!important;z-index:2;position:relative}.zd-address-drop-target{border:2px dashed #f97316!important;background:#fff7ed!important;box-shadow:inset 0 0 0 2px #fed7aa}.zd-address-drop-hint{position:sticky;top:0;z-index:5;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:8px;padding:8px 10px;margin:4px 0;font-size:12px;font-weight:800}';
+ document.head.appendChild(style);
+ function coords(e){return {x:e.clientX,y:e.clientY};}
+ function clearVisual(){
+  if(timer)clearTimeout(timer);timer=null;
+  list.querySelectorAll('[data-zd-address-row]').forEach(function(el){el.classList.remove('zd-address-drag-item','zd-address-dragging','zd-address-drop-target');el.style.cursor='grab';el.style.transform='';el.style.transition='';});
+  var hint=list.querySelector('.zd-address-drop-hint');if(hint)hint.remove();
+  start=null;dragging=false;dragEl=null;dropTarget=null;
+ }
+ function animateMove(move){
+  var els=Array.prototype.slice.call(list.querySelectorAll('[data-zd-address-row]')),before=new Map();
+  els.forEach(function(el){before.set(el,el.getBoundingClientRect().top);});
+  move();
+  els=Array.prototype.slice.call(list.querySelectorAll('[data-zd-address-row]'));
+  els.forEach(function(el){var old=before.get(el);if(old==null)return;var delta=old-el.getBoundingClientRect().top;if(Math.abs(delta)>1){el.style.transition='none';el.style.transform='translateY('+delta+'px)';}});
+  list.offsetHeight;
+  els.forEach(function(el){el.style.transition='transform 190ms cubic-bezier(.2,.8,.2,1)';el.style.transform='';});
+ }
+ function beginDrag(){
+  if(!start||dragging)return;
+  dragging=true;dragEl=start.el;dragEl.classList.add('zd-address-dragging');
+  var hint=document.createElement('div');hint.className='zd-address-drop-hint';hint.textContent='주황색 점선 위치에 놓으세요 · 같은 도로 안에서 이동';
+  list.insertBefore(hint,list.firstChild);
+  list.querySelectorAll('[data-zd-address-row]').forEach(function(el){el.classList.add('zd-address-drag-item');el.style.cursor='grabbing';});
+ }
+ function getTarget(x,y){var el=document.elementFromPoint(x,y);return el&&el.closest?el.closest('[data-zd-address-row]'):null;}
+ function moveOver(x,y){
+  if(!dragging||!dragEl)return;
+  var target=getTarget(x,y);
+  if(!target||target===dragEl)return;
+  if(target.dataset.bi!==dragEl.dataset.bi||target.dataset.si!==dragEl.dataset.si)return;
+  dropTarget=target;
+  list.querySelectorAll('[data-zd-address-row]').forEach(function(el){el.classList.toggle('zd-address-drop-target',el===target);});
+  var rect=target.getBoundingClientRect(),after=y>rect.top+rect.height/2;
+  animateMove(function(){if(after){if(target.nextSibling!==dragEl)list.insertBefore(dragEl,target.nextSibling);}else if(target!==dragEl.nextSibling)list.insertBefore(dragEl,target);});
+ }
  list.addEventListener('pointerdown',function(e){
   var el=e.target.closest('[data-zd-address-row]');if(!el||e.button===2)return;
-  start={el:el,x:e.clientX,y:e.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi),pointerId:e.pointerId};
-  timer=setTimeout(function(){if(!start)return;dragging=true;dragEl=start.el;dragEl.style.opacity='.65';dragEl.style.outline='2px dashed #f97316';dragEl.style.cursor='grabbing';showToast('끌어서 놓으면 주소 순서가 바뀝니다.');},420);
+  start={el:el,x:e.clientX,y:e.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi),pointerType:e.pointerType};
+  if(e.pointerType==='touch'){
+   timer=setTimeout(beginDrag,420);
+  }
  });
  list.addEventListener('pointermove',function(e){
   if(!start)return;
-  if(!dragging&&Math.hypot(e.clientX-start.x,e.clientY-start.y)>12){if(timer)clearTimeout(timer);timer=null;return;}
-  if(!dragging)return;
-  e.preventDefault();
-  var target=document.elementFromPoint(e.clientX,e.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;
-  if(target&&target!==dragEl)target.style.borderColor='#f97316';
-  list.querySelectorAll('[data-zd-address-row]').forEach(function(el){if(el!==dragEl&&el!==target)el.style.borderColor=el.style.background==='#fff7ed'?'#f97316':'#e2e8f0';});
+  var distance=Math.hypot(e.clientX-start.x,e.clientY-start.y);
+  if(!dragging&&start.pointerType!=='touch'&&distance>5)beginDrag();
+  if(!dragging&&start.pointerType==='touch'&&distance>12){if(timer)clearTimeout(timer);timer=null;start=null;return;}
+  if(dragging){e.preventDefault();moveOver(e.clientX,e.clientY);}
  });
  list.addEventListener('pointerup',function(e){
   if(!start)return;
-  var wasDrag=dragging,from=start, target=null;
-  if(wasDrag){target=document.elementFromPoint(e.clientX,e.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;}
-  if(wasDrag&&target){zdMoveAddressRow({bi:from.bi,si:from.si,hi:from.hi},{bi:Number(target.dataset.bi),si:Number(target.dataset.si),hi:Number(target.dataset.hi)});}
-  else if(!wasDrag&&Math.hypot(e.clientX-from.x,e.clientY-from.y)<12){zdSelectRowByIndex(from.bi,from.si,from.hi);}
-  clear();
+  var from=start,wasDrag=dragging,target=dropTarget||getTarget(e.clientX,e.clientY);
+  if(wasDrag){
+   suppressClick=true;
+   if(target&&target!==dragEl&&Number(target.dataset.bi)===from.bi&&Number(target.dataset.si)===from.si){
+    zdMoveAddressRow({bi:from.bi,si:from.si,hi:from.hi},{bi:Number(target.dataset.bi),si:Number(target.dataset.si),hi:Number(target.dataset.hi)});
+   }
+   clearVisual();
+  }else{if(timer)clearTimeout(timer);timer=null;start=null;}
  });
- list.addEventListener('pointercancel',clear);
- var touchStart=null,touchTimer=null,touchDragging=false,touchDragEl=null;
- list.addEventListener('touchstart',function(e){
-  var el=e.target.closest('[data-zd-address-row]');if(!el||!e.touches||!e.touches[0])return;
-  var t=e.touches[0];touchStart={el:el,x:t.clientX,y:t.clientY,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)};
-  touchTimer=setTimeout(function(){if(!touchStart)return;touchDragging=true;touchDragEl=touchStart.el;touchDragEl.style.opacity='.65';touchDragEl.style.outline='2px dashed #f97316';showToast('끌어서 놓으면 주소 순서가 바뀝니다.');},420);
- },{passive:true});
- list.addEventListener('touchmove',function(e){
-  if(!touchStart||!e.touches||!e.touches[0])return;
-  var t=e.touches[0];
-  if(!touchDragging&&Math.hypot(t.clientX-touchStart.x,t.clientY-touchStart.y)>12){clearTimeout(touchTimer);touchTimer=null;touchStart=null;return;}
-  if(touchDragging){e.preventDefault();var target=document.elementFromPoint(t.clientX,t.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;list.querySelectorAll('[data-zd-address-row]').forEach(function(el){el.style.borderColor=el===target?'#f97316':(el.style.background==='#fff7ed'?'#f97316':'#e2e8f0');});}
- },{passive:false});
- list.addEventListener('touchend',function(e){
-  if(!touchStart)return;
-  var from=touchStart,wasDrag=touchDragging,target=null;
-  if(wasDrag){var t=e.changedTouches&&e.changedTouches[0];if(t){target=document.elementFromPoint(t.clientX,t.clientY);target=target&&target.closest?target.closest('[data-zd-address-row]'):null;}}
-  if(wasDrag&&target)zdMoveAddressRow({bi:from.bi,si:from.si,hi:from.hi},{bi:Number(target.dataset.bi),si:Number(target.dataset.si),hi:Number(target.dataset.hi)});
-  else if(!wasDrag)zdSelectRowByIndex(from.bi,from.si,from.hi);
-  clearTimeout(touchTimer);touchTimer=null;touchStart=null;touchDragging=false;if(touchDragEl){touchDragEl.style.opacity='';touchDragEl.style.outline='';touchDragEl=null;}
- },{passive:true});
- list.addEventListener('touchcancel',function(){clearTimeout(touchTimer);touchTimer=null;touchStart=null;touchDragging=false;if(touchDragEl){touchDragEl.style.opacity='';touchDragEl.style.outline='';touchDragEl=null;}},{passive:true});
- list.addEventListener('dragstart',function(e){var el=e.target.closest('[data-zd-address-row]');if(!el)return;start={el:el,bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)};dragEl=el;dragging=true;if(e.dataTransfer)e.dataTransfer.effectAllowed='move';});
- list.addEventListener('dragover',function(e){if(dragging)e.preventDefault();});
- list.addEventListener('drop',function(e){var el=e.target.closest('[data-zd-address-row]');if(!el||!start)return;e.preventDefault();zdMoveAddressRow({bi:start.bi,si:start.si,hi:start.hi},{bi:Number(el.dataset.bi),si:Number(el.dataset.si),hi:Number(el.dataset.hi)});clear();});
- list.addEventListener('dragend',clear);
+ list.addEventListener('pointercancel',clearVisual);
+ list.addEventListener('click',function(e){if(!suppressClick)return;suppressClick=false;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();},true);
+ list.addEventListener('dragstart',function(e){e.preventDefault();});
 }
 function zdSelectRowByIndex(bi,si,hi){var r=zdDashboardRows.find(function(x){return x.bi===bi&&x.si===si&&x.hi===hi;});if(r)zdSelectRow(r,true);}
 function zdSelectRow(r,centerMap){
@@ -4421,7 +4437,7 @@ function zdGetSelectedRow(){return zdSelectedHouse&&zdDashboardRows.find(functio
 function zdRenderInlineEditor(){
  var memoEl=document.getElementById('zdInlineAdminMemo'),statusEl=document.getElementById('zdInlineAdminStatus');
  var currentForFields=zdGetSelectedRow();
- if(memoEl)memoEl.value=currentForFields?String(currentForFields.house.adminMemo||''):'';
+ if(memoEl)memoEl.value=currentForFields?String(currentForFields.house.note||currentForFields.house.adminMemo||''):'';
  if(statusEl)statusEl.value=currentForFields?String(currentForFields.house.adminStatus||''):'';
  var box=document.getElementById('zdInlineAddressEditor');if(!box)return;
  box.style.display=(zdActiveRequest||zdMapMode==='area')?'block':'none';
@@ -4462,7 +4478,8 @@ async function zdInlineSave(){
  if(wasAddressEdit&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
  if(wasAddressEdit){if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=nextAddr;else row.house.addr=nextAddr;}
  var memoEl=document.getElementById('zdInlineAdminMemo'),statusEl=document.getElementById('zdInlineAdminStatus');
- row.house.adminMemo=String(memoEl&&memoEl.value||'').trim();
+ row.house.note=String(memoEl&&memoEl.value||'').trim();
+ delete row.house.adminMemo;
  row.house.adminStatus=String(statusEl&&statusEl.value||'').trim();
  var newAfter=String(after&&after.value||'').trim();
  showLoader();
@@ -4563,7 +4580,14 @@ function zdCreateMap(){
    try{new kakao.maps.services.Geocoder().coord2Address(p.getLng(),p.getLat(),function(result,status){
     if(status===kakao.maps.services.Status.OK&&result&&result[0]){
      var found=(result[0].road_address&&result[0].road_address.address_name)||(result[0].address&&result[0].address.address_name)||'';
-     if(found){row.house.mapAddress=found;row.mapAddress=found;zdRenderList();showToast('지도 좌표와 확인된 주소를 가져왔습니다. 저장을 눌러 반영하세요.');}
+     if(found){
+      row.house.mapAddress=found;row.mapAddress=found;
+      if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=found;else row.house.addr=found;
+      row.addr=found;
+      var addrInput=document.getElementById('zdInlineAddressInput');if(addrInput)addrInput.value=found;
+      zdDashboardRows.forEach(function(r){if(r.bi===row.bi&&r.si===row.si&&r.hi===row.hi)r.addr=found;});
+      zdRenderList();zdRenderInlineEditor();showToast('지도 위치에 맞춰 실제 주소도 갱신했습니다. 저장을 눌러 반영하세요.');
+     }
     }
    });}catch(ge){console.warn('좌표 주소 변환 실패',ge);}
   }
