@@ -4597,7 +4597,7 @@ function zdLookupAddressCoordinates(row,addressText){
  return new Promise(function(resolve,reject){
   if(!window.kakao||!kakao.maps||!kakao.maps.services||!kakao.maps.services.Geocoder){reject(new Error('지도 주소 검색을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.'));return;}
   var text=String(addressText||'').trim();
-  var query=/^\\d+(?:-\\d+)?$/.test(text)&&String(row&&row.road||'').trim()?String(row.road).trim()+' '+text:text;
+  var query=/^\d+(?:-\d+)?$/.test(text)&&String(row&&row.road||'').trim()?String(row.road).trim()+' '+text:text;
   try{
    new kakao.maps.services.Geocoder().addressSearch(query,function(results,status){
     if(status===kakao.maps.services.Status.OK&&results&&results.length){
@@ -4616,8 +4616,8 @@ function zdMapAddressLabel(result,row){
  var sub=String(roadAddress.sub_building_no||'').trim();
  var number=main+(sub?'-'+sub:'');
  if(number){
-  var blockRoad=String(row&&row.road||'').trim().replace(/\\s+/g,'');
-  var foundRoad=road.replace(/\\s+/g,'');
+  var blockRoad=String(row&&row.road||'').trim().replace(/\s+/g,'');
+  var foundRoad=road.replace(/\s+/g,'');
   return road&&blockRoad&&foundRoad===blockRoad?number:(road?road+' '+number:number);
  }
  var jibun=String(address.main_address_no||'').trim();
