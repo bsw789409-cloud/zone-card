@@ -957,7 +957,8 @@ var adminSwipeStartY = 0;
 var adminSwipeActive = false;
 
 function shouldIgnoreAdminSwipe(target) {
-  return !!(target && target.closest && target.closest('input,textarea,select,.bottom-sheet,.sheet-overlay,.area-drag-handle,.addr-drag-handle'));
+  // 지도 제스처(이동/확대·축소/크기 조절)는 탭 전환용 가로 스와이프로 처리하지 않는다.
+  return !!(target && target.closest && target.closest('input,textarea,select,.bottom-sheet,.sheet-overlay,.area-drag-handle,.addr-drag-handle,#zdMap,.zd-map-panel,#mapWrap,#csMapArea,#mapResizeHandle,#csMapResizeHandle,.area-editor-map-wrap,#areaEditorMap,.area-map-search,.area-map-search input'));
 }
 
 function switchTab(tab, el) {
@@ -994,7 +995,7 @@ function switchAdminTabByIndex(idx, dir) {
 }
 
 function startAdminSwipe(x, y, target) {
-  if(shouldIgnoreAdminSwipe(target)) return;
+  if(shouldIgnoreAdminSwipe(target)) { adminSwipeActive = false; return; }
   adminSwipeActive = true;
   adminSwipeStartX = x;
   adminSwipeStartY = y;
@@ -4500,14 +4501,25 @@ async function zdInlineSave(){
  var nextAddr=String(input&&input.value||row.addr||'').trim();
  var wasAddressEdit=nextAddr!==String(row.addr||'').trim();
  if(wasAddressEdit&&!nextAddr){showToast('주소를 비워둘 수 없습니다.');return;}
- if(wasAddressEdit){if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=nextAddr;else row.house.addr=nextAddr;}
  var memoEl=document.getElementById('zdInlineAdminMemo'),statusEl=document.getElementById('zdInlineAdminStatus');
- row.house.note=String(memoEl&&memoEl.value||'').trim();
- delete row.house.adminMemo;
- row.house.adminStatus=String(statusEl&&statusEl.value||'').trim();
  var newAfter=String(after&&after.value||'').trim();
  showLoader();
  try{
+  // 주소를 직접 바꿨다면 주소 검색으로 좌표도 함께 갱신한다.
+  // 숫자만 입력한 경우 현재 블럭의 도로명을 붙여 검색해 핀이 엉뚱한 지역으로 이동하지 않게 한다.
+  var newCoords=null;
+  if(wasAddressEdit)newCoords=await zdLookupAddressCoordinates(row,nextAddr);
+  if(wasAddressEdit){
+   if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=nextAddr;
+   else row.house.addr=nextAddr;
+   row.house.lat=newCoords.lat;row.house.lng=newCoords.lng;
+   row.lat=newCoords.lat;row.lng=newCoords.lng;
+   row.house.locationUpdatedAt=new Date().toISOString();
+   row.house._fixManualMapMove=false;
+  }
+  row.house.note=String(memoEl&&memoEl.value||'').trim();
+  delete row.house.adminMemo;
+  row.house.adminStatus=String(statusEl&&statusEl.value||'').trim();
   var areaId=String(document.getElementById('zdAreaSelect').value);
   await db.collection('areas').doc(areaId).update({blocks:zdDashboardBlocks});
   var ai=areas.findIndex(function(a){return String(a.id)===areaId;});if(ai>=0)areas[ai].blocks=zdDashboardBlocks;
@@ -4581,6 +4593,38 @@ function zdNumberOverlay(position,label,onClick,active){
  var overlay=new kakao.maps.CustomOverlay({position:position,content:pin,yAnchor:.5,xAnchor:.5,zIndex:active?20:5});
  overlay.setMap(zdMap);zdMarkers.push(overlay);return overlay;
 }
+function zdLookupAddressCoordinates(row,addressText){
+ return new Promise(function(resolve,reject){
+  if(!window.kakao||!kakao.maps||!kakao.maps.services||!kakao.maps.services.Geocoder){reject(new Error('지도 주소 검색을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.'));return;}
+  var text=String(addressText||'').trim();
+  var query=/^\\d+(?:-\\d+)?$/.test(text)&&String(row&&row.road||'').trim()?String(row.road).trim()+' '+text:text;
+  try{
+   new kakao.maps.services.Geocoder().addressSearch(query,function(results,status){
+    if(status===kakao.maps.services.Status.OK&&results&&results.length){
+     var found=results[0],lat=Number(found.y),lng=Number(found.x);
+     if(Number.isFinite(lat)&&Number.isFinite(lng)){resolve({lat:lat,lng:lng});return;}
+    }
+    reject(new Error('입력한 주소의 지도 위치를 찾지 못했습니다. 도로명과 번지수를 확인하거나 지도에서 위치를 직접 지정해 주세요.'));
+   });
+  }catch(e){reject(new Error('주소를 지도 위치로 변환하지 못했습니다: '+(e&&e.message?e.message:e)));}
+ });
+}
+function zdMapAddressLabel(result,row){
+ var item=result&&result[0]||{},roadAddress=item.road_address||{},address=item.address||{};
+ var road=String(roadAddress.road_name||'').trim();
+ var main=String(roadAddress.main_building_no||'').trim();
+ var sub=String(roadAddress.sub_building_no||'').trim();
+ var number=main+(sub?'-'+sub:'');
+ if(number){
+  var blockRoad=String(row&&row.road||'').trim().replace(/\\s+/g,'');
+  var foundRoad=road.replace(/\\s+/g,'');
+  return road&&blockRoad&&foundRoad===blockRoad?number:(road?road+' '+number:number);
+ }
+ var jibun=String(address.main_address_no||'').trim();
+ var subJibun=String(address.sub_address_no||'').trim();
+ if(jibun)return jibun+(subJibun?'-'+subJibun:'');
+ return String(address.address_name||roadAddress.address_name||'').trim();
+}
 function zdCreateMap(){
  var el=document.getElementById('zdMap');
  if(!el||!window.kakao||!kakao.maps){if(el)el.innerHTML='<div class="zd-empty">지도를 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.</div>';return;}
@@ -4603,14 +4647,14 @@ function zdCreateMap(){
   if(kakao.maps.services&&kakao.maps.services.Geocoder){
    try{new kakao.maps.services.Geocoder().coord2Address(p.getLng(),p.getLat(),function(result,status){
     if(status===kakao.maps.services.Status.OK&&result&&result[0]){
-     var found=(result[0].road_address&&result[0].road_address.address_name)||(result[0].address&&result[0].address.address_name)||'';
+     var found=zdMapAddressLabel(result,row);
      if(found){
       row.house.mapAddress=found;row.mapAddress=found;
       if(Object.prototype.hasOwnProperty.call(row.house,'num')&&!Object.prototype.hasOwnProperty.call(row.house,'addr'))row.house.num=found;else row.house.addr=found;
       row.addr=found;
       var addrInput=document.getElementById('zdInlineAddressInput');if(addrInput)addrInput.value=found;
       zdDashboardRows.forEach(function(r){if(r.bi===row.bi&&r.si===row.si&&r.hi===row.hi)r.addr=found;});
-      zdRenderList();zdRenderInlineEditor();showToast('지도 위치에 맞춰 실제 주소도 갱신했습니다. 저장을 눌러 반영하세요.');
+      zdRenderList();zdRenderInlineEditor();showToast('지도 위치에 맞춰 주소를 정리했습니다. 저장을 눌러 반영하세요.');
      }
     }
    });}catch(ge){console.warn('좌표 주소 변환 실패',ge);}
