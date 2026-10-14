@@ -5193,29 +5193,41 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
     if(!rawAddr || !window.kakao || !kakao.maps || !kakao.maps.services) return;
 
     var area=areas.find(function(a){return String(a.id)===String(areaId);});
-    var areaName=area ? String(area.name||'') : '';
-    var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북 고창군 ' : '전북 부안군 ';
+    var areaName=area ? String(area.name||'').trim() : '';
+    var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북특별자치도 고창군 ' : '전북특별자치도 부안군 ';
+    // 카드의 구역 이름에 면/읍/동이 있으면 주소 검색에 반드시 포함하고 결과도 검증한다.
+    var localityMatch=areaName.match(/[가-힣]{2,8}(?:면|읍|동|리|가)/);
+    var expectedLocality=localityMatch ? localityMatch[0] : '';
     var candidates=[];
-    // 모든 구역 카드에서 도로명 + 번지를 가장 먼저 검색한다.
-    // 3번 구역에서 검증된 방식과 동일하게 모든 카드에 적용한다.
-    if(roadName && rawAddr) {
-      candidates.push(roadName+' '+rawAddr);
-      if(areaName) candidates.push(region+areaName+' '+roadName+' '+rawAddr);
-      candidates.push(region+roadName+' '+rawAddr);
+    function addCandidate(q){q=String(q||'').trim().replace(/\s+/g,' ');if(q&&candidates.indexOf(q)<0)candidates.push(q);}
+    if(expectedLocality){
+      // 지역이 확인되는 검색어만 사용한다. 지역을 빼고 다시 검색해 엉뚱한 핀이 생기는 것을 방지한다.
+      addCandidate(region+expectedLocality+(roadName?' '+roadName:'')+' '+rawAddr);
+      addCandidate(region+expectedLocality+' '+rawAddr);
+      if(roadName && rawAddr.indexOf(roadName)===-1)addCandidate(region+expectedLocality+' '+roadName+' '+rawAddr);
+    }else{
+      // 카드 이름에서 행정구역을 찾지 못한 경우에도 군 단위 주소를 먼저 사용한다.
+      if(roadName)addCandidate(region+roadName+' '+rawAddr);
+      addCandidate(region+rawAddr);
+      if(roadName)addCandidate(roadName+' '+rawAddr);
+      addCandidate(rawAddr);
     }
-    if(roadName && rawAddr.indexOf(roadName)===-1) candidates.push(roadName+' '+rawAddr);
-    if(region && areaName) candidates.push(region+areaName+(roadName?' '+roadName:'')+' '+rawAddr);
-    if(region && roadName) candidates.push(region+roadName+' '+rawAddr);
-    if(region) candidates.push(region+rawAddr);
-    candidates.push(rawAddr);
-    candidates=candidates.filter(function(q,i,a){return q&&a.indexOf(q)===i;});
+
+    function resultMatchesExpectedLocality(item){
+      if(!expectedLocality)return true;
+      if(!item)return false;
+      var a=item.address||{}, r=item.road_address||{};
+      var metadata=[a.address_name,a.region_1depth_name,a.region_2depth_name,a.region_3depth_name,
+        r.address_name,r.region_1depth_name,r.region_2depth_name,r.region_3depth_name].filter(Boolean).join(' ');
+      return metadata.indexOf(expectedLocality)>=0;
+    }
 
     function tryAddress(idx){
       if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)||idx>=candidates.length) return;
       var q=candidates[idx];
       getGeocoder().addressSearch(q,function(result,status){
-        if(pinPlaced) return;
-        if(status===kakao.maps.services.Status.OK && result && result[0]){
+        if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)) return;
+        if(status===kakao.maps.services.Status.OK && result && result[0] && resultMatchesExpectedLocality(result[0])){
           putPin(result[0].y,result[0].x,true);
         }else{
           tryAddress(idx+1);
@@ -5227,8 +5239,8 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)||idx>=candidates.length||!kakao.maps.services.Places) return;
       var q=candidates[idx];
       new kakao.maps.services.Places().keywordSearch(q,function(result,status){
-        if(pinPlaced) return;
-        if(status===kakao.maps.services.Status.OK && result && result[0]){
+        if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0)) return;
+        if(status===kakao.maps.services.Status.OK && result && result[0] && resultMatchesExpectedLocality(result[0])){
           putPin(result[0].y,result[0].x,true);
         }else{
           tryKeyword(idx+1);
