@@ -5183,21 +5183,38 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       }
     }
 
-    var hc=getHouseCoord(h);
-    if(hc){
-      putPin(hc.lat,hc.lng,false);
-      return;
-    }
-
-    var rawAddr=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
-    if(!rawAddr || !window.kakao || !kakao.maps || !kakao.maps.services) return;
-
     var area=areas.find(function(a){return String(a.id)===String(areaId);});
     var areaName=area ? String(area.name||'').trim() : '';
     var region=(Number(areaId)>=1 && Number(areaId)<=32) ? '전북특별자치도 고창군 ' : '전북특별자치도 부안군 ';
     // 카드의 구역 이름에 면/읍/동이 있으면 주소 검색에 반드시 포함하고 결과도 검증한다.
     var localityMatch=areaName.match(/[가-힣]{2,8}(?:면|읍|동|리|가)/);
     var expectedLocality=localityMatch ? localityMatch[0] : '';
+    var hc=getHouseCoord(h);
+    var rawAddr=String(h.addr || h.address || h.roadAddress || h.road_addr || '').trim();
+    if(!window.kakao || !kakao.maps || !kakao.maps.services) return;
+
+    function coordinateMatchesExpectedLocality(coords, callback){
+      if(!expectedLocality || !coords || typeof getGeocoder().coord2Address!=='function'){callback(!expectedLocality);return;}
+      getGeocoder().coord2Address(Number(coords.lng),Number(coords.lat),function(result,status){
+        if(status!==kakao.maps.services.Status.OK || !result || !result[0]){callback(false);return;}
+        var a=result[0].address||{}, r=result[0].road_address||{};
+        var metadata=[a.address_name,a.region_1depth_name,a.region_2depth_name,a.region_3depth_name,
+          r.address_name,r.region_1depth_name,r.region_2depth_name,r.region_3depth_name].filter(Boolean).join(' ');
+        callback(metadata.indexOf(expectedLocality)>=0);
+      });
+    }
+    if(hc){
+      coordinateMatchesExpectedLocality(hc,function(matches){
+        if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0))return;
+        if(matches){putPin(hc.lat,hc.lng,false);return;}
+        // 저장 좌표가 카드의 행정구역과 다르면 사용하지 않고, 아래의 지역 포함 주소 검색을 진행한다.
+        if(rawAddr) beginAddressSearch();
+      });
+      if(expectedLocality)return;
+      putPin(hc.lat,hc.lng,false);
+      return;
+    }
+    if(!rawAddr)return;
     var candidates=[];
     function addCandidate(q){q=String(q||'').trim().replace(/\s+/g,' ');if(q&&candidates.indexOf(q)<0)candidates.push(q);}
     if(expectedLocality){
@@ -5220,6 +5237,12 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       var metadata=[a.address_name,a.region_1depth_name,a.region_2depth_name,a.region_3depth_name,
         r.address_name,r.region_1depth_name,r.region_2depth_name,r.region_3depth_name].filter(Boolean).join(' ');
       return metadata.indexOf(expectedLocality)>=0;
+    }
+
+    function beginAddressSearch(){
+      if(pinPlaced||renderSeq!==(window._csPinRenderSeq||0))return;
+      tryAddress(0);
+      setTimeout(function(){tryKeyword(0);},80);
     }
 
     function tryAddress(idx){
@@ -5248,8 +5271,7 @@ function renderCsAddressPins(blk, areaId, map, blockIndex, clearFirst){
       });
     }
 
-    tryAddress(0);
-    setTimeout(function(){ tryKeyword(0); },80);
+    if(!hc)beginAddressSearch();
   });
 }
 function syncCsMapContainerSize(){
